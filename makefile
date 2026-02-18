@@ -1,0 +1,93 @@
+SHELL:=/bin/bash
+
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+APPLICATION := ci/Slippy
+
+.PHONY: lint
+lint: install-tools
+	@echo "Linting all modules..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Linting $$dir module..."; \
+			(cd $$dir && go mod tidy && golangci-lint run --config ../../.github/.golangci.yml --timeout 5m ./...); \
+		else \
+			echo "Directory $$dir not found, skipping..."; \
+		fi; \
+	done
+
+.PHONY: test
+test:
+	@echo "Testing all modules..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Testing $$dir module..."; \
+			(cd $$dir && go mod download && go test -cover -coverprofile=coverage.out ./... && go tool cover -func coverage.out ); \
+		else \
+			echo "Directory $$dir not found, skipping..."; \
+		fi; \
+	done
+
+.PHONY: clean
+clean:
+	@echo "Cleaning all modules..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Cleaning $$dir module..."; \
+			(cd $$dir && go clean ./... && go clean -testcache); \
+		else \
+			echo "Directory $$dir not found, skipping..."; \
+		fi; \
+	done
+
+.PHONY: fmt
+fmt: install-tools
+	@echo "Formatting all modules..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Formatting $$dir module..."; \
+			(cd $$dir && golangci-lint fmt --config ../../.github/.golangci.yml ./...); \
+		else \
+			echo "Directory $$dir not found, skipping..."; \
+		fi; \
+	done
+
+.PHONY: bump
+bump:
+	@echo "Bumping module versions..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Bumping $$dir module..."; \
+			(cd $$dir && go get -u && go mod tidy ); \
+		else \
+			echo "Directory $$dir not found, skipping..."; \
+		fi; \
+	done
+
+.PHONY: tidy
+tidy:
+	@echo "Tidying up module dependencies..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Tidying $$dir module..."; \
+			(cd $$dir && go mod tidy ); \
+		else \
+			echo "Directory $$dir not found, skipping..."; \
+		fi; \
+	done
+
+.PHONY: check-sec
+check-sec:
+	@echo "Checking security vulnerabilities in all modules..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Checking $$dir module..."; \
+			(cd $$dir && go mod download && go install golang.org/x/vuln/cmd/govulncheck@v1.1.4 && govulncheck -show verbose -test=false ./...) || exit 1; \
+		else \
+			echo "Directory $$dir not found, skipping..."; \
+		fi; \
+	done
+
+.PHONY: install-tools
+install-tools:
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b `go env GOPATH`/bin v2.9.0
