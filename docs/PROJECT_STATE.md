@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Go rewrite of GitVersion (v5.12.0 reference) with modifications. The goal is to build a Go-based semantic versioning tool that calculates versions from git history.
+Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal is to build a Go-based semantic versioning tool that calculates versions from git history.
 
 ## Reference Implementation
 
@@ -21,27 +21,27 @@ Go rewrite of GitVersion (v5.12.0 reference) with modifications. The goal is to 
 | [CONFIGURATION.md](CONFIGURATION.md) | All global and branch config options with defaults, config file format, resolution order |
 | [GIT_ANALYSIS.md](GIT_ANALYSIS.md) | How tags, commits, branches, merge history, and uncommitted changes are used |
 | [CLI_INTERFACE.md](CLI_INTERFACE.md) | CLI arguments, 30+ output variables, output formats, caching, version formatting detail |
+| [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Full implementation plan with 12 design improvements and 8 phases |
+| [STRATEGIES_AND_MODES.md](STRATEGIES_AND_MODES.md) | All 6 strategies, 3 versioning modes, manual overrides with examples and config files |
+| [examples/](examples/) | Example `.gitversion.yml` configs for different workflows (GitFlow, trunk-based, CD, GitHub Flow, etc.) |
 
-## Implementation Plan
-
-See `../.claude/plans/jazzy-orbiting-graham.md` for the full plan.
-
-8 phases: Bootstrap → Semver Types → Config → Git Adapter → Context/Strategies → Calculators → Output → CLI → Integration Tests
-
-## Current Phase: Phase 0 — Project Bootstrap
+## Current Phase: Phase 0 — Project Bootstrap (Complete)
 
 ### Completed
 - Reference documentation written (7 docs)
-- Implementation plan approved
+- Implementation plan approved with 12 design improvements (DI-1 through DI-12)
+- Go module initialized (`go.mod` go 1.26, `main.go`)
+- `.github/instructions/CLAUDE.md` instructions file
+- `.github/instructions/go.instructions.md` Go coding standards
+- Makefile rewritten for single-module build
+- CI pipeline with test/lint/vuln/build/status-check + GitHub Release on `v*` tags
+- `.github/release.yml` for changelog categories
+- Linter config updated (local-prefixes: go-gitsemver)
+- README written with full feature documentation
 
-### In Progress
-- Initializing Go module (`go.mod`, `main.go`)
-- Creating `CLAUDE.md` instructions file
-- Rewriting Makefile for single-module build
-- Updating CI pipeline (removing template values)
-- Updating linter config (local-prefixes)
+### Next: Phase 1 — Core Semver Types (`internal/semver/`)
 
-### Package Structure (planned)
+## Package Structure
 
 ```
 go-gitsemver/
@@ -51,10 +51,11 @@ go-gitsemver/
 │   ├── config/             # YAML config, defaults, builder, effective config
 │   ├── git/                # Repository interface, go-git impl, mock, repostore, merge message parser
 │   ├── context/            # GitVersionContext
-│   ├── strategy/           # 6 version strategies
+│   ├── strategy/           # Version strategies
 │   ├── calculator/         # NextVersion, BaseVersion, Mainline, IncrementStrategyFinder
-│   ├── output/             # VariableProvider, JSON, AssemblyInfo updater
-│   └── fsadapter/          # FileSystem interface + OS/mock implementations
+│   ├── output/             # VariableProvider, JSON output
+│   └── testutil/           # Test helpers (temp git repos)
+├── docs/                   # Reference docs and project state
 ├── go.mod
 └── main.go
 ```

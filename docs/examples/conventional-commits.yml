@@ -1,0 +1,61 @@
+# Conventional Commits Only
+#
+# Uses ONLY Conventional Commits for determining version increments.
+# Bump directives (bump major/minor/patch) are ignored.
+#
+# Increment rules:
+#   feat:              → Minor
+#   feat(scope):       → Minor
+#   fix:               → Patch
+#   fix(scope):        → Patch
+#   feat!:             → Major (breaking change via !)
+#   fix!:              → Major
+#   BREAKING CHANGE:   → Major (in commit footer)
+#
+# Non-incrementing types (use branch default):
+#   docs:, chore:, test:, refactor:, ci:, style:, perf:, build:
+#
+# Version examples (on main, Patch default, after v1.0.0):
+#   "fix: handle null input"                    → 1.0.1
+#   "feat: add user profiles"                   → 1.1.0
+#   "feat!: redesign API"                       → 2.0.0
+#   "refactor: clean up auth\n\nBREAKING CHANGE: token format changed" → 2.0.0
+#   "chore: update deps"                        → 1.0.1 (falls back to branch Patch)
+
+mode: ContinuousDelivery
+tag-prefix: '[vV]'
+commit-message-convention: conventional-commits
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    source-branches: [release, hotfix]
+
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    increment: Minor
+    tag: alpha
+    tracks-release-branches: true
+    source-branches: [main, release, hotfix, support]
+
+  release:
+    regex: ^releases?[/-]
+    increment: None
+    tag: rc
+    is-release-branch: true
+    source-branches: [develop, main, support, release]
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, hotfix, support]
+
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    increment: Patch
+    tag: beta
+    source-branches: [main, support]

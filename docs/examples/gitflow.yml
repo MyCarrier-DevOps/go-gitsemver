@@ -1,0 +1,71 @@
+# GitFlow Workflow
+#
+# Branches: main → develop → feature, release, hotfix
+# Mode: ContinuousDelivery (manual release via tags)
+#
+# Version examples:
+#   main:              1.2.0 (stable, after tagging)
+#   develop:           1.3.0-alpha.2+5
+#   feature/login:     1.3.0-login.1+3
+#   release/1.3.0:     1.3.0-beta.1+1
+#   hotfix/fix-crash:  1.2.1-beta.1+1
+#
+# Workflow:
+#   1. Develop features on feature/* branches (from develop)
+#   2. Merge features into develop
+#   3. Cut release/* branch when ready
+#   4. Fix bugs on release branch, merge to main
+#   5. Tag main with vX.Y.Z to release
+#   6. Hotfix from main if needed
+
+mode: ContinuousDelivery
+tag-prefix: '[vV]'
+commit-message-convention: both
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    source-branches: [release, hotfix]
+
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    increment: Minor
+    tag: alpha
+    tracks-release-branches: true
+    source-branches: [main, release, hotfix, support]
+
+  release:
+    regex: ^releases?[/-]
+    increment: None
+    tag: beta
+    is-release-branch: true
+    source-branches: [develop, main, support, release]
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, hotfix, support]
+
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    increment: Patch
+    tag: beta
+    source-branches: [main, support]
+
+  pull-request:
+    regex: ^(pull|pull-requests|pr)[/-]
+    increment: Inherit
+    tag: PullRequest
+    tag-number-pattern: '[/-](?<number>\d+)'
+    source-branches: [develop, main, release, feature, hotfix, support]
+
+  support:
+    regex: ^support[/-]
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    source-branches: [main]

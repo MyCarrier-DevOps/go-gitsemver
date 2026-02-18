@@ -21,7 +21,7 @@ Verify that test coverage stays **above 85%** overall.
 
 - **Go style:** Follow `.github/instructions/go.instructions.md` for idiomatic Go practices
 - **Testing:** Use `testify/require` — never `testify/assert` (enforced by linter)
-- **Adapter patterns:** Git operations go behind the `Repository` interface (`internal/git/interfaces.go`), file operations behind the `FileSystem` interface (`internal/fsadapter/interfaces.go`)
+- **Adapter patterns:** Git operations go behind the `Repository` interface (`internal/git/interfaces.go`)
 - **Table-driven tests:** Prefer table-driven tests for functions with clear input/output
 - **Formatting:** Code must pass `gofumpt` with extra rules and `goimports` with `go-gitsemver` as the local prefix
 
@@ -34,8 +34,7 @@ Verify that test coverage stays **above 85%** overall.
 - `internal/context/` — GitVersionContext
 - `internal/strategy/` — 6 version strategies
 - `internal/calculator/` — Version calculators and increment strategy finder
-- `internal/output/` — Variable provider, JSON output, AssemblyInfo updater
-- `internal/fsadapter/` — File system interface + implementations
+- `internal/output/` — Variable provider, JSON output
 
 ## Reference Documentation
 

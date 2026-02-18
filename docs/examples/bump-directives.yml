@@ -1,0 +1,60 @@
+# Bump Directives Only
+#
+# Uses ONLY explicit bump directives for determining version increments.
+# Conventional Commits (feat:, fix:, etc.) are NOT parsed for version bumps.
+#
+# Directives (placed anywhere in commit or merge message):
+#   bump major   → Major increment
+#   bump minor   → Minor increment
+#   bump patch   → Patch increment
+#   bump none    → No increment (suppress)
+#   bump skip    → No increment (alias for none)
+#
+# When no directive is found, the branch default increment applies.
+#
+# Version examples (on main, Patch default, after v1.0.0):
+#   "update auth logic\n\nbump minor"    → 1.1.0
+#   "redesign API\n\nbump major"         → 2.0.0
+#   "update docs\n\nbump none"           → 1.0.0 (no increment)
+#   "fix a bug"                           → 1.0.1 (branch default: Patch)
+#
+# Use case: Teams that want explicit, intentional version control
+# without adopting a commit message convention.
+
+mode: ContinuousDelivery
+tag-prefix: '[vV]'
+commit-message-convention: bump-directive
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    source-branches: [release, hotfix]
+
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    increment: Minor
+    tag: alpha
+    tracks-release-branches: true
+    source-branches: [main, release, hotfix, support]
+
+  release:
+    regex: ^releases?[/-]
+    increment: None
+    tag: beta
+    is-release-branch: true
+    source-branches: [develop, main, support, release]
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, hotfix, support]
+
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    increment: Patch
+    tag: beta
+    source-branches: [main, support]

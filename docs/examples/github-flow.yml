@@ -1,0 +1,58 @@
+# GitHub Flow
+#
+# Simple workflow: main + feature branches merged via pull requests.
+# No develop, no release branches. Ship from main.
+#
+# Branches:
+#   main           — production, stable versions
+#   feature/*      — short-lived, merged via PR
+#   pull-request/* — PR branches (if your CI creates them)
+#   hotfix/*       — urgent fixes merged directly to main
+#
+# Version examples:
+#   main (after v1.0.0, 3 commits):
+#     1.0.1+3 (Patch default, stable)
+#
+#   feature/add-search (from main):
+#     1.0.1-add-search.1+2
+#
+#   After merging feature with "feat: add search":
+#     main: 1.1.0+1 (Minor from conventional commit)
+#
+# Typical flow:
+#   1. Branch from main: git checkout -b feature/add-search
+#   2. Commit with conventional commits: "feat: add search bar"
+#   3. Open PR, CI builds with pre-release version
+#   4. Merge PR to main
+#   5. Tag main to release: git tag v1.1.0
+
+mode: ContinuousDelivery
+tag-prefix: '[vV]'
+commit-message-convention: both
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    source-branches: [feature, hotfix, pull-request]
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [main]
+
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    increment: Patch
+    tag: beta
+    source-branches: [main]
+
+  pull-request:
+    regex: ^(pull|pull-requests|pr)[/-]
+    increment: Inherit
+    tag: PullRequest
+    tag-number-pattern: '[/-](?<number>\d+)'
+    source-branches: [main, feature, hotfix]

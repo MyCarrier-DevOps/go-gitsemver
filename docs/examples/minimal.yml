@@ -1,0 +1,18 @@
+# Minimal Configuration
+#
+# All fields are optional. This file uses all defaults.
+# Equivalent to having no .gitversion.yml at all.
+#
+# Defaults applied:
+#   mode: ContinuousDelivery
+#   tag-prefix: '[vV]'
+#   commit-message-convention: both
+#   increment: Inherit
+#   continuous-delivery-fallback-tag: ci
+#
+# Default branch configs (main, develop, release, feature, hotfix,
+# pull-request, support) are all applied automatically.
+#
+# You only need a .gitversion.yml when you want to override defaults.
+
+# Empty — all defaults apply

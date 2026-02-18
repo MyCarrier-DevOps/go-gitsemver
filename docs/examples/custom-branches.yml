@@ -1,0 +1,94 @@
+# Custom Branch Patterns
+#
+# Demonstrates custom branch configurations with priority ordering (DI-12).
+# When multiple branch regexes match, the one with the highest priority wins.
+#
+# Default priorities:
+#   main=100, release=90, hotfix=80, support=70,
+#   develop=60, feature=50, pull-request=40
+#
+# Add your own branch types or override existing ones.
+
+mode: ContinuousDelivery
+tag-prefix: '[vV]'
+commit-message-convention: both
+
+branches:
+  # Override main to also match "production" and "prod"
+  main:
+    regex: ^master$|^main$|^prod(uction)?$
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    priority: 100
+    source-branches: [release, hotfix]
+
+  # Staging branch — sits between develop and release
+  staging:
+    regex: ^staging$
+    increment: None
+    tag: rc
+    priority: 85
+    source-branches: [develop, main, release]
+
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    increment: Minor
+    tag: alpha
+    priority: 60
+    tracks-release-branches: true
+    source-branches: [main, release, hotfix, support]
+
+  release:
+    regex: ^releases?[/-]
+    increment: None
+    tag: beta
+    is-release-branch: true
+    priority: 90
+    source-branches: [develop, main, staging, support, release]
+
+  # Bugfix branches (separate from hotfix — created from develop, not main)
+  bugfix:
+    regex: ^bugfix(es)?[/-]
+    increment: Patch
+    tag: '{BranchName}'
+    priority: 55
+    source-branches: [develop, release]
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'
+    priority: 50
+    source-branches: [develop, main, release, hotfix, support]
+
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    increment: Patch
+    tag: beta
+    priority: 80
+    source-branches: [main, support]
+
+  # Experiment branches — always Minor increment, low priority
+  experiment:
+    regex: ^experiment(s)?[/-]
+    increment: Minor
+    tag: '{BranchName}'
+    priority: 30
+    source-branches: [develop, main]
+
+  pull-request:
+    regex: ^(pull|pull-requests|pr)[/-]
+    increment: Inherit
+    tag: PullRequest
+    tag-number-pattern: '[/-](?<number>\d+)'
+    priority: 40
+    source-branches: [develop, main, release, feature, hotfix, support, bugfix, experiment]
+
+# Custom merge message format for Azure DevOps
+merge-message-formats:
+  azure-devops: '^Merged PR (?<PullRequestNumber>\d+): .*$'
+
+# Ignore commits before project migration
+ignore:
+  commits-before: 2024-01-01

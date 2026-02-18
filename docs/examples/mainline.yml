@@ -1,0 +1,82 @@
+# Mainline Mode
+#
+# Aggregate-increment versioning for trunk-based and hybrid workflows.
+#
+# How Mainline works:
+#   1. Find the latest semver tag on the branch
+#   2. Collect all commits since that tag
+#   3. Scan messages for the HIGHEST increment (conventional commits / bump directives)
+#   4. Apply that increment ONCE
+#   5. Commit count since tag → build metadata for uniqueness
+#
+# This avoids version inflation. Five minor commits don't produce 1.5.0 — they
+# produce 1.1.0+5. The version stays semantically meaningful.
+#
+# Version examples (main, after v1.0.0):
+#   5 fix commits:                      → 1.0.1+5
+#   3 fix + 1 feat + 1 fix:             → 1.1.0+5
+#   2 fix + "bump major" + 1 fix:       → 2.0.0+4
+#   "feat!: breaking" + 2 fix:          → 2.0.0+3
+#
+# Feature branches still get pre-release labels:
+#   feature/auth (from v1.0.0, 2 commits with feat:):
+#     1.1.0-auth.1+2
+#
+# Mainline mode can also be set PER-BRANCH. This example shows a hybrid
+# where main uses Mainline but develop uses ContinuousDelivery.
+
+mode: Mainline
+tag-prefix: '[vV]'
+commit-message-convention: both
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    # mode: Mainline (inherited from global)
+    source-branches: [release, hotfix]
+
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    increment: Minor
+    tag: alpha
+    mode: ContinuousDelivery          # override: develop uses CD mode
+    tracks-release-branches: true
+    source-branches: [main, release, hotfix, support]
+
+  release:
+    regex: ^releases?[/-]
+    increment: None
+    tag: beta
+    mode: ContinuousDelivery          # override: release branches use CD mode
+    is-release-branch: true
+    source-branches: [develop, main, support, release]
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'
+    # mode: Mainline (inherited from global)
+    source-branches: [develop, main, release, hotfix, support]
+
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    increment: Patch
+    tag: beta
+    source-branches: [main, support]
+
+  pull-request:
+    regex: ^(pull|pull-requests|pr)[/-]
+    increment: Inherit
+    tag: PullRequest
+    tag-number-pattern: '[/-](?<number>\d+)'
+    source-branches: [develop, main, release, feature, hotfix, support]
+
+  support:
+    regex: ^support[/-]
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    source-branches: [main]
