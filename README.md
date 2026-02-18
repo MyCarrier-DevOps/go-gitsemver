@@ -222,6 +222,11 @@ Full set of version variables for any CI/CD pipeline:
 | `VersionSourceSha` | `def5678...` |
 | `CommitsSinceVersionSource` | `5` |
 | `UncommittedChanges` | `0` |
+| `AssemblySemVer` | `1.2.3.0` |
+| `AssemblySemFileVer` | `1.2.3.0` |
+| `AssemblyInformationalVersion` | `1.2.3-beta.4+5.Branch.main.Sha.abc1234` |
+| `NuGetVersionV2` | `1.2.3-beta0004` |
+| `NuGetPreReleaseTagV2` | `beta0004` |
 
 ## CLI Reference
 

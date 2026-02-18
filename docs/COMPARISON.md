@@ -219,7 +219,7 @@ These features are carried over from GitVersion with equivalent or improved beha
 | Source branch resolution | Same hierarchy with Inherit walk-up |
 | Ignore filters (SHA, date) | Same behavior |
 | Custom merge message formats | Same + squash merge support |
-| 20+ output variables | Same variable set (minus .NET-specific ones) |
+| 25+ output variables | Same variable set including Assembly/NuGet variables (output-only, no file updates) |
 | JSON / buildserver / file output | Same output formats |
 | CLI override config | Same `--override-config` behavior |
 | Version caching | Same `--no-cache` behavior |
@@ -230,9 +230,8 @@ These features are carried over from GitVersion with equivalent or improved beha
 
 | Feature | Reason |
 |---------|--------|
-| Assembly info updates | C#-specific. Use CI/CD scripts instead |
-| NuGet versioning | C#-specific |
-| .NET project file updates | C#-specific |
+| Assembly info file updates | Output variables (`AssemblySemVer`, etc.) are still generated — but gitsemver doesn't write to files. Use CI/CD scripts to consume them |
+| .NET project file updates | Same — output-only, no file writes |
 | `+semver:` directive syntax | Replaced with simpler `bump` directives |
 | Interactive config wizard (`/init`) | Unnecessary — config is simple YAML |
 | Per-commit mainline incrementing | Replaced with aggregate increment (DI-10) |
