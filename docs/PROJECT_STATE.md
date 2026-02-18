@@ -26,9 +26,9 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 | [examples/](examples/) | Example `gitsemver.yml` configs for different workflows (GitFlow, trunk-based, CD, GitHub Flow, etc.) |
 | [COMPARISON.md](COMPARISON.md) | What's better in gitsemver vs GitVersion v5.12.0 — all 12 DIs + additional improvements |
 
-## Current Phase: Phase 0 — Project Bootstrap (Complete)
+## Current Phase: Phase 1 — Core Semver Types (`internal/semver/`)
 
-### Completed
+### Phase 0 — Project Bootstrap (Complete)
 - Reference documentation written (7 docs)
 - Implementation plan approved with 12 design improvements (DI-1 through DI-12)
 - Go module initialized (`go.mod` go 1.26, `main.go`)
@@ -40,7 +40,13 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 - Linter config updated (local-prefixes: go-gitsemver)
 - README written with full feature documentation
 
-### Next: Phase 1 — Core Semver Types (`internal/semver/`)
+### Phase 1 — Core Semver Types (Complete)
+- **Design improvements:** DI-1 (immutable types), DI-2 (separate increment methods), DI-5 (named format methods), DI-6 (pure format function)
+- **Files:** `enums.go`, `prereleasetag.go`, `buildmetadata.go`, `version.go`, `formatvalues.go` + tests
+- **Dependencies:** stdlib only + testify/require
+- **Coverage:** 98.4%
+
+### Next: Phase 2 — Configuration (`internal/config/`)
 
 ## Package Structure
 
