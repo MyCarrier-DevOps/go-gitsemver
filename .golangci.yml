@@ -74,7 +74,7 @@ formatters:
       extra-rules: true
     goimports:
       local-prefixes:
-        - github.com/prometheus/client_golang
+        - go-gitsemver
   exclusions:
     paths:
       - ^.*\.(pb|y)\.go$
