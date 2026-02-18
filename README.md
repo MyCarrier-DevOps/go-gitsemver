@@ -180,7 +180,7 @@ To force a version jump, tag manually or use `bump major` / `feat!:` in a commit
 
 ### Branch-Aware Defaults
 
-Seven built-in branch configurations with sensible defaults:
+Eight built-in branch configurations with sensible defaults:
 
 | Branch | Regex | Increment | Tag | Example Version |
 |--------|-------|-----------|-----|-----------------|
@@ -191,6 +191,9 @@ Seven built-in branch configurations with sensible defaults:
 | hotfix | `^hotfix(es)?[/-]` | Patch | `beta` | `1.2.4-beta.1` |
 | pull-request | `^(pull\|pull-requests\|pr)[/-]` | Inherit | `PullRequest` | `1.3.0-PullRequest0005.1` |
 | support | `^support[/-]` | Patch | *(empty — stable)* | `1.2.4` |
+| unknown | `.*` | Inherit | `{BranchName}` | `1.3.0-my-branch.1` |
+
+The `unknown` branch is a catch-all — any branch that doesn't match a known pattern is treated like a feature branch. It has the lowest priority, so it only matches when nothing else does.
 
 ### 30+ Output Variables
 
@@ -240,6 +243,7 @@ gitsemver [flags]
 | `--override-config` | | Override config values (e.g., `tag-prefix=custom`) |
 | `--no-cache` | | Disable version caching |
 | `--explain` | | Show the full decision tree for the version calculation |
+| `--allow-shallow` | | Allow running on shallow clones (default: `false` — exits with error) |
 | `--verbosity` | `-v` | Log verbosity: `quiet`, `normal`, `verbose`, `diagnostic` |
 
 ### Subcommands
@@ -251,12 +255,13 @@ gitsemver [flags]
 
 ## Configuration
 
-Place a `.gitversion.yml` in your repository root. All fields are optional — sensible defaults are applied.
+Place a `gitsemver.yml` in your repository root. All fields are optional — sensible defaults are applied.
 
 ```yaml
-# .gitversion.yml
+# gitsemver.yml
 mode: ContinuousDelivery
 tag-prefix: '[vV]'
+base-version: 0.1.0                      # version used when no tags exist (default: 0.1.0)
 commit-message-convention: both          # conventional-commits, bump-directive, or both
 increment: Inherit
 continuous-delivery-fallback-tag: ci
@@ -321,7 +326,7 @@ merge-message-formats:
 ### Configuration Resolution Order
 
 1. Built-in defaults
-2. `.gitversion.yml` file values
+2. `gitsemver.yml` file values
 3. CLI `--override-config` flags
 
 Branch configs inherit from global config where unset. The `Inherit` increment strategy walks up the source-branch hierarchy until it finds a concrete value (fallback: `Patch`).

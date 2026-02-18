@@ -54,6 +54,19 @@ Regex pattern to identify version tags. Stripped from tag names before parsing.
 - `[vV]` matches tags like `v1.0.0` or `V1.0.0`
 - Use `""` for tags without prefix like `1.0.0`
 
+### base-version
+**Type:** String (semver)
+**Default:** `0.1.0`
+
+The starting version used by the Fallback strategy when no tags exist in the repository. This is permanent — it always applies when no tags are found.
+
+- Different from `next-version`: `base-version` is the permanent default; `next-version` is a temporary override
+- Accepts `"1"` (auto-converted to `"1.0.0"`) or full `"1.0.0"`
+
+```yaml
+base-version: 1.0.0   # start at 1.0.0 instead of 0.1.0
+```
+
 ### next-version
 **Type:** String (semver)
 **Default:** (none)
@@ -203,6 +216,7 @@ Pattern to match branch names against. First matching branch config wins.
 | hotfix | `^hotfix(es)?[/-]` |
 | pull-request | `^(pull\|pull\-requests\|pr)[/-]` |
 | support | `^support[/-]` |
+| unknown | `.*` |
 
 ### increment
 **Type:** Enum

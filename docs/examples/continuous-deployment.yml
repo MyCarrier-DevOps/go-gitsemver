@@ -71,3 +71,10 @@ branches:
     tag: PullRequest
     tag-number-pattern: '[/-](?<number>\d+)'
     source-branches: [develop, main, release, feature, hotfix, support]
+
+  # Catch-all: any branch not matching above is treated like a feature branch
+  unknown:
+    regex: .*
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, feature, hotfix, support]

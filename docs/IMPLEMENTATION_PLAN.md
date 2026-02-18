@@ -166,12 +166,12 @@ stdlib only (`regexp`, `fmt`, `strconv`, `strings`, `time`)
 
 | File | Contents |
 |------|----------|
-| `config.go` | `Config` struct with YAML tags matching `.gitversion.yml` format. All optional fields as pointers. New field: `CommitMessageConvention *CommitMessageConvention` |
+| `config.go` | `Config` struct with YAML tags matching `gitsemver.yml` format. All optional fields as pointers. New fields: `CommitMessageConvention *CommitMessageConvention`, `BaseVersion *string` (default: `"0.1.0"`) |
 | `branch.go` | `BranchConfig` struct (all pointer fields for merge semantics), `MergeTo()` method. New field: `Priority *int` |
-| `defaults.go` | `CreateDefaultConfiguration()` — 7 branch defaults (main, develop, release, feature, hotfix, pull-request, support) with exact regex, increment, tag, source-branches, boolean flags. Default priorities: main=100, release=90, hotfix=80, support=70, develop=60, feature=50, pull-request=40 |
+| `defaults.go` | `CreateDefaultConfiguration()` — 8 branch defaults (main, develop, release, feature, hotfix, pull-request, support, unknown) with exact regex, increment, tag, source-branches, boolean flags. Default priorities: main=100, release=90, hotfix=80, support=70, develop=60, feature=50, pull-request=40, unknown=0. The `unknown` branch (`.*`) is a catch-all with lowest priority — any branch that doesn't match a known pattern is treated like a feature branch |
 | `builder.go` | `Builder` — Add overrides, Build (apply overrides → finalize → validate) |
 | `effective.go` | `EffectiveConfiguration` — resolved config with all fields guaranteed non-nil |
-| `loader.go` | Load from `.gitversion.yml`, custom YAML unmarshalers for enums |
+| `loader.go` | Load from `gitsemver.yml`, custom YAML unmarshalers for enums |
 | `ignore.go` | `IgnoreConfig`, `ShaVersionFilter`, `MinDateVersionFilter` |
 | `extensions.go` | `GetBranchConfiguration()` (priority-ordered regex match, highest priority wins), `GetReleaseBranchConfig()`, `GetBranchSpecificTag()` ({BranchName} replacement) |
 | `*_test.go` | YAML loading, defaults verification, builder merging, validation, priority matching. Target: >90% |
@@ -235,7 +235,7 @@ stdlib only (`regexp`, `fmt`, `strconv`, `strings`, `time`)
 | `mergemessage.go` | From merge commit messages AND squash merge messages. Parses all formats, checks release branch |
 | `branchname.go` | From release branch name. Splits by `/`/`-`, parses segments as semver |
 | `trackrelease.go` | For develop-like branches. Combines release branch versions + main tags |
-| `fallback.go` | Always returns 0.1.0 from root commit |
+| `fallback.go` | Returns `base-version` from config (default: `0.1.0`) from root commit |
 | `*_test.go` | Each strategy tested with MockRepository, including squash merge scenarios. Target: >90% |
 
 ### Dependencies
@@ -297,7 +297,7 @@ stdlib only (`regexp`, `fmt`, `strconv`, `strings`, `time`)
 
 | File | Contents |
 |------|----------|
-| `root.go` | Root command, global flags (--path, --branch, --commit, --output, --show-variable, --show-config, --override-config, --no-cache, --verbosity, --explain) |
+| `root.go` | Root command, global flags (--path, --branch, --commit, --output, --show-variable, --show-config, --override-config, --no-cache, --verbosity, --explain, **--allow-shallow**). Shallow clone detection: if repo is shallow and `--allow-shallow` is not set, fatal exit with message suggesting `git fetch --unshallow` |
 | `calculate.go` | Default command: open repo → load config → build context → run strategies → calculate → output. When `--explain`: render decision tree |
 | `explain.go` | `Explanation` renderer — formats the structured trace into human-readable output showing strategies evaluated, effective versions, winner selection, increment source, pre-release update, and final result |
 | `showconfig.go` | Print effective config as YAML |

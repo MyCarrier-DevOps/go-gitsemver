@@ -69,3 +69,10 @@ branches:
     tag: ''
     is-mainline: true
     source-branches: [main]
+
+  # Catch-all: any branch not matching above is treated like a feature branch
+  unknown:
+    regex: .*
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, feature, hotfix, support]

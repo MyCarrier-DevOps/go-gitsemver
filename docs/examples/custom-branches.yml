@@ -5,7 +5,7 @@
 #
 # Default priorities:
 #   main=100, release=90, hotfix=80, support=70,
-#   develop=60, feature=50, pull-request=40
+#   develop=60, feature=50, pull-request=40, unknown=0
 #
 # Add your own branch types or override existing ones.
 
@@ -83,6 +83,14 @@ branches:
     tag: PullRequest
     tag-number-pattern: '[/-](?<number>\d+)'
     priority: 40
+    source-branches: [develop, main, release, feature, hotfix, support, bugfix, experiment]
+
+  # Catch-all: any branch not matching above (lowest priority)
+  unknown:
+    regex: .*
+    increment: Inherit
+    tag: '{BranchName}'
+    priority: 0
     source-branches: [develop, main, release, feature, hotfix, support, bugfix, experiment]
 
 # Custom merge message format for Azure DevOps

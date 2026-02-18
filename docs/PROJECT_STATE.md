@@ -23,7 +23,8 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 | [CLI_INTERFACE.md](CLI_INTERFACE.md) | CLI arguments, 30+ output variables, output formats, caching, version formatting detail |
 | [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Full implementation plan with 12 design improvements and 8 phases |
 | [STRATEGIES_AND_MODES.md](STRATEGIES_AND_MODES.md) | All 6 strategies, 3 versioning modes, manual overrides with examples and config files |
-| [examples/](examples/) | Example `.gitversion.yml` configs for different workflows (GitFlow, trunk-based, CD, GitHub Flow, etc.) |
+| [examples/](examples/) | Example `gitsemver.yml` configs for different workflows (GitFlow, trunk-based, CD, GitHub Flow, etc.) |
+| [COMPARISON.md](COMPARISON.md) | What's better in gitsemver vs GitVersion v5.12.0 — all 12 DIs + additional improvements |
 
 ## Current Phase: Phase 0 — Project Bootstrap (Complete)
 
