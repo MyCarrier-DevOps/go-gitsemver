@@ -1,0 +1,80 @@
+# Continuous Deployment
+#
+# Mode: ContinuousDeployment — every commit gets a unique, deployable version
+#
+# The commit count since the last tag is promoted into the pre-release number,
+# ensuring every commit produces a monotonically increasing version.
+#
+# Version examples:
+#   main (after v1.0.0):
+#     commit 1: 1.0.1-ci.1
+#     commit 2: 1.0.1-ci.2
+#     commit 3: 1.0.1-ci.3
+#     (tag v1.0.1): 1.0.1
+#     commit 4: 1.0.2-ci.1
+#
+#   develop:
+#     1.1.0-alpha.1, 1.1.0-alpha.2, 1.1.0-alpha.3
+#
+#   feature/login:
+#     1.1.0-login.1, 1.1.0-login.2
+#
+# Key behavior:
+#   - On branches with empty tag (main, support), the fallback tag "ci" is used
+#   - Pre-release number = commits since last tag (always increasing)
+#   - Tagging a commit produces a stable version (no pre-release)
+#
+# Use case: CI/CD pipelines where every merged commit is deployed automatically
+
+mode: ContinuousDeployment
+tag-prefix: '[vV]'
+continuous-delivery-fallback-tag: ci
+commit-message-convention: both
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    source-branches: [release, hotfix]
+
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    increment: Minor
+    tag: alpha
+    tracks-release-branches: true
+    source-branches: [main, release, hotfix, support]
+
+  release:
+    regex: ^releases?[/-]
+    increment: None
+    tag: rc
+    is-release-branch: true
+    source-branches: [develop, main, support, release]
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, hotfix, support]
+
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    increment: Patch
+    tag: beta
+    source-branches: [main, support]
+
+  pull-request:
+    regex: ^(pull|pull-requests|pr)[/-]
+    increment: Inherit
+    tag: PullRequest
+    tag-number-pattern: '[/-](?<number>\d+)'
+    source-branches: [develop, main, release, feature, hotfix, support]
+
+  # Catch-all: any branch not matching above is treated like a feature branch
+  unknown:
+    regex: .*
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, feature, hotfix, support]
