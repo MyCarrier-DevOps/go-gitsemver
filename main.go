@@ -1,9 +1,10 @@
 package main
 
-import "fmt"
+import "go-gitsemver/cmd"
 
 var version = "dev"
 
 func main() {
-	fmt.Println("gitsemver", version)
+	cmd.Version = version
+	cmd.Execute()
 }

@@ -26,7 +26,7 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 | [examples/](examples/) | Example `gitsemver.yml` configs for different workflows (GitFlow, trunk-based, CD, GitHub Flow, etc.) |
 | [COMPARISON.md](COMPARISON.md) | What's better in gitsemver vs GitVersion v5.12.0 — all 12 DIs + additional improvements |
 
-## Current Phase: Phase 5 — Calculators (`internal/calculator/`)
+## Current Phase: Complete — All phases implemented
 
 ### Phase 0 — Project Bootstrap (Complete)
 - Reference documentation written (7 docs)
@@ -95,23 +95,77 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 - **Dependencies:** no new external deps (internal packages only)
 - **Coverage:** strategy 85.8%, context 88.2%, config 91.1%, git 84.5%, semver 97.3%, overall 89.0%
 
-### Next: Phase 5 — Calculators (`internal/calculator/`)
+### Phase 5 — Calculators (Complete)
+- **Design improvements:** DI-3 (single-increment pipeline), DI-7 (Conventional Commits), DI-10 (simplified mainline)
+- **Calculator files:**
+  - `increment.go` — `IncrementStrategyFinder` with CC parsing, bump directive matching, pre-1.0 Major→Minor cap
+  - `baseversion.go` — `BaseVersionCalculator` with DI-3 effective version ranking, ignore filtering, tie-breaking
+  - `mainline.go` — `MainlineVersionCalculator` with DI-10 aggregate-increment (no per-commit walking)
+  - `nextversion.go` — `NextVersionCalculator` full pipeline: tagged shortcut → base version → mainline/standard → pre-release tag → build metadata
+- **All files have corresponding `_test.go` files** (36 tests total)
+- **Dependencies:** no new external deps
+- **Coverage:** calculator 88.9%, overall 89.0%
+
+### Phase 6 — Output (Complete)
+- **Design improvements:** DI-4 (commit promotion as pure function)
+- **Output files:**
+  - `promote.go` — `PromoteCommitsToPreRelease` pure function for CD mode (DI-4)
+  - `variables.go` — `GetVariables` combining promotion + format values
+  - `json.go` — `WriteJSON`, `WriteVariable`, `WriteAll` output functions
+- **All files have corresponding `_test.go` files** (13 tests total)
+- **Dependencies:** no new external deps
+- **Coverage:** output 91.9%, overall 89.0%
+
+### Phase 7 — CLI (Complete)
+- **CLI files:**
+  - `cmd/root.go` — root cobra command with 9 global flags (path, branch, commit, config, output, show-variable, show-config, explain, verbosity)
+  - `cmd/calculate.go` — default command: open repo → load config → build context → resolve EC → run strategies → calculate → output
+  - `cmd/version.go` — print binary version
+  - `main.go` — updated to wire cobra
+- **Config file auto-detection:** searches for `GitVersion.yml` and `gitsemver.yml`
+- **Output formats:** default (key=value), JSON, single variable
+- **All files have corresponding `_test.go` files**
+- **Dependencies:** + github.com/spf13/cobra
+- **Coverage:** cmd 58.7% (calculateRunE is integration-level), overall 87.9%
+
+### Phase 8 — Tests & Coverage Hardening (Complete)
+- Added `strategies_test.go` for `AllStrategies` registry (100% coverage)
+- Added comprehensive `cmd/` tests: `calculate_test.go`, `root_test.go`, `version_test.go`
+- Verified binary builds and produces correct output on real repository
+- **Final coverage:** calculator 88.9%, config 91.1%, context 88.2%, git 84.5%, output 91.9%, semver 97.3%, strategy 86.2%, cmd 58.7%, **overall 87.9%**
+- **0 lint issues**, all tests pass, binary builds successfully
 
 ## Package Structure
 
 ```
 go-gitsemver/
-├── cmd/                    # CLI (cobra)
+├── cmd/                    # CLI (cobra) — root, calculate, version commands
 ├── internal/
 │   ├── semver/             # SemanticVersion, PreReleaseTag, BuildMetaData, enums
 │   ├── config/             # YAML config, defaults, builder, effective config
 │   ├── git/                # Repository interface, go-git impl, mock, repostore, merge message parser
 │   ├── context/            # GitVersionContext
-│   ├── strategy/           # Version strategies
+│   ├── strategy/           # 6 version strategies + registry
 │   ├── calculator/         # NextVersion, BaseVersion, Mainline, IncrementStrategyFinder
-│   ├── output/             # VariableProvider, JSON output
-│   └── testutil/           # Test helpers (temp git repos)
+│   └── output/             # Promotion, variables, JSON/text output
 ├── docs/                   # Reference docs and project state
 ├── go.mod
 └── main.go
 ```
+
+## Design Improvements Implemented
+
+| DI | Description | Phase |
+|----|-------------|-------|
+| DI-1 | Immutable value types for SemanticVersion, PreReleaseTag, BuildMetaData | 1 |
+| DI-2 | Separate IncrementField, IncrementPreRelease, WithPreReleaseTag methods | 1 |
+| DI-3 | Single-increment pipeline with effective version ranking | 5 |
+| DI-4 | Commit promotion as pure function (PromoteCommitsToPreRelease) | 6 |
+| DI-5 | Named format methods (SemVer, FullSemVer, LegacySemVer, etc.) | 1 |
+| DI-6 | Pure ComputeFormatValues function | 1 |
+| DI-7 | Conventional Commits support (feat, fix, feat!, BREAKING CHANGE) | 5 |
+| DI-8 | Squash merge awareness in MergeMessage strategy | 4 |
+| DI-9 | Nil-safe Explanation traces for --explain output | 4 |
+| DI-10 | Simplified mainline calculation (aggregate-increment) | 5 |
+| DI-11 | Monorepo-ready PathFilter on git operations | 3 |
+| DI-12 | Priority-based branch matching in config | 2 |
