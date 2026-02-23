@@ -34,6 +34,11 @@ func TestOpen_IsHeadDetached(t *testing.T) {
 	repo, err := Open(dir)
 	require.NoError(t, err)
 
+	// CI environments (GitHub Actions) check out in detached HEAD state.
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping in CI: HEAD is expected to be detached")
+	}
+
 	// In a normal checkout, HEAD is not detached.
 	require.False(t, repo.IsHeadDetached())
 }
