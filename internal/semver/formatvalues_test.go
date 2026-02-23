@@ -200,6 +200,44 @@ func TestComputeFormatValues_CustomDateFormat(t *testing.T) {
 	require.Equal(t, "2025/03/15 14:30", vals["CommitDate"])
 }
 
+func TestTranslateDateFormat(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{"dotnet yyyy-MM-dd", "yyyy-MM-dd", "2006-01-02"},
+		{"dotnet with time", "yyyy-MM-dd HH:mm:ss", "2006-01-02 15:04:05"},
+		{"dotnet short date", "yy/MM/dd", "06/01/02"},
+		{"dotnet 12h time", "hh:mm:ss tt", "03:04:05 PM"},
+		{"dotnet milliseconds", "yyyy-MM-dd HH:mm:ss.fff", "2006-01-02 15:04:05.000"},
+		{"go format passthrough", "2006-01-02", "2006-01-02"},
+		{"go format with time", "2006-01-02 15:04:05", "2006-01-02 15:04:05"},
+		{"month name long", "dd MMMM yyyy", "02 January 2006"},
+		{"month name short", "dd MMM yyyy", "02 Jan 2006"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expect, translateDateFormat(tt.input))
+		})
+	}
+}
+
+func TestComputeFormatValues_DotNetDateFormat(t *testing.T) {
+	ver := SemanticVersion{
+		Major: 1,
+		BuildMetaData: BuildMetaData{
+			CommitDate: time.Date(2025, 3, 15, 14, 30, 0, 0, time.UTC),
+		},
+	}
+	cfg := FormatConfig{
+		Padding:          4,
+		CommitDateFormat: "yyyy-MM-dd",
+	}
+	vals := ComputeFormatValues(ver, cfg)
+	require.Equal(t, "2025-03-15", vals["CommitDate"])
+}
+
 func TestComputeFormatValues_VariableCount(t *testing.T) {
 	ver := SemanticVersion{
 		Major:         1,

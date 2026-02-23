@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // FormatConfig holds configuration for computing format values.
@@ -110,7 +111,8 @@ func ComputeFormatValues(ver SemanticVersion, cfg FormatConfig) map[string]strin
 
 	// Commit date
 	if !ver.BuildMetaData.CommitDate.IsZero() {
-		vals["CommitDate"] = ver.BuildMetaData.CommitDate.Format(cfg.CommitDateFormat)
+		goFmt := translateDateFormat(cfg.CommitDateFormat)
+		vals["CommitDate"] = ver.BuildMetaData.CommitDate.Format(goFmt)
 	} else {
 		vals["CommitDate"] = ""
 	}
@@ -130,4 +132,37 @@ func ComputeFormatValues(ver SemanticVersion, cfg FormatConfig) map[string]strin
 	vals["NuGetPreReleaseTag"] = nugetPreRelease
 
 	return vals
+}
+
+// dateFormatReplacements maps .NET/Java date format tokens to Go reference time tokens.
+// Order matters: longer tokens must be replaced before shorter ones (e.g. "yyyy" before "yy").
+var dateFormatReplacements = []struct{ from, to string }{
+	{"yyyy", "2006"},
+	{"yy", "06"},
+	{"MMMM", "January"},
+	{"MMM", "Jan"},
+	{"MM", "01"},
+	{"dd", "02"},
+	{"HH", "15"},
+	{"hh", "03"},
+	{"mm", "04"},
+	{"ss", "05"},
+	{"tt", "PM"},
+	{"fff", "000"},
+	{"ff", "00"},
+	{"f", "0"},
+}
+
+// translateDateFormat converts a .NET/Java-style date format (e.g. "yyyy-MM-dd")
+// to a Go time layout. If the format already looks like a Go layout (contains
+// the reference year "2006"), it is returned as-is.
+func translateDateFormat(format string) string {
+	if strings.Contains(format, "2006") {
+		return format
+	}
+	result := format
+	for _, r := range dateFormatReplacements {
+		result = strings.ReplaceAll(result, r.from, r.to)
+	}
+	return result
 }
