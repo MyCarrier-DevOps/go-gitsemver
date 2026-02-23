@@ -250,6 +250,7 @@ some change +semver: skip           → No bump
 | `Sha` | `abc1234def567...` | Full commit SHA |
 | `ShortSha` | `abc1234` | Short commit SHA (7 chars) |
 | `CommitDate` | `2025-01-15` | Commit date |
+| `CommitTag` | `25.03.abc1234` | Year.Week.ShortSha from commit date |
 | `CommitsSinceVersionSource` | `5` | Commits since base version |
 | `UncommittedChanges` | `0` | Dirty working tree count |
 | `AssemblySemVer` | `1.2.3.0` | .NET assembly version |

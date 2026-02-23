@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/MyCarrier-DevOps/go-gitsemver/main/gitsemver-schema.json",
+  "title": "gitsemver configuration",
+  "description": "Configuration schema for gitsemver — automatic semantic versioning from git history.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "mode": {
+      "$ref": "#/$defs/versioningMode",
+      "description": "Versioning mode that controls how versions are calculated.",
+      "default": "ContinuousDelivery"
+    },
+    "tag-prefix": {
+      "type": "string",
+      "description": "Regex pattern matched against tag names to identify version tags. The matched prefix is stripped before parsing the version.",
+      "default": "[vV]"
+    },
+    "base-version": {
+      "type": "string",
+      "description": "Floor version used when no tags exist in the repository.",
+      "default": "0.1.0"
+    },
+    "next-version": {
+      "type": "string",
+      "description": "Force the next version to this value. Takes highest priority among all strategies."
+    },
+    "increment": {
+      "$ref": "#/$defs/incrementStrategy",
+      "description": "Default increment strategy applied when no branch-level override is set.",
+      "default": "Inherit"
+    },
+    "continuous-delivery-fallback-tag": {
+      "type": "string",
+      "description": "Pre-release tag used in ContinuousDeployment mode when no other tag is configured.",
+      "default": "ci"
+    },
+    "commit-message-incrementing": {
+      "$ref": "#/$defs/commitMessageIncrementMode",
+      "description": "Controls whether commit messages affect version incrementing.",
+      "default": "Enabled"
+    },
+    "commit-message-convention": {
+      "$ref": "#/$defs/commitMessageConvention",
+      "description": "Which commit message conventions to use for version incrementing.",
+      "default": "Both"
+    },
+    "major-version-bump-message": {
+      "type": "string",
+      "description": "Regex pattern that triggers a major version bump when matched in a commit message.",
+      "default": "\\+semver:\\s?(breaking|major)"
+    },
+    "minor-version-bump-message": {
+      "type": "string",
+      "description": "Regex pattern that triggers a minor version bump when matched in a commit message.",
+      "default": "\\+semver:\\s?(feature|minor)"
+    },
+    "patch-version-bump-message": {
+      "type": "string",
+      "description": "Regex pattern that triggers a patch version bump when matched in a commit message.",
+      "default": "\\+semver:\\s?(fix|patch)"
+    },
+    "no-bump-message": {
+      "type": "string",
+      "description": "Regex pattern that prevents any version bump when matched in a commit message.",
+      "default": "\\+semver:\\s?(none|skip)"
+    },
+    "commit-date-format": {
+      "type": "string",
+      "description": "Date format for the CommitDate output variable. Accepts Go time layouts (e.g. '2006-01-02') or .NET formats (e.g. 'yyyy-MM-dd').",
+      "default": "2006-01-02"
+    },
+    "update-build-number": {
+      "type": "boolean",
+      "description": "Whether to include build metadata in version output.",
+      "default": true
+    },
+    "tag-pre-release-weight": {
+      "type": "integer",
+      "description": "Weight added to pre-release numbers for the WeightedPreReleaseNumber output variable.",
+      "default": 60000
+    },
+    "legacy-semver-padding": {
+      "type": "integer",
+      "description": "Number of digits for zero-padded legacy semver fields.",
+      "default": 4,
+      "minimum": 1
+    },
+    "build-metadata-padding": {
+      "type": "integer",
+      "description": "Number of digits for zero-padded build metadata fields.",
+      "default": 4,
+      "minimum": 1
+    },
+    "commits-since-version-source-padding": {
+      "type": "integer",
+      "description": "Number of digits for zero-padded commit count fields.",
+      "default": 4,
+      "minimum": 1
+    },
+    "mainline-increment": {
+      "$ref": "#/$defs/mainlineIncrementMode",
+      "description": "How mainline mode applies version increments. Aggregate applies one bump from the highest increment across all commits. EachCommit bumps per merge commit.",
+      "default": "Aggregate"
+    },
+    "branches": {
+      "type": "object",
+      "description": "Map of branch configuration name to branch-specific settings. Names like 'main', 'develop', 'release', 'feature', 'hotfix', 'pull-request', 'support', and 'unknown' override built-in defaults.",
+      "additionalProperties": {
+        "$ref": "#/$defs/branchConfig"
+      }
+    },
+    "ignore": {
+      "$ref": "#/$defs/ignoreConfig",
+      "description": "Rules for excluding commits from version calculation."
+    },
+    "merge-message-formats": {
+      "type": "object",
+      "description": "Map of custom merge message format names to regex patterns. These are tried before the built-in formats.",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Regex pattern for matching merge messages. Supports named groups: SourceBranch, TargetBranch, PullRequestNumber."
+      }
+    }
+  },
+  "$defs": {
+    "versioningMode": {
+      "type": "string",
+      "enum": ["ContinuousDelivery", "ContinuousDeployment", "Mainline"],
+      "description": "ContinuousDelivery: pre-release tags until manually tagged. ContinuousDeployment: every commit gets a unique version. Mainline: stable versions on mainline branches."
+    },
+    "incrementStrategy": {
+      "type": "string",
+      "enum": ["None", "Major", "Minor", "Patch", "Inherit"],
+      "description": "None: no increment. Major/Minor/Patch: always bump that field. Inherit: inherit from the source branch configuration."
+    },
+    "commitMessageIncrementMode": {
+      "type": "string",
+      "enum": ["Enabled", "Disabled", "MergeMessageOnly"],
+      "description": "Enabled: scan all commits. Disabled: ignore commit messages. MergeMessageOnly: only scan merge commit messages."
+    },
+    "commitMessageConvention": {
+      "type": "string",
+      "enum": ["ConventionalCommits", "conventional-commits", "BumpDirective", "bump-directive", "Both", "both"],
+      "description": "ConventionalCommits: feat:/fix:/feat!: prefixes. BumpDirective: +semver: directives. Both: use both conventions. Hyphenated and lowercase forms are accepted."
+    },
+    "mainlineIncrementMode": {
+      "type": "string",
+      "enum": ["Aggregate", "EachCommit", "each-commit"],
+      "description": "Aggregate: single increment from the highest bump across all commits since the last tag. EachCommit: increment per merge commit on the mainline. Hyphenated form is accepted."
+    },
+    "branchConfig": {
+      "type": "object",
+      "description": "Per-branch configuration. All fields are optional and inherit from defaults when not specified.",
+      "additionalProperties": true,
+      "properties": {
+        "regex": {
+          "type": "string",
+          "description": "Regex pattern matched against branch names. Uses Go regex syntax (named groups: (?P<Name>...))."
+        },
+        "increment": {
+          "$ref": "#/$defs/incrementStrategy",
+          "description": "Increment strategy for this branch type."
+        },
+        "mode": {
+          "$ref": "#/$defs/versioningMode",
+          "description": "Versioning mode override for this branch type."
+        },
+        "tag": {
+          "type": "string",
+          "description": "Pre-release tag label. Use '{BranchName}' as a template variable. Empty string means no pre-release tag (release version)."
+        },
+        "source-branches": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of branch config names that can be source branches for this branch type."
+        },
+        "is-source-branch-for": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of branch config names that this branch is a source for. Inverse of source-branches."
+        },
+        "is-mainline": {
+          "type": "boolean",
+          "description": "Whether this branch is a mainline (stable release) branch. Mainline branches produce release versions."
+        },
+        "is-release-branch": {
+          "type": "boolean",
+          "description": "Whether this branch is a release branch. Release branches use the version from their branch name."
+        },
+        "tracks-release-branches": {
+          "type": "boolean",
+          "description": "Whether this branch tracks release branches for version discovery."
+        },
+        "prevent-increment-of-merged-branch-version": {
+          "type": "boolean",
+          "description": "When true, prevents re-incrementing a version that was already incremented on a merged branch."
+        },
+        "track-merge-target": {
+          "type": "boolean",
+          "description": "Whether to track the merge target branch for version calculation."
+        },
+        "tag-number-pattern": {
+          "type": "string",
+          "description": "Regex pattern with a named group 'number' for extracting a number from the branch name (e.g. PR numbers)."
+        },
+        "commit-message-incrementing": {
+          "$ref": "#/$defs/commitMessageIncrementMode",
+          "description": "Per-branch override for commit message incrementing behavior."
+        },
+        "pre-release-weight": {
+          "type": "integer",
+          "description": "Sorting weight for pre-release versions from this branch. Higher values sort later."
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Regex match priority. When multiple branch configs match, the highest priority wins. Built-in priorities: main=100, release=90, hotfix=80, support=70, develop=60, feature=50, pull-request=40, unknown=0."
+        }
+      }
+    },
+    "ignoreConfig": {
+      "type": "object",
+      "description": "Rules for excluding commits from version calculation.",
+      "additionalProperties": false,
+      "properties": {
+        "commits-before": {
+          "type": "string",
+          "description": "Ignore commits before this date. Accepts RFC3339 (e.g. '2024-01-01T00:00:00Z') or date-only (e.g. '2024-01-01') formats."
+        },
+        "sha": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of commit SHA hashes to exclude from version calculation."
+        }
+      }
+    }
+  }
+}

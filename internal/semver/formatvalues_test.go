@@ -68,6 +68,7 @@ func TestComputeFormatValues_FullVersion(t *testing.T) {
 	require.Equal(t, "0005", vals["CommitsSinceVersionSourcePadded"])
 	require.Equal(t, "0", vals["UncommittedChanges"])
 	require.Equal(t, "2025-01-15", vals["CommitDate"])
+	require.Equal(t, "25.03.abc1234", vals["CommitTag"])
 
 	// Assembly info
 	require.Equal(t, "1.2.3.0", vals["AssemblySemVer"])
@@ -111,6 +112,7 @@ func TestComputeFormatValues_StableVersion(t *testing.T) {
 	require.Equal(t, "2.0.0.0", vals["AssemblySemVer"])
 	require.Equal(t, "2.0.0", vals["NuGetVersionV2"])
 	require.Equal(t, "", vals["NuGetPreReleaseTagV2"])
+	require.Equal(t, "25.22.deadbee", vals["CommitTag"])
 }
 
 func TestComputeFormatValues_EmptyBuildMetadata(t *testing.T) {
@@ -128,6 +130,7 @@ func TestComputeFormatValues_EmptyBuildMetadata(t *testing.T) {
 	require.Equal(t, "", vals["Sha"])
 	require.Equal(t, "", vals["ShortSha"])
 	require.Equal(t, "", vals["CommitDate"])
+	require.Equal(t, "", vals["CommitTag"])
 }
 
 func TestComputeFormatValues_DefaultConfig(t *testing.T) {

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../gitsemver-schema.json
 # Continuous Deployment
 #
 # Mode: ContinuousDeployment — every commit gets a unique, deployable version

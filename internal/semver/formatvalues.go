@@ -109,12 +109,15 @@ func ComputeFormatValues(ver SemanticVersion, cfg FormatConfig) map[string]strin
 	)
 	vals["UncommittedChanges"] = strconv.FormatInt(ver.BuildMetaData.UncommittedChanges, 10)
 
-	// Commit date
+	// Commit date and commit tag
 	if !ver.BuildMetaData.CommitDate.IsZero() {
 		goFmt := translateDateFormat(cfg.CommitDateFormat)
 		vals["CommitDate"] = ver.BuildMetaData.CommitDate.Format(goFmt)
+		year, week := ver.BuildMetaData.CommitDate.ISOWeek()
+		vals["CommitTag"] = fmt.Sprintf("%02d.%02d.%s", year%100, week, ver.BuildMetaData.ShortSha)
 	} else {
 		vals["CommitDate"] = ""
+		vals["CommitTag"] = ""
 	}
 
 	// Assembly info (output-only, no file updates)
