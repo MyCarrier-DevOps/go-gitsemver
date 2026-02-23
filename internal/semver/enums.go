@@ -1,6 +1,11 @@
 // Package semver provides immutable semantic versioning types.
 package semver
 
+import (
+	"fmt"
+	"strings"
+)
+
 // VersionField represents which field of a semantic version to increment.
 type VersionField int
 
@@ -133,5 +138,69 @@ func (c CommitMessageConvention) String() string {
 		return "Both"
 	default:
 		return "Unknown"
+	}
+}
+
+// ParseVersioningMode parses a string into a VersioningMode.
+// Matching is case-insensitive.
+func ParseVersioningMode(s string) (VersioningMode, error) {
+	switch strings.ToLower(s) {
+	case "continuousdelivery":
+		return VersioningModeContinuousDelivery, nil
+	case "continuousdeployment":
+		return VersioningModeContinuousDeployment, nil
+	case "mainline":
+		return VersioningModeMainline, nil
+	default:
+		return 0, fmt.Errorf("unknown versioning mode: %q", s)
+	}
+}
+
+// ParseIncrementStrategy parses a string into an IncrementStrategy.
+// Matching is case-insensitive.
+func ParseIncrementStrategy(s string) (IncrementStrategy, error) {
+	switch strings.ToLower(s) {
+	case "none":
+		return IncrementStrategyNone, nil
+	case "major":
+		return IncrementStrategyMajor, nil
+	case "minor":
+		return IncrementStrategyMinor, nil
+	case "patch":
+		return IncrementStrategyPatch, nil
+	case "inherit":
+		return IncrementStrategyInherit, nil
+	default:
+		return 0, fmt.Errorf("unknown increment strategy: %q", s)
+	}
+}
+
+// ParseCommitMessageIncrementMode parses a string into a CommitMessageIncrementMode.
+// Matching is case-insensitive.
+func ParseCommitMessageIncrementMode(s string) (CommitMessageIncrementMode, error) {
+	switch strings.ToLower(s) {
+	case "enabled":
+		return CommitMessageIncrementEnabled, nil
+	case "disabled":
+		return CommitMessageIncrementDisabled, nil
+	case "mergemessageonly":
+		return CommitMessageIncrementMergeMessageOnly, nil
+	default:
+		return 0, fmt.Errorf("unknown commit message increment mode: %q", s)
+	}
+}
+
+// ParseCommitMessageConvention parses a string into a CommitMessageConvention.
+// Matching is case-insensitive. Accepts hyphenated forms (e.g. "conventional-commits").
+func ParseCommitMessageConvention(s string) (CommitMessageConvention, error) {
+	switch strings.ToLower(s) {
+	case "conventionalcommits", "conventional-commits":
+		return CommitMessageConventionConventionalCommits, nil
+	case "bumpdirective", "bump-directive":
+		return CommitMessageConventionBumpDirective, nil
+	case "both":
+		return CommitMessageConventionBoth, nil
+	default:
+		return 0, fmt.Errorf("unknown commit message convention: %q", s)
 	}
 }

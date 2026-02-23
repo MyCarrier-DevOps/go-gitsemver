@@ -26,7 +26,7 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 | [examples/](examples/) | Example `gitsemver.yml` configs for different workflows (GitFlow, trunk-based, CD, GitHub Flow, etc.) |
 | [COMPARISON.md](COMPARISON.md) | What's better in gitsemver vs GitVersion v5.12.0 — all 12 DIs + additional improvements |
 
-## Current Phase: Phase 1 — Core Semver Types (`internal/semver/`)
+## Current Phase: Phase 4 — Version Context (`internal/context/`)
 
 ### Phase 0 — Project Bootstrap (Complete)
 - Reference documentation written (7 docs)
@@ -37,7 +37,7 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 - Makefile rewritten for single-module build
 - CI pipeline with test/lint/vuln/build/status-check + GitHub Release on `v*` tags
 - `.github/release.yml` for changelog categories
-- Linter config updated (local-prefixes: go-gitsemver)
+- Linter config updated for golangci-lint v2.9.0 (gofumpt with extra-rules)
 - README written with full feature documentation
 
 ### Phase 1 — Core Semver Types (Complete)
@@ -46,7 +46,37 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 - **Dependencies:** stdlib only + testify/require
 - **Coverage:** 98.4%
 
-### Next: Phase 2 — Configuration (`internal/config/`)
+### Phase 2 — Configuration (Complete)
+- **Design improvements:** DI-7 (Conventional Commits config field), DI-12 (priority-based branch matching)
+- **Semver additions:** `ParseXxx` functions for all 4 enum types, `UnmarshalYAML` methods (`yaml.go`, `parse_test.go`)
+- **Config files:**
+  - `helpers.go` — pointer helper functions
+  - `ignore.go` — `IgnoreConfig` with flexible date parsing
+  - `branch.go` — `BranchConfig` with 15 pointer fields + `MergeTo` coalesce
+  - `config.go` — root `Config` struct with YAML tags
+  - `loader.go` — `LoadFromFile` / `LoadFromBytes` via gopkg.in/yaml.v3
+  - `defaults.go` — `CreateDefaultConfiguration` with 8 branch defaults and priority ordering
+  - `builder.go` — `Builder` with overlay merging, develop special-case mode, `IsSourceBranchFor` processing, validation
+  - `effective.go` — `EffectiveConfiguration` with all concrete types (no pointers)
+  - `extensions.go` — `GetBranchConfiguration` (priority-sorted regex match), `GetReleaseBranchConfig`, `GetBranchSpecificTag`
+- **All files have corresponding `_test.go` files**
+- **Dependencies:** stdlib + testify/require + gopkg.in/yaml.v3
+- **Coverage:** config 91.5%, semver 97.3%, overall 94.4%
+
+### Phase 3 — Git Adapter (Complete)
+- **Design improvements:** DI-8 (squash merge awareness), DI-11 (monorepo-ready PathFilter)
+- **Git files:**
+  - `types.go` — `PathFilter`, `ObjectID`, `Commit`, `ReferenceName`, `Branch`, `Tag`, `BranchCommit`, `VersionTag`
+  - `interfaces.go` — `Repository` interface with 15 methods
+  - `mergemessage.go` — 6 default + 2 squash merge message formats, `ParseMergeMessage`, `ExtractVersionFromBranch`
+  - `mock.go` — `MockRepository` with function fields for all 15 methods
+  - `repostore.go` — `RepositoryStore` with 18 domain query methods (tag/branch/commit/merge-base queries)
+  - `gogit.go` — full go-git `Repository` implementation via `github.com/go-git/go-git/v5`
+- **All files have corresponding `_test.go` files**
+- **Dependencies:** stdlib + testify/require + gopkg.in/yaml.v3 + go-git/go-git/v5
+- **Coverage:** git 84.5%, config 91.5%, semver 97.3%, overall 89.8%
+
+### Next: Phase 4 — Version Context (`internal/context/`)
 
 ## Package Structure
 

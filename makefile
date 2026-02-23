@@ -15,11 +15,11 @@ test:
 
 .PHONY: lint
 lint: install-tools
-	golangci-lint run --timeout 5m ./...
+	golangci-lint run --timeout 5m --config ./.golangci.yml ./...
 
 .PHONY: fmt
 fmt: install-tools
-	golangci-lint fmt ./...
+	golangci-lint fmt --config ./.golangci.yml ./...
 
 .PHONY: tidy
 tidy:

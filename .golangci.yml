@@ -21,16 +21,6 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
-    rules:
-      - linters:
-          - errcheck
-          - govet
-          - nolintlint
-          - structcheck
-        path: _test.go
-    paths:
-      - ^.*\.(pb|y)\.go$
-    warn-unused: true
   settings:
     depguard:
       rules:
@@ -68,13 +58,7 @@ formatters:
   enable:
     - gofmt
     - gofumpt
-    - goimports
   settings:
     gofumpt:
       extra-rules: true
-    goimports:
-      local-prefixes:
-        - go-gitsemver
-  exclusions:
-    paths:
-      - ^.*\.(pb|y)\.go$
+  exclusions: {}
