@@ -173,6 +173,45 @@ func TestGetReleaseBranchConfig_None(t *testing.T) {
 	require.Empty(t, releases)
 }
 
+func TestIsReleaseBranch(t *testing.T) {
+	cfg, err := NewBuilder().Build()
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		branchName string
+		want       bool
+	}{
+		{"release branch", "release/1.2.0", true},
+		{"releases branch", "releases/1.3.0", true},
+		{"release dash", "release-1.2.0", true},
+		{"main is not release", "main", false},
+		{"develop is not release", "develop", false},
+		{"feature is not release", "feature/auth", false},
+		{"hotfix is not release", "hotfix/fix-crash", false},
+		{"unknown is not release", "some-random-branch", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, cfg.IsReleaseBranch(tt.branchName))
+		})
+	}
+}
+
+func TestIsReleaseBranch_NoBranches(t *testing.T) {
+	cfg := &Config{Branches: map[string]*BranchConfig{}}
+	require.False(t, cfg.IsReleaseBranch("release/1.0"))
+}
+
+func TestIsReleaseBranch_NilRelease(t *testing.T) {
+	cfg := &Config{
+		Branches: map[string]*BranchConfig{
+			"release": {Regex: stringPtr(`^releases?[/-]`), IsReleaseBranch: nil},
+		},
+	}
+	require.False(t, cfg.IsReleaseBranch("release/1.0"))
+}
+
 func TestGetBranchSpecificTag(t *testing.T) {
 	tests := []struct {
 		name       string

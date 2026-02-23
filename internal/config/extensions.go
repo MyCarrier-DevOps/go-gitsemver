@@ -67,6 +67,27 @@ func (cfg *Config) GetReleaseBranchConfig() map[string]*BranchConfig {
 	return result
 }
 
+// IsReleaseBranch returns true if the given branch name matches any branch
+// configuration where IsReleaseBranch is true.
+func (cfg *Config) IsReleaseBranch(branchName string) bool {
+	for _, branch := range cfg.Branches {
+		if branch.IsReleaseBranch == nil || !*branch.IsReleaseBranch {
+			continue
+		}
+		if branch.Regex == nil {
+			continue
+		}
+		re, err := regexp.Compile(*branch.Regex)
+		if err != nil {
+			continue
+		}
+		if re.MatchString(branchName) {
+			return true
+		}
+	}
+	return false
+}
+
 var branchPrefixes = []string{
 	"feature/", "features/",
 	"hotfix/", "hotfixes/",

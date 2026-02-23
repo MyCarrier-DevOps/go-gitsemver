@@ -26,7 +26,7 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 | [examples/](examples/) | Example `gitsemver.yml` configs for different workflows (GitFlow, trunk-based, CD, GitHub Flow, etc.) |
 | [COMPARISON.md](COMPARISON.md) | What's better in gitsemver vs GitVersion v5.12.0 — all 12 DIs + additional improvements |
 
-## Current Phase: Phase 4 — Version Context (`internal/context/`)
+## Current Phase: Phase 5 — Calculators (`internal/calculator/`)
 
 ### Phase 0 — Project Bootstrap (Complete)
 - Reference documentation written (7 docs)
@@ -76,7 +76,26 @@ Go rewrite of GitVersion (v5.12.0 reference) with design improvements. The goal 
 - **Dependencies:** stdlib + testify/require + gopkg.in/yaml.v3 + go-git/go-git/v5
 - **Coverage:** git 84.5%, config 91.5%, semver 97.3%, overall 89.8%
 
-### Next: Phase 4 — Version Context (`internal/context/`)
+### Phase 4 — Context & Version Strategies (Complete)
+- **Design improvements:** DI-8 (squash merge awareness in MergeMessage), DI-9 (Explanation traces for `--explain`)
+- **Config additions:** `IsReleaseBranch(branchName)` method on `*Config` in `extensions.go`
+- **Context files:**
+  - `context.go` — `GitVersionContext` struct (6 fields) + `GetEffectiveConfiguration` method
+  - `factory.go` — `NewContext` factory with `Options` struct, `pickBestBranch` for detached HEAD
+- **Strategy files:**
+  - `base.go` — `BaseVersion` value type, `Explanation` (nil-safe), `VersionStrategy` interface
+  - `confignextversion.go` — reads explicit `next-version` from config
+  - `fallback.go` — default `0.1.0` from root commit
+  - `taggedcommit.go` — version tags on branch history
+  - `branchname.go` — version extracted from release branch names
+  - `mergemessage.go` — two-pass merge/squash message scanning (DI-8)
+  - `trackrelease.go` — release branch + main tag tracking for develop
+  - `strategies.go` — `AllStrategies(store)` registry returning all 6 in priority order
+- **All files have corresponding `_test.go` files**
+- **Dependencies:** no new external deps (internal packages only)
+- **Coverage:** strategy 85.8%, context 88.2%, config 91.1%, git 84.5%, semver 97.3%, overall 89.0%
+
+### Next: Phase 5 — Calculators (`internal/calculator/`)
 
 ## Package Structure
 
