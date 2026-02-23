@@ -82,7 +82,7 @@ jobs:
       - name: Build binary
         run: make build
       - name: Verify binary
-        run: ./bin/gitsemver
+        run: ./bin/gitsemver version
 
   status-check:
     name: Status Check
