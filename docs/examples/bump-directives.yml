@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../gitsemver-schema.json
 # Bump Directives Only
 #
 # Uses ONLY explicit bump directives for determining version increments.

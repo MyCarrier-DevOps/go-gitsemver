@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // FormatConfig holds configuration for computing format values.
 type FormatConfig struct {
 	// Padding is the number of digits for zero-padded fields (default: 4).
 	Padding int
-	// CommitDateFormat is the Go time format for commit dates (default: "2006-01-02").
+	// CommitDateFormat is the format for commit dates (default: "2006-01-02").
+	// Accepts Go time layouts or .NET/Java-style formats (e.g. "yyyy-MM-dd").
 	CommitDateFormat string
 	// TagPreReleaseWeight is added to pre-release numbers for weighted sorting (default: 60000).
 	TagPreReleaseWeight int64
@@ -108,11 +110,15 @@ func ComputeFormatValues(ver SemanticVersion, cfg FormatConfig) map[string]strin
 	)
 	vals["UncommittedChanges"] = strconv.FormatInt(ver.BuildMetaData.UncommittedChanges, 10)
 
-	// Commit date
+	// Commit date and commit tag
 	if !ver.BuildMetaData.CommitDate.IsZero() {
-		vals["CommitDate"] = ver.BuildMetaData.CommitDate.Format(cfg.CommitDateFormat)
+		goFmt := translateDateFormat(cfg.CommitDateFormat)
+		vals["CommitDate"] = ver.BuildMetaData.CommitDate.Format(goFmt)
+		year, week := ver.BuildMetaData.CommitDate.ISOWeek()
+		vals["CommitTag"] = fmt.Sprintf("%02d.%02d.%s", year%100, week, ver.BuildMetaData.ShortSha)
 	} else {
 		vals["CommitDate"] = ""
+		vals["CommitTag"] = ""
 	}
 
 	// Assembly info (output-only, no file updates)
@@ -130,4 +136,69 @@ func ComputeFormatValues(ver SemanticVersion, cfg FormatConfig) map[string]strin
 	vals["NuGetPreReleaseTag"] = nugetPreRelease
 
 	return vals
+}
+
+// dateFormatReplacements maps .NET/Java date format tokens to Go reference time tokens.
+// Order matters: longer tokens must be replaced before shorter ones (e.g. "yyyy" before "yy",
+// "dddd" before "ddd" before "dd" before "d").
+var dateFormatReplacements = []struct{ from, to string }{
+	// Year
+	{"yyyy", "2006"},
+	{"yy", "06"},
+	// Month
+	{"MMMM", "January"},
+	{"MMM", "Jan"},
+	{"MM", "01"},
+	{"M", "1"},
+	// Day of week (before day-of-month)
+	{"dddd", "Monday"},
+	{"ddd", "Mon"},
+	// Day of month
+	{"dd", "02"},
+	{"d", "2"},
+	// Hour 24h
+	{"HH", "15"},
+	{"H", "15"},
+	// Hour 12h
+	{"hh", "03"},
+	{"h", "3"},
+	// Minute
+	{"mm", "04"},
+	{"m", "4"},
+	// Second
+	{"ss", "05"},
+	{"s", "5"},
+	// AM/PM
+	{"tt", "PM"},
+	// Timezone offset
+	{"zzz", "-07:00"},
+	{"zz", "-07"},
+	{"z", "-7"},
+	// Fractional seconds
+	{"fff", "000"},
+	{"ff", "00"},
+	{"f", "0"},
+}
+
+// translateDateFormat converts a .NET/Java-style date format (e.g. "yyyy-MM-dd")
+// to a Go time layout. If the format already looks like a Go layout (contains
+// "2006" or "15:04"), it is returned as-is.
+func translateDateFormat(format string) string {
+	if strings.Contains(format, "2006") || strings.Contains(format, "15:04") {
+		return format
+	}
+	result := format
+	// Use placeholders to prevent Go reference values (e.g. "Monday")
+	// from being corrupted by subsequent single-letter replacements.
+	placeholders := make([]string, len(dateFormatReplacements))
+	for i := range dateFormatReplacements {
+		placeholders[i] = "\x00" + strconv.Itoa(i) + "\x00"
+	}
+	for i, r := range dateFormatReplacements {
+		result = strings.ReplaceAll(result, r.from, placeholders[i])
+	}
+	for i, r := range dateFormatReplacements {
+		result = strings.ReplaceAll(result, placeholders[i], r.to)
+	}
+	return result
 }

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../gitsemver-schema.json
 # GitHub Flow
 #
 # Simple workflow: main + feature branches merged via pull requests.

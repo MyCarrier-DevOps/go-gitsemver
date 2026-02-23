@@ -413,6 +413,7 @@ func TestE2E_BuildMetadata_CommitInfo(t *testing.T) {
 	require.NotEmpty(t, vars["ShortSha"])
 	require.Len(t, vars["ShortSha"], 7)
 	require.NotEmpty(t, vars["CommitDate"])
+	require.NotEmpty(t, vars["CommitTag"])
 	require.Equal(t, "1", vars["CommitsSinceVersionSource"])
 }
 
@@ -432,7 +433,7 @@ func TestE2E_OutputVariables_AllPresent(t *testing.T) {
 		"Major", "Minor", "Patch", "MajorMinorPatch",
 		"SemVer", "FullSemVer", "LegacySemVer", "LegacySemVerPadded",
 		"InformationalVersion", "BranchName", "EscapedBranchName",
-		"Sha", "ShortSha", "CommitDate", "VersionSourceSha",
+		"Sha", "ShortSha", "CommitDate", "CommitTag", "VersionSourceSha",
 		"CommitsSinceVersionSource", "CommitsSinceVersionSourcePadded",
 		"BuildMetaData", "BuildMetaDataPadded", "FullBuildMetaData",
 		"PreReleaseTag", "PreReleaseTagWithDash", "PreReleaseLabel",

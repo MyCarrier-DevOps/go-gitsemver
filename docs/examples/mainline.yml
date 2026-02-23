@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../gitsemver-schema.json
 # Mainline Mode
 #
 # Aggregate-increment versioning for trunk-based and hybrid workflows.

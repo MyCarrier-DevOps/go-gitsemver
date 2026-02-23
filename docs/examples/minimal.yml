@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../gitsemver-schema.json
 # Minimal Configuration
 #
 # All fields are optional. This file uses all defaults.

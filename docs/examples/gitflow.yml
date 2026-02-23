@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../gitsemver-schema.json
 # GitFlow Workflow
 #
 # Branches: main → develop → feature, release, hotfix
