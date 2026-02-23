@@ -216,8 +216,20 @@ func TestTranslateDateFormat(t *testing.T) {
 		{"dotnet milliseconds", "yyyy-MM-dd HH:mm:ss.fff", "2006-01-02 15:04:05.000"},
 		{"go format passthrough", "2006-01-02", "2006-01-02"},
 		{"go format with time", "2006-01-02 15:04:05", "2006-01-02 15:04:05"},
+		{"go time-only passthrough", "15:04:05", "15:04:05"},
 		{"month name long", "dd MMMM yyyy", "02 January 2006"},
 		{"month name short", "dd MMM yyyy", "02 Jan 2006"},
+		{"single letter month/day", "M/d/yyyy", "1/2/2006"},
+		{"single letter time", "H:m:s", "15:4:5"},
+		{"single letter 12h", "h:m:s tt", "3:4:5 PM"},
+		{"day of week full", "dddd, dd MMMM yyyy", "Monday, 02 January 2006"},
+		{"day of week short", "ddd, dd MMM yyyy", "Mon, 02 Jan 2006"},
+		{"day of week with single day", "dddd, MMMM d, yyyy", "Monday, January 2, 2006"},
+		{"timezone full offset", "yyyy-MM-dd HH:mm:ss zzz", "2006-01-02 15:04:05 -07:00"},
+		{"timezone hours", "yyyy-MM-dd zz", "2006-01-02 -07"},
+		{"iso8601 with T", "yyyy-MM-ddTHH:mm:ss", "2006-01-02T15:04:05"},
+		{"empty string", "", ""},
+		{"literal only", "T", "T"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
