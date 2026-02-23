@@ -22,15 +22,25 @@ jobs:
         with:
           go-version: ^1.26
       - name: Run tests
-        run: |
-          go mod download
-          go test -race -cover -coverprofile=coverage.out -covermode=atomic ./...
-          go tool cover -func coverage.out
+        run: make test
       - name: Check test coverage
         uses: vladopajic/go-test-coverage@v2
         with:
           profile: ./coverage.out
           threshold-total: 85
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ^1.26
+      - name: Run e2e tests
+        run: make e2e
 
   lint:
     name: Lint
@@ -61,7 +71,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test, e2e, lint]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
@@ -75,12 +85,13 @@ jobs:
   status-check:
     name: Status Check
     runs-on: ubuntu-latest
-    needs: [test, lint, vuln, build]
+    needs: [test, e2e, lint, vuln, build]
     if: always()
     steps:
       - name: Check results
         run: |
           if [[ "${{ needs.test.result }}" != "success" ]] || \
+             [[ "${{ needs.e2e.result }}" != "success" ]] || \
              [[ "${{ needs.lint.result }}" != "success" ]] || \
              [[ "${{ needs.vuln.result }}" != "success" ]] || \
              [[ "${{ needs.build.result }}" != "success" ]]; then
@@ -147,6 +158,10 @@ jobs:
         with:
           path: dist/
           merge-multiple: true
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum gitsemver-* > checksums.txt
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

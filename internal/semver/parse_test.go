@@ -122,6 +122,39 @@ func TestParseCommitMessageConvention_Invalid(t *testing.T) {
 	require.Contains(t, err.Error(), "unknown commit message convention")
 }
 
+func TestParseMainlineIncrementMode(t *testing.T) {
+	tests := []struct {
+		input string
+		want  MainlineIncrementMode
+	}{
+		{"Aggregate", MainlineIncrementAggregate},
+		{"aggregate", MainlineIncrementAggregate},
+		{"EachCommit", MainlineIncrementEachCommit},
+		{"eachcommit", MainlineIncrementEachCommit},
+		{"each-commit", MainlineIncrementEachCommit},
+		{"AGGREGATE", MainlineIncrementAggregate},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := ParseMainlineIncrementMode(tt.input)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestParseMainlineIncrementMode_Invalid(t *testing.T) {
+	_, err := ParseMainlineIncrementMode("percommit")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown mainline increment mode")
+}
+
+func TestMainlineIncrementMode_String(t *testing.T) {
+	require.Equal(t, "Aggregate", MainlineIncrementAggregate.String())
+	require.Equal(t, "EachCommit", MainlineIncrementEachCommit.String())
+	require.Equal(t, "Unknown", MainlineIncrementMode(99).String())
+}
+
 func TestVersioningMode_UnmarshalYAML(t *testing.T) {
 	var m VersioningMode
 	require.NoError(t, yaml.Unmarshal([]byte(`Mainline`), &m))
@@ -164,4 +197,21 @@ func TestCommitMessageIncrementMode_UnmarshalYAML_Invalid(t *testing.T) {
 func TestCommitMessageConvention_UnmarshalYAML_Invalid(t *testing.T) {
 	var c CommitMessageConvention
 	require.Error(t, yaml.Unmarshal([]byte(`bad`), &c))
+}
+
+func TestMainlineIncrementMode_UnmarshalYAML(t *testing.T) {
+	var m MainlineIncrementMode
+	require.NoError(t, yaml.Unmarshal([]byte(`EachCommit`), &m))
+	require.Equal(t, MainlineIncrementEachCommit, m)
+}
+
+func TestMainlineIncrementMode_UnmarshalYAML_HyphenForm(t *testing.T) {
+	var m MainlineIncrementMode
+	require.NoError(t, yaml.Unmarshal([]byte(`each-commit`), &m))
+	require.Equal(t, MainlineIncrementEachCommit, m)
+}
+
+func TestMainlineIncrementMode_UnmarshalYAML_Invalid(t *testing.T) {
+	var m MainlineIncrementMode
+	require.Error(t, yaml.Unmarshal([]byte(`bad`), &m))
 }

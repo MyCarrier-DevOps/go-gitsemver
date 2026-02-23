@@ -27,6 +27,7 @@ type EffectiveConfiguration struct {
 	LegacySemVerPadding              int
 	BuildMetaDataPadding             int
 	CommitsSinceVersionSourcePadding int
+	MainlineIncrement                semver.MainlineIncrementMode
 
 	// Branch-specific fields
 	BranchRegex                           string
@@ -73,6 +74,7 @@ func NewEffectiveConfiguration(cfg *Config, branch *BranchConfig) EffectiveConfi
 		LegacySemVerPadding:              derefInt(cfg.LegacySemVerPadding, 4),
 		BuildMetaDataPadding:             derefInt(cfg.BuildMetaDataPadding, 4),
 		CommitsSinceVersionSourcePadding: derefInt(cfg.CommitsSinceVersionSourcePadding, 4),
+		MainlineIncrement:                derefMainlineIncrementMode(cfg.MainlineIncrement, semver.MainlineIncrementAggregate),
 
 		// Ignore config
 		IgnoreCommitsBefore: cfg.Ignore.CommitsBefore,
@@ -153,6 +155,13 @@ func derefCommitMsgIncr(p *semver.CommitMessageIncrementMode, fallback semver.Co
 }
 
 func derefCommitMsgConv(p *semver.CommitMessageConvention, fallback semver.CommitMessageConvention) semver.CommitMessageConvention {
+	if p != nil {
+		return *p
+	}
+	return fallback
+}
+
+func derefMainlineIncrementMode(p *semver.MainlineIncrementMode, fallback semver.MainlineIncrementMode) semver.MainlineIncrementMode {
 	if p != nil {
 		return *p
 	}

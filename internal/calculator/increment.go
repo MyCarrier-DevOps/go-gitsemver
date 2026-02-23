@@ -100,6 +100,15 @@ func (f *IncrementStrategyFinder) branchDefault(
 	return field
 }
 
+// AnalyzeCommitIncrement returns the version bump for a single commit message.
+// Exported for use by MainlineVersionCalculator in per-commit mode.
+func (f *IncrementStrategyFinder) AnalyzeCommitIncrement(
+	c git.Commit,
+	ec config.EffectiveConfiguration,
+) semver.VersionField {
+	return f.analyzeCommit(c, ec)
+}
+
 // analyzeCommit extracts the version bump from a single commit message.
 func (f *IncrementStrategyFinder) analyzeCommit(
 	c git.Commit,

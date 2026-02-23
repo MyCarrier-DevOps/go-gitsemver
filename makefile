@@ -8,10 +8,20 @@ LDFLAGS := -X main.version=$(VERSION)
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) .
 
+# Unit tests with coverage (excludes e2e and testutil)
+COVER_PKGS := $(shell go list ./... | grep -v -E '/(e2e|testutil)')
+
 .PHONY: test
 test:
-	go test -race -cover -coverprofile=coverage.out -covermode=atomic ./...
+	go test -race -cover -coverprofile=coverage.out -covermode=atomic $(COVER_PKGS)
 	go tool cover -func coverage.out
+
+.PHONY: e2e
+e2e:
+	go test -race -count=1 -v ./e2e/...
+
+.PHONY: test-all
+test-all: test e2e
 
 .PHONY: lint
 lint: install-tools
@@ -53,3 +63,6 @@ coverage-check: test
 		echo "FAIL: Coverage $$TOTAL% is below 85% threshold"; \
 		exit 1; \
 	fi
+
+.PHONY: ci
+ci: fmt lint test-all coverage-check build

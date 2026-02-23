@@ -25,6 +25,7 @@ type Config struct {
 	LegacySemVerPadding              *int                               `yaml:"legacy-semver-padding"`
 	BuildMetaDataPadding             *int                               `yaml:"build-metadata-padding"`
 	CommitsSinceVersionSourcePadding *int                               `yaml:"commits-since-version-source-padding"`
+	MainlineIncrement                *semver.MainlineIncrementMode      `yaml:"mainline-increment"`
 	Branches                         map[string]*BranchConfig           `yaml:"branches"`
 	Ignore                           IgnoreConfig                       `yaml:"ignore"`
 	MergeMessageFormats              map[string]string                  `yaml:"merge-message-formats"`

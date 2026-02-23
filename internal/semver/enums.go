@@ -141,6 +141,42 @@ func (c CommitMessageConvention) String() string {
 	}
 }
 
+// MainlineIncrementMode controls how mainline mode applies version increments.
+type MainlineIncrementMode int
+
+const (
+	// MainlineIncrementAggregate finds the highest increment from all commits
+	// since the last tag and applies it once. Commit count goes into build metadata.
+	MainlineIncrementAggregate MainlineIncrementMode = iota
+	// MainlineIncrementEachCommit increments the version for each commit
+	// individually, matching GitVersion's per-commit behavior.
+	MainlineIncrementEachCommit
+)
+
+func (m MainlineIncrementMode) String() string {
+	switch m {
+	case MainlineIncrementAggregate:
+		return "Aggregate"
+	case MainlineIncrementEachCommit:
+		return "EachCommit"
+	default:
+		return "Unknown"
+	}
+}
+
+// ParseMainlineIncrementMode parses a string into a MainlineIncrementMode.
+// Matching is case-insensitive. Accepts hyphenated forms (e.g. "each-commit").
+func ParseMainlineIncrementMode(s string) (MainlineIncrementMode, error) {
+	switch strings.ToLower(s) {
+	case "aggregate":
+		return MainlineIncrementAggregate, nil
+	case "eachcommit", "each-commit":
+		return MainlineIncrementEachCommit, nil
+	default:
+		return 0, fmt.Errorf("unknown mainline increment mode: %q", s)
+	}
+}
+
 // ParseVersioningMode parses a string into a VersioningMode.
 // Matching is case-insensitive.
 func ParseVersioningMode(s string) (VersioningMode, error) {

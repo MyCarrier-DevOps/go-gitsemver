@@ -1,16 +1,29 @@
 # gitsemver
 
-A fast, cross-platform tool that automatically calculates [Semantic Versions](https://semver.org/) from your git history. No manual version files to maintain — versions are derived from tags, branches, commits, and merge history.
+A Go rewrite of [GitVersion](https://github.com/GitTools/GitVersion) (v5.12.0), redesigned with 12 architectural improvements. Automatic [Semantic Versioning](https://semver.org/) from your git history — no version files to maintain.
+
+[![CI](../../actions/workflows/ci.yaml/badge.svg)](../../actions/workflows/ci.yaml)
+
+## Why gitsemver
+
+- **Zero configuration required** — works out of the box with sensible defaults for GitFlow, trunk-based, and CD workflows
+- **Single static binary** — no runtime dependencies, runs on Linux, macOS, and Windows
+- **Conventional Commits** — first-class support for `feat:`, `fix:`, `feat!:`, and `BREAKING CHANGE:` footers
+- **Branch-aware** — eight built-in branch types with configurable pre-release labels, increment strategies, and versioning modes
+- **30+ output variables** — `SemVer`, `FullSemVer`, `NuGetVersion`, `Sha`, `BranchName`, and more
+- **Squash merge aware** — correctly parses GitHub, GitLab, and Bitbucket squash merge formats
 
 ## Installation
 
 ### Pre-built binaries
 
-Download the latest release from [GitHub Releases](../../releases) for your platform:
+Download the latest release from [GitHub Releases](../../releases):
 
-- Linux (amd64, arm64)
-- macOS (amd64, arm64)
-- Windows (amd64)
+| Platform | Architecture |
+|----------|-------------|
+| Linux | amd64, arm64 |
+| macOS | amd64, arm64 |
+| Windows | amd64 |
 
 ### From source
 
@@ -24,135 +37,132 @@ go install go-gitsemver@latest
 gitsemver version
 ```
 
-## Quick Start
+## Quick start
 
 Run `gitsemver` in any git repository:
 
 ```bash
-# Full JSON output with all version variables
+# Show all version variables
 gitsemver
 
-# Just the semver string
+# Get just the semver string
 gitsemver --show-variable SemVer
+# Output: 1.2.3-beta.4
 
-# Show what's happening under the hood
-gitsemver --explain
+# JSON output for CI pipelines
+gitsemver -o json
+
+# See the effective configuration
+gitsemver --show-config
 ```
 
-Output:
+### Example output
 
-```json
-{
-  "Major": 1,
-  "Minor": 2,
-  "Patch": 3,
-  "SemVer": "1.2.3-beta.4",
-  "FullSemVer": "1.2.3-beta.4+5",
-  "MajorMinorPatch": "1.2.3",
-  "PreReleaseTag": "beta.4",
-  "CommitsSinceVersionSource": 5,
-  "Sha": "abc1234def567890...",
-  "ShortSha": "abc1234",
-  "BranchName": "release/1.2.3",
-  ...
-}
+```
+Major=1
+Minor=2
+Patch=3
+SemVer=1.2.3
+FullSemVer=1.2.3+5
+MajorMinorPatch=1.2.3
+BranchName=main
+Sha=abc1234def567890...
+ShortSha=abc1234
+CommitsSinceVersionSource=5
+...
 ```
 
-## How It Works
+## How it works
 
-gitsemver analyzes your git repository to determine the current version:
+gitsemver analyzes your git repository in four steps:
 
-1. **Finds the latest version tag** on the current branch (e.g., `v1.2.3`)
-2. **Determines the increment** (major, minor, or patch) from commit messages and branch configuration
-3. **Applies a pre-release label** based on the branch type (e.g., `alpha` for develop, `rc` for release branches)
-4. **Attaches build metadata** including commit count, SHA, and branch name
+1. **Find the base version** — scans tags, merge messages, branch names, and configuration for the latest version
+2. **Determine the increment** — reads commit messages (Conventional Commits and/or bump directives) and branch config to decide major, minor, or patch
+3. **Apply pre-release labels** — adds branch-specific labels (`alpha`, `beta`, `{BranchName}`, etc.) with auto-incrementing numbers
+4. **Attach build metadata** — commit count, SHA, branch name, and commit date
 
 ```
 main:       1.0.0 → 1.0.1 → 1.1.0
 develop:    1.1.0-alpha.1 → 1.1.0-alpha.2
-release:    1.1.0-rc.1 → 1.1.0-rc.2
+release:    1.1.0-beta.1 → 1.1.0-beta.2
 feature:    1.1.0-my-feature.1
 hotfix:     1.0.2-beta.1
 ```
 
-## Features
-
-### Automatic Versioning from Git History
-
-No version files to maintain. gitsemver reads your tags, branches, commit messages, and merge history to calculate the correct version at any point in your repository.
-
-### Conventional Commits
-
-First-class support for [Conventional Commits](https://www.conventionalcommits.org/):
+## CLI reference
 
 ```
-feat: add user authentication      → Minor bump
-fix: resolve null pointer in login  → Patch bump
-feat!: redesign API                 → Major bump
-
-# Footer style also works:
-refactor: change auth flow
-
-BREAKING CHANGE: token format changed
+gitsemver [flags]
+gitsemver [command]
 ```
 
-Also supports explicit `bump` directives anywhere in a commit or merge message:
+### Flags
 
-```
-bump major
-bump minor
-bump patch
-bump none       # or: bump skip
-```
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--path` | `-p` | `.` | Path to the git repository |
+| `--branch` | `-b` | *(HEAD)* | Target branch name |
+| `--commit` | `-c` | *(tip)* | Target commit SHA |
+| `--config` | | *(auto)* | Path to config file |
+| `--output` | `-o` | | Output format: `json` or default (key=value) |
+| `--show-variable` | | | Show a single variable (e.g., `SemVer`) |
+| `--show-config` | | | Print the effective configuration and exit |
+| `--explain` | | | Show how the version was calculated |
+| `--verbosity` | `-v` | `info` | Log verbosity: `quiet`, `info`, `debug` |
 
-Configurable via `commit-message-convention`:
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `gitsemver` | Calculate and display version (default) |
+| `gitsemver version` | Print the gitsemver binary version |
+
+## Configuration
+
+Place a `gitsemver.yml` (or `GitVersion.yml`) in your repository root. All fields are optional — defaults are applied automatically.
 
 ```yaml
-commit-message-convention: conventional-commits  # or: bump-directive, both (default)
+# gitsemver.yml
+mode: ContinuousDelivery          # ContinuousDelivery, ContinuousDeployment, or Mainline
+tag-prefix: '[vV]'                 # Regex to match version tag prefixes
+base-version: 0.1.0               # Starting version when no tags exist
+commit-message-convention: Both    # ConventionalCommits, BumpDirective, or Both
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    tag: ''                        # Empty = stable version (no pre-release)
+    is-mainline: true
+
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    increment: Minor
+    tag: alpha
+
+  release:
+    regex: ^releases?[/-]
+    increment: None
+    tag: beta
+    is-release-branch: true
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'            # Replaced with branch name
+
+ignore:
+  sha: []
+  commits-before: 2020-01-01
 ```
 
-### Squash Merge Awareness
+See the full [Configuration Reference](docs/CONFIGURATION.md) for all options.
 
-Works with squash merges out of the box. Parses common squash merge formats:
-
-```
-feat: add login page (#123)                         # GitHub squash
-Merge branch 'feature/auth' into 'main'             # GitLab squash
-Merged in feature/auth (pull request #123)           # Bitbucket
-```
-
-### Explain Mode
-
-Understand exactly why gitsemver calculated a specific version:
-
-```bash
-gitsemver --explain
-```
-
-```
-Strategies evaluated:
-  TaggedCommit:  1.2.0 from tag v1.2.0 (3 commits ago) → effective 1.3.0
-  MergeMessage:  (none)
-  BranchName:    (none)
-  Fallback:      0.1.0
-
-Selected: TaggedCommit (effective 1.3.0, oldest source at 2025-01-15)
-
-Increment: Minor
-  Source: commit abc1234 "feat: add user authentication" (Conventional Commits)
-
-Pre-release: feature-login.1
-  Branch config tag: {BranchName} → "feature-login"
-  No existing tag for 1.3.0-feature-login → number = 1
-
-Result: 1.3.0-feature-login.1+3
-```
-
-### Three Versioning Modes
+### Versioning modes
 
 #### ContinuousDelivery (default)
 
-Pre-release versions track the branch; stable versions are produced when tags are applied manually.
+Pre-release versions track the branch. Stable versions are produced when you tag manually.
 
 ```
 develop:  1.1.0-alpha.1, 1.1.0-alpha.2, 1.1.0-alpha.3
@@ -161,220 +171,133 @@ main:     tag v1.1.0 → 1.1.0
 
 #### ContinuousDeployment
 
-Every commit gets a unique, monotonically increasing version. Commits-since-tag is promoted to the pre-release number.
+Every commit gets a unique, monotonically increasing version.
 
 ```
-main: 1.0.1-ci.1, 1.0.1-ci.2, 1.0.1-ci.3  (each commit is deployable)
+main: 1.0.1-ci.1, 1.0.1-ci.2, 1.0.1-ci.3
 ```
 
 #### Mainline
 
-The highest increment from all commits since the last tag is applied once. Commit count goes into build metadata. Version numbers stay semantically meaningful.
+By default, the highest increment from all commits since the last tag is applied once. Commit count goes into build metadata.
 
 ```
-main:     v1.0.0 ... 5 commits (fixes + feat) ... → 1.1.0+5
-feature:  1.1.0-my-feature.1+2
+main: v1.0.0 ... 5 commits (fixes + feat) ... → 1.1.0+5
 ```
 
-To force a version jump, tag manually or use `bump major` / `feat!:` in a commit.
-
-### Branch-Aware Defaults
-
-Eight built-in branch configurations with sensible defaults:
-
-| Branch | Regex | Increment | Tag | Example Version |
-|--------|-------|-----------|-----|-----------------|
-| main | `^master$\|^main$` | Patch | *(empty — stable)* | `1.2.3` |
-| develop | `^dev(elop)?(ment)?$` | Minor | `alpha` | `1.3.0-alpha.4` |
-| release | `^releases?[/-]` | None | `beta` | `1.3.0-beta.1` |
-| feature | `^features?[/-]` | Inherit | `{BranchName}` | `1.3.0-my-feature.1` |
-| hotfix | `^hotfix(es)?[/-]` | Patch | `beta` | `1.2.4-beta.1` |
-| pull-request | `^(pull\|pull-requests\|pr)[/-]` | Inherit | `PullRequest` | `1.3.0-PullRequest0005.1` |
-| support | `^support[/-]` | Patch | *(empty — stable)* | `1.2.4` |
-| unknown | `.*` | Inherit | `{BranchName}` | `1.3.0-my-branch.1` |
-
-The `unknown` branch is a catch-all — any branch that doesn't match a known pattern is treated like a feature branch. It has the lowest priority, so it only matches when nothing else does.
-
-### 30+ Output Variables
-
-Full set of version variables for any CI/CD pipeline:
-
-| Variable | Example |
-|----------|---------|
-| `Major`, `Minor`, `Patch` | `1`, `2`, `3` |
-| `MajorMinorPatch` | `1.2.3` |
-| `SemVer` | `1.2.3-beta.4` |
-| `FullSemVer` | `1.2.3-beta.4+5` |
-| `LegacySemVer` | `1.2.3-beta4` |
-| `LegacySemVerPadded` | `1.2.3-beta0004` |
-| `InformationalVersion` | `1.2.3-beta.4+5.Branch.main.Sha.abc1234` |
-| `PreReleaseTag` | `beta.4` |
-| `PreReleaseLabel` | `beta` |
-| `PreReleaseNumber` | `4` |
-| `WeightedPreReleaseNumber` | `60004` |
-| `BuildMetaData` | `5` |
-| `FullBuildMetaData` | `5.Branch.main.Sha.abc1234` |
-| `BranchName` | `main` |
-| `EscapedBranchName` | `main` |
-| `Sha` | `abc1234def567890...` |
-| `ShortSha` | `abc1234` |
-| `CommitDate` | `2025-01-15` |
-| `VersionSourceSha` | `def5678...` |
-| `CommitsSinceVersionSource` | `5` |
-| `UncommittedChanges` | `0` |
-| `AssemblySemVer` | `1.2.3.0` |
-| `AssemblySemFileVer` | `1.2.3.0` |
-| `AssemblyInformationalVersion` | `1.2.3-beta.4+5.Branch.main.Sha.abc1234` |
-| `NuGetVersionV2` | `1.2.3-beta0004` |
-| `NuGetPreReleaseTagV2` | `beta0004` |
-
-## CLI Reference
-
-```
-gitsemver [flags]
-```
-
-### Flags
-
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--path` | `-p` | Repository path (defaults to current directory) |
-| `--branch` | `-b` | Target branch name |
-| `--commit` | `-c` | Target commit SHA |
-| `--output` | `-o` | Output format: `json` (default), `buildserver`, `file` |
-| `--output-file` | | File path to write version info to |
-| `--show-variable` | | Show only a specific variable (e.g., `SemVer`) |
-| `--show-config` | | Print the effective configuration |
-| `--override-config` | | Override config values (e.g., `tag-prefix=custom`) |
-| `--no-cache` | | Disable version caching |
-| `--explain` | | Show the full decision tree for the version calculation |
-| `--allow-shallow` | | Allow running on shallow clones (default: `false` — exits with error) |
-| `--verbosity` | `-v` | Log verbosity: `quiet`, `normal`, `verbose`, `diagnostic` |
-
-### Subcommands
-
-| Command | Description |
-|---------|-------------|
-| `gitsemver version` | Print the gitsemver binary version |
-| `gitsemver show-config` | Print the effective configuration as YAML |
-
-## Configuration
-
-Place a `gitsemver.yml` in your repository root. All fields are optional — sensible defaults are applied.
+For GitVersion-compatible per-commit incrementing, set `mainline-increment: EachCommit`:
 
 ```yaml
-# gitsemver.yml
-mode: ContinuousDelivery
-tag-prefix: '[vV]'
-base-version: 0.1.0                      # version used when no tags exist (default: 0.1.0)
-commit-message-convention: both          # conventional-commits, bump-directive, or both
-increment: Inherit
-continuous-delivery-fallback-tag: ci
-commit-date-format: 'yyyy-MM-dd'
-
-branches:
-  main:
-    regex: ^master$|^main$
-    increment: Patch
-    tag: ''
-    is-mainline: true
-    source-branches: [release, hotfix]
-
-  develop:
-    regex: ^dev(elop)?(ment)?$
-    increment: Minor
-    tag: alpha
-    tracks-release-branches: true
-    source-branches: [main, release, hotfix, support]
-
-  release:
-    regex: ^releases?[/-]
-    increment: None
-    tag: beta
-    is-release-branch: true
-    source-branches: [develop, main, support, release]
-
-  feature:
-    regex: ^features?[/-]
-    increment: Inherit
-    tag: '{BranchName}'
-    source-branches: [develop, main, release, hotfix, support]
-
-  hotfix:
-    regex: ^hotfix(es)?[/-]
-    increment: Patch
-    tag: beta
-    source-branches: [main, support]
-
-  pull-request:
-    regex: ^(pull|pull-requests|pr)[/-]
-    increment: Inherit
-    tag: PullRequest
-    tag-number-pattern: '[/-](?<number>\d+)'
-    source-branches: [develop, main, release, feature, hotfix, support]
-
-  support:
-    regex: ^support[/-]
-    increment: Patch
-    tag: ''
-    is-mainline: true
-    source-branches: [main]
-
-ignore:
-  sha: []
-  commits-before: 2020-01-01
-
-merge-message-formats:
-  custom: '^Merged PR (?<PullRequestNumber>\d+): .*$'
+mode: Mainline
+mainline-increment: EachCommit   # fix→1.0.1, fix→1.0.2, feat→1.1.0, fix→1.1.1
 ```
 
-### Configuration Resolution Order
+### Commit message conventions
 
-1. Built-in defaults
-2. `gitsemver.yml` file values
-3. CLI `--override-config` flags
+#### Conventional Commits
 
-Branch configs inherit from global config where unset. The `Inherit` increment strategy walks up the source-branch hierarchy until it finds a concrete value (fallback: `Patch`).
+```
+feat: add user authentication      → Minor
+fix: resolve null pointer           → Patch
+feat!: redesign API                 → Major
 
-## CI/CD Integration
+feat: change auth flow
+
+BREAKING CHANGE: token format changed  → Major
+```
+
+#### Bump directives
+
+```
+some change +semver: major          → Major
+some change +semver: feature        → Minor
+some change +semver: fix            → Patch
+some change +semver: skip           → No bump
+```
+
+### Branch defaults
+
+| Branch | Regex | Increment | Pre-release tag | Priority |
+|--------|-------|-----------|-----------------|----------|
+| main | `^master$\|^main$` | Patch | *(stable)* | 100 |
+| develop | `^dev(elop)?(ment)?$` | Minor | `alpha` | 60 |
+| release | `^releases?[/-]` | None | `beta` | 90 |
+| feature | `^features?[/-]` | Inherit | `{BranchName}` | 50 |
+| hotfix | `^hotfix(es)?[/-]` | Patch | `beta` | 80 |
+| pull-request | `^(pull\|pull-requests\|pr)[/-]` | Inherit | `PullRequest` | 40 |
+| support | `^support[/-]` | Patch | *(stable)* | 70 |
+| unknown | `.*` | Inherit | `{BranchName}` | 0 |
+
+## Output variables
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `Major` | `1` | Major version component |
+| `Minor` | `2` | Minor version component |
+| `Patch` | `3` | Patch version component |
+| `MajorMinorPatch` | `1.2.3` | Major.Minor.Patch |
+| `SemVer` | `1.2.3-beta.4` | Semantic version with pre-release |
+| `FullSemVer` | `1.2.3-beta.4+5` | SemVer with build metadata |
+| `LegacySemVer` | `1.2.3-beta4` | Legacy format (no dot before number) |
+| `LegacySemVerPadded` | `1.2.3-beta0004` | Legacy format with zero-padding |
+| `InformationalVersion` | `1.2.3-beta.4+5.Branch.main.Sha.abc1234` | Full version string |
+| `PreReleaseTag` | `beta.4` | Pre-release tag with number |
+| `PreReleaseLabel` | `beta` | Pre-release label only |
+| `PreReleaseNumber` | `4` | Pre-release number |
+| `BuildMetaData` | `5` | Commits since tag |
+| `FullBuildMetaData` | `5.Branch.main.Sha.abc1234` | Full build metadata string |
+| `BranchName` | `main` | Current branch name |
+| `Sha` | `abc1234def567...` | Full commit SHA |
+| `ShortSha` | `abc1234` | Short commit SHA (7 chars) |
+| `CommitDate` | `2025-01-15` | Commit date |
+| `CommitsSinceVersionSource` | `5` | Commits since base version |
+| `UncommittedChanges` | `0` | Dirty working tree count |
+| `AssemblySemVer` | `1.2.3.0` | .NET assembly version |
+| `NuGetVersionV2` | `1.2.3-beta0004` | NuGet-compatible version |
+| `WeightedPreReleaseNumber` | `60004` | Sortable pre-release weight |
+
+## CI/CD integration
 
 ### GitHub Actions
 
 ```yaml
-- name: Calculate version
-  id: version
-  run: |
-    echo "semver=$(gitsemver --show-variable SemVer)" >> "$GITHUB_OUTPUT"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history required
 
-- name: Build
-  run: |
-    docker build -t myapp:${{ steps.version.outputs.semver }} .
+      - name: Calculate version
+        id: version
+        run: echo "semver=$(gitsemver --show-variable SemVer)" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: docker build -t myapp:${{ steps.version.outputs.semver }} .
 ```
 
 ### GitLab CI
 
 ```yaml
-variables:
-  VERSION: $(gitsemver --show-variable SemVer)
-
 build:
   script:
-    - gitsemver --output buildserver
+    - VERSION=$(gitsemver --show-variable SemVer)
     - echo "Building version $VERSION"
+    - docker build -t myapp:$VERSION .
 ```
 
 ### Generic
 
 ```bash
-# Use in any CI system
 VERSION=$(gitsemver --show-variable SemVer)
-echo "Building version: $VERSION"
+echo "Version: $VERSION"
 
-# Write to file
-gitsemver --output file --output-file version.json
+# JSON output
+gitsemver -o json > version.json
 ```
 
-## Workflow Examples
+## Workflow examples
 
 ### GitFlow
 
@@ -386,7 +309,7 @@ develop   ●───●───●───●──● ────── 1.
 feature/auth    ●───●  ────────── 1.1.0-auth.1..2
 ```
 
-### Trunk-Based (Mainline Mode)
+### Trunk-based (Mainline mode)
 
 ```yaml
 mode: Mainline
@@ -411,15 +334,32 @@ main ───●─────●─────●─────●
         (tag)  (auto)       (auto)       (auto)
 ```
 
+## Development
+
+```bash
+make build           # Build binary
+make test            # Unit tests with coverage
+make e2e             # End-to-end tests
+make test-all        # Unit + e2e tests
+make lint            # Run linter
+make fmt             # Format code
+make coverage-check  # Verify coverage >= 85%
+make ci              # Full CI pipeline (fmt + lint + test-all + coverage + build)
+```
+
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — System design and module layout
-- [SemVer Calculation](docs/SEMVER_CALCULATION.md) — How versions are calculated step by step
-- [Version Strategies](docs/VERSION_STRATEGIES.md) — The strategies used to discover base versions
-- [Branch Workflows](docs/BRANCH_WORKFLOWS.md) — Branch types, versioning modes, and defaults
-- [Configuration](docs/CONFIGURATION.md) — All configuration options
-- [Git Analysis](docs/GIT_ANALYSIS.md) — What git data is consumed and how
-- [CLI Interface](docs/CLI_INTERFACE.md) — Commands, output variables, and formats
+| Document | Description |
+|----------|-------------|
+| [Configuration Reference](docs/CONFIGURATION.md) | All configuration options with defaults |
+| [Architecture](docs/ARCHITECTURE.md) | System design and module layout |
+| [SemVer Calculation](docs/SEMVER_CALCULATION.md) | How versions are calculated step by step |
+| [Version Strategies](docs/VERSION_STRATEGIES.md) | The 6 strategies used to discover base versions |
+| [Branch Workflows](docs/BRANCH_WORKFLOWS.md) | Branch types, versioning modes, and defaults |
+
+## Acknowledgements
+
+gitsemver is a ground-up rewrite of [GitVersion](https://github.com/GitTools/GitVersion) v5.12.0 (C#/.NET) in Go. It preserves the core versioning model — branch-aware strategies, three versioning modes, and `GitVersion.yml` configuration compatibility — while introducing 12 design improvements including immutable types, a single-increment pipeline, Conventional Commits support, squash merge awareness, and a simplified mainline calculator. See [COMPARISON.md](docs/COMPARISON.md) for a full breakdown.
 
 ## License
 

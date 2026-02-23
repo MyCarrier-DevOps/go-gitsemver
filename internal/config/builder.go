@@ -99,6 +99,9 @@ func mergeConfig(dst, src *Config) {
 	if src.CommitsSinceVersionSourcePadding != nil {
 		dst.CommitsSinceVersionSourcePadding = src.CommitsSinceVersionSourcePadding
 	}
+	if src.MainlineIncrement != nil {
+		dst.MainlineIncrement = src.MainlineIncrement
+	}
 
 	// Branch configs: merge per-key
 	if src.Branches != nil {

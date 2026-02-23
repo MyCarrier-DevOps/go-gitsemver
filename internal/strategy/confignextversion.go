@@ -38,7 +38,8 @@ func (s *ConfigNextVersionStrategy) GetBaseVersions(
 		return nil, nil
 	}
 
-	ver, err := semver.Parse(nextVersion, ec.TagPrefix)
+	// next-version is a bare version string (no tag prefix).
+	ver, err := semver.Parse(nextVersion, "")
 	if err != nil {
 		return nil, fmt.Errorf("parsing next-version %q: %w", nextVersion, err)
 	}

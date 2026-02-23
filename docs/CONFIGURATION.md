@@ -1,352 +1,419 @@
 # Configuration Reference
 
-GitVersion 5.12.0 is configured via a `.gitversion.yml` file in the repository root. This document covers all configuration options, their defaults, and effects.
-
-Source: `GitVersion/src/GitVersion.Core/Model/Configuration/Config.cs`, `BranchConfig.cs`, `ConfigurationBuilder.cs`
+gitsemver is configured via a `gitsemver.yml` or `GitVersion.yml` file in the repository root. All fields are optional — sensible defaults are applied.
 
 ---
 
-## Configuration File Format
+## Configuration file
+
+gitsemver searches for configuration in this order:
+
+1. `GitVersion.yml` in the repository root
+2. `gitsemver.yml` in the repository root
+3. Path specified by `--config` flag (highest priority)
+
+If no file is found, built-in defaults are used.
 
 ```yaml
-# .gitversion.yml
+# gitsemver.yml — minimal example
 mode: ContinuousDelivery
 tag-prefix: '[vV]'
 next-version: 1.0.0
-increment: Inherit
 branches:
   main:
     regex: ^master$|^main$
     increment: Patch
     tag: ''
-  develop:
-    regex: ^dev(elop)?(ment)?$
-    increment: Minor
-    tag: alpha
-  # ... more branches
-ignore:
-  sha: []
-  commits-before: 2020-01-01
-merge-message-formats:
-  custom: '^Merged PR (?<PullRequestNumber>\d+): .*$'
 ```
 
 ---
 
-## Global Configuration Options
+## Global options
 
 ### mode
-**Type:** Enum
-**Default:** `ContinuousDelivery`
-**Values:** `ContinuousDelivery`, `ContinuousDeployment`, `Mainline`
+
+| | |
+|---|---|
+| **Type** | Enum |
+| **Default** | `ContinuousDelivery` |
+| **Values** | `ContinuousDelivery`, `ContinuousDeployment`, `Mainline` |
 
 Sets the default versioning mode for all branches. Individual branches can override this.
 
-- **ContinuousDelivery** - Pre-release number from tag scanning; manual release trigger
-- **ContinuousDeployment** - Commits-since-tag promoted to pre-release number; every commit unique
-- **Mainline** - Each commit increments; no pre-release on mainline branches
-
-### tag-prefix
-**Type:** Regex string
-**Default:** `[vV]`
-
-Regex pattern to identify version tags. Stripped from tag names before parsing.
-- `[vV]` matches tags like `v1.0.0` or `V1.0.0`
-- Use `""` for tags without prefix like `1.0.0`
-
-### base-version
-**Type:** String (semver)
-**Default:** `0.1.0`
-
-The starting version used by the Fallback strategy when no tags exist in the repository. This is permanent — it always applies when no tags are found.
-
-- Different from `next-version`: `base-version` is the permanent default; `next-version` is a temporary override
-- Accepts `"1"` (auto-converted to `"1.0.0"`) or full `"1.0.0"`
+- **ContinuousDelivery** — Pre-release numbers from tag scanning. Stable versions require manual tagging.
+- **ContinuousDeployment** — Commits-since-tag promoted to pre-release number. Every commit gets a unique version.
+- **Mainline** — Highest increment from all commits applied once. Commit count in build metadata.
 
 ```yaml
-base-version: 1.0.0   # start at 1.0.0 instead of 0.1.0
+mode: ContinuousDeployment
+```
+
+### tag-prefix
+
+| | |
+|---|---|
+| **Type** | Regex string |
+| **Default** | `[vV]` |
+
+Regex pattern to identify and strip version tag prefixes. Applied when parsing tags like `v1.0.0`.
+
+```yaml
+tag-prefix: '[vV]'     # matches v1.0.0, V1.0.0
+tag-prefix: ''          # no prefix, matches 1.0.0 directly
+tag-prefix: 'release-'  # matches release-1.0.0
+```
+
+### base-version
+
+| | |
+|---|---|
+| **Type** | Semver string |
+| **Default** | `0.1.0` |
+
+The starting version used by the Fallback strategy when no tags exist. This is permanent — it applies whenever no tags are found.
+
+```yaml
+base-version: 1.0.0    # start at 1.0.0 instead of 0.1.0
 ```
 
 ### next-version
-**Type:** String (semver)
-**Default:** (none)
 
-Explicitly sets the next version. Overrides tag-based calculation.
-- Accepts `"2"` (auto-converted to `"2.0"`) or full `"2.1.0"`
-- Ignored if current commit is tagged
+| | |
+|---|---|
+| **Type** | Semver string |
+| **Default** | *(none)* |
+
+Explicitly sets the next version, overriding tag-based calculation.
+
+- Ignored if the current commit is already tagged
 - Does NOT increment (used as-is)
+- Remove this field after tagging the release
+
+```yaml
+next-version: 2.0.0    # force next version to 2.0.0
+```
 
 ### increment
-**Type:** Enum
-**Default:** `Inherit`
-**Values:** `None`, `Major`, `Minor`, `Patch`, `Inherit`
 
-Default increment strategy for branches that don't specify their own.
-- `Inherit` means the branch inherits from its source/parent branch
+| | |
+|---|---|
+| **Type** | Enum |
+| **Default** | `Inherit` |
+| **Values** | `None`, `Major`, `Minor`, `Patch`, `Inherit` |
+
+Default increment strategy for branches that don't specify their own. `Inherit` resolves from the source branch hierarchy, with a final fallback to `Patch`.
+
+### mainline-increment
+
+| | |
+|---|---|
+| **Type** | Enum |
+| **Default** | `Aggregate` |
+| **Values** | `Aggregate`, `EachCommit` |
+
+Controls how mainline mode applies version increments. Only relevant when `mode: Mainline`.
+
+- **Aggregate** (default) — Finds the highest increment from all commits since the last tag and applies it once. Commit count goes into build metadata for uniqueness.
+- **EachCommit** — Increments the version for each commit individually, matching GitVersion's per-commit behavior.
+
+```yaml
+mode: Mainline
+mainline-increment: EachCommit
+```
+
+| Mode | Example (`v1.0.0` → fix → fix → feat → fix) | Result |
+|------|-----------------------------------------------|--------|
+| `Aggregate` | Highest = Minor, applied once | `1.1.0+4` |
+| `EachCommit` | fix→1.0.1, fix→1.0.2, feat→1.1.0, fix→1.1.1 | `1.1.1` |
 
 ### continuous-delivery-fallback-tag
-**Type:** String
-**Default:** `ci`
+
+| | |
+|---|---|
+| **Type** | String |
+| **Default** | `ci` |
 
 Pre-release label used in ContinuousDeployment mode when no branch-specific tag is configured.
 
-### commit-message-incrementing
-**Type:** Enum
-**Default:** `Enabled`
-**Values:** `Enabled`, `Disabled`, `MergeMessageOnly`
-
-Controls whether commit messages are scanned for `+semver:` directives.
-- **Enabled** - All commits scanned
-- **Disabled** - Commit messages ignored, only branch config increment used
-- **MergeMessageOnly** - Only merge commits (>1 parent) scanned
-
-### major-version-bump-message
-**Type:** Regex
-**Default:** `\+semver:\s?(breaking|major)`
-
-Commit message pattern that triggers a major version bump.
-
-### minor-version-bump-message
-**Type:** Regex
-**Default:** `\+semver:\s?(feature|minor)`
-
-Commit message pattern that triggers a minor version bump.
-
-### patch-version-bump-message
-**Type:** Regex
-**Default:** `\+semver:\s?(fix|patch)`
-
-Commit message pattern that triggers a patch version bump.
-
-### no-bump-message
-**Type:** Regex
-**Default:** `\+semver:\s?(none|skip)`
-
-Commit message pattern that explicitly prevents a version bump.
-
-### merge-message-formats
-**Type:** Dictionary<string, string>
-**Default:** (empty)
-
-Custom merge message regex patterns. Added on top of the 6 built-in formats.
 ```yaml
-merge-message-formats:
-  custom-azure: '^Merged PR (?<PullRequestNumber>\d+): .*$'
+continuous-delivery-fallback-tag: ci    # produces 1.0.1-ci.5
 ```
 
-### commit-date-format
-**Type:** String
-**Default:** `yyyy-MM-dd`
+### commit-message-incrementing
 
-Format string for the `CommitDate` output variable.
+| | |
+|---|---|
+| **Type** | Enum |
+| **Default** | `Enabled` |
+| **Values** | `Enabled`, `Disabled`, `MergeMessageOnly` |
 
-### update-build-number
-**Type:** Boolean
-**Default:** `true`
+Controls whether commit messages are scanned for version bump information.
 
-Whether to update the CI build number with the calculated version.
+- **Enabled** — All commits are scanned
+- **Disabled** — Commit messages ignored; only branch config increment used
+- **MergeMessageOnly** — Only merge commits (2+ parents) are scanned
 
-### tag-pre-release-weight
-**Type:** Integer
-**Default:** `60000`
+### commit-message-convention
 
-Weight used for tagged pre-release versions in `WeightedPreReleaseNumber` output variable calculation.
+| | |
+|---|---|
+| **Type** | Enum |
+| **Default** | `Both` |
+| **Values** | `ConventionalCommits`, `BumpDirective`, `Both` |
 
-### legacy-semver-padding
-**Type:** Integer
-**Default:** `4`
+Which commit message conventions to recognize.
 
-Padding for legacy semver pre-release number (e.g., `beta0004`).
+- **ConventionalCommits** — `feat:`, `fix:`, `feat!:`, `BREAKING CHANGE:` footers
+- **BumpDirective** — `+semver: major`, `+semver: minor`, `+semver: fix`, `+semver: skip`
+- **Both** — Recognizes both conventions, highest bump wins
 
-### build-metadata-padding
-**Type:** Integer
-**Default:** `4`
+### Bump message patterns
 
-Padding for build metadata number (e.g., `+0004`).
+| Option | Default | Triggers |
+|--------|---------|----------|
+| `major-version-bump-message` | `\+semver:\s?(breaking\|major)` | Major bump |
+| `minor-version-bump-message` | `\+semver:\s?(feature\|minor)` | Minor bump |
+| `patch-version-bump-message` | `\+semver:\s?(fix\|patch)` | Patch bump |
+| `no-bump-message` | `\+semver:\s?(none\|skip)` | No bump |
 
-### commits-since-version-source-padding
-**Type:** Integer
-**Default:** `4`
+These are regex patterns matched against commit messages. Override them to use your own conventions:
 
-Padding for `CommitsSinceVersionSourcePadded` output variable.
+```yaml
+major-version-bump-message: '\[major\]'
+minor-version-bump-message: '\[minor\]'
+patch-version-bump-message: '\[patch\]'
+```
 
-### assembly-versioning-scheme
-**Type:** Enum
-**Default:** `MajorMinorPatch`
+### merge-message-formats
 
-.NET assembly versioning scheme. Controls which parts of the version are included.
+| | |
+|---|---|
+| **Type** | Map of string to regex |
+| **Default** | *(empty — uses 6 built-in + 2 squash formats)* |
 
-### assembly-file-versioning-scheme
-**Type:** Enum
-**Default:** `MajorMinorPatch`
+Custom merge message regex patterns added on top of built-in formats. Must include a `(?P<SourceBranch>...)` capture group.
 
-.NET assembly file versioning scheme.
+```yaml
+merge-message-formats:
+  azure-devops: '^Merged PR (?P<PullRequestNumber>\d+): Merge (?P<SourceBranch>.+) into .+'
+```
 
-### assembly-informational-format
-**Type:** Format string
-**Default:** (none, uses InformationalVersion)
+### Formatting options
 
-Custom format for AssemblyInformationalVersion.
-
-### assembly-versioning-format / assembly-file-versioning-format
-**Type:** Format string
-**Default:** (none)
-
-Custom format strings for assembly versioning.
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `commit-date-format` | String | `2006-01-02` | Go time format for `CommitDate` variable |
+| `tag-pre-release-weight` | Integer | `60000` | Weight for tagged pre-release versions |
+| `legacy-semver-padding` | Integer | `4` | Zero-padding for legacy semver (e.g., `beta0004`) |
+| `build-metadata-padding` | Integer | `4` | Zero-padding for build metadata |
+| `commits-since-version-source-padding` | Integer | `4` | Zero-padding for commits-since count |
 
 ---
 
-## Branch Configuration Options
+## Branch configuration
 
-Each branch type is configured under the `branches:` key.
+Each branch type is configured under the `branches:` key. gitsemver includes 8 built-in branch configs that can be customized.
 
-### regex
-**Type:** Regex string
-**Required:** Yes
+### Branch options
 
-Pattern to match branch names against. First matching branch config wins.
+#### regex
 
-**Default patterns:**
-| Branch Key | Default Regex |
-|------------|--------------|
-| main | `^master$\|^main$` |
-| develop | `^dev(elop)?(ment)?$` |
-| release | `^releases?[/-]` |
-| feature | `^features?[/-]` |
-| hotfix | `^hotfix(es)?[/-]` |
-| pull-request | `^(pull\|pull\-requests\|pr)[/-]` |
-| support | `^support[/-]` |
-| unknown | `.*` |
+| | |
+|---|---|
+| **Type** | Regex string |
+| **Required** | Yes |
 
-### increment
-**Type:** Enum
-**Values:** `None`, `Major`, `Minor`, `Patch`, `Inherit`
+Pattern to match branch names. When multiple configs match, the one with the highest **priority** wins.
 
-Increment strategy for this branch. `Inherit` resolves from the source branch.
+#### increment
 
-### mode
-**Type:** Enum (same as global `mode`)
+| | |
+|---|---|
+| **Type** | Enum: `None`, `Major`, `Minor`, `Patch`, `Inherit` |
+
+Increment strategy for this branch. `Inherit` walks up the source-branch hierarchy until a concrete value is found (fallback: `Patch`).
+
+#### mode
+
+| | |
+|---|---|
+| **Type** | Enum (same as global `mode`) |
 
 Versioning mode override for this branch.
 
-### tag
-**Type:** String
-**Special values:**
-- `""` (empty) → stable version, no pre-release label
-- `"{BranchName}"` → replaced with the branch name (sans prefix)
-- Any string → literal pre-release label (e.g., `"alpha"`, `"beta"`, `"rc"`)
+#### tag
 
-### source-branches
-**Type:** List of branch config keys
-**Required:** Yes
+| | |
+|---|---|
+| **Type** | String |
 
-Which branch types this branch can be created from. Used for:
-1. Resolving `Inherit` increment strategy
-2. Finding the branch creation point
-3. Validation
+Pre-release label for this branch:
 
-### is-source-branch-for
-**Type:** List of branch config keys
+| Value | Effect | Example |
+|-------|--------|---------|
+| `""` (empty) | Stable version, no pre-release | `1.2.3` |
+| `"{BranchName}"` | Replaced with cleaned branch name | `1.2.3-my-feature.1` |
+| `"alpha"` | Literal label | `1.2.3-alpha.1` |
+
+#### source-branches
+
+| | |
+|---|---|
+| **Type** | List of branch config keys |
+
+Which branch types this branch can be created from. Used for `Inherit` increment resolution and branch creation point detection.
+
+#### is-source-branch-for
+
+| | |
+|---|---|
+| **Type** | List of branch config keys |
 
 Inverse of `source-branches`. Declaring `is-source-branch-for: [feature]` on `develop` adds `develop` to feature's `source-branches`.
 
-### is-mainline
-**Type:** Boolean
-**Default:** `false`
+#### is-mainline
 
-Marks as a mainline branch. Mainline branches produce stable versions and are used as the trunk reference in Mainline versioning mode.
+| | |
+|---|---|
+| **Type** | Boolean |
+| **Default** | `false` |
 
-### is-release-branch
-**Type:** Boolean
-**Default:** `false`
+Marks as a mainline branch. Mainline branches produce stable versions and serve as the trunk reference in Mainline versioning mode.
 
-Enables version extraction from the branch name (`VersionInBranchNameVersionStrategy`).
+#### is-release-branch
 
-### tracks-release-branches
-**Type:** Boolean
-**Default:** `false`
+| | |
+|---|---|
+| **Type** | Boolean |
+| **Default** | `false` |
 
-Enables `TrackReleaseBranchesVersionStrategy`. Makes the branch aware of active release branches and main branch tags.
+Enables version extraction from the branch name (e.g., `release/2.0.0` → base version `2.0.0`).
 
-### prevent-increment-of-merged-branch-version
-**Type:** Boolean
-**Default:** varies
+#### tracks-release-branches
 
-When `true`, merging from this branch type won't cause an increment from merge message version extraction.
+| | |
+|---|---|
+| **Type** | Boolean |
+| **Default** | `false` |
 
-### track-merge-target
-**Type:** Boolean
-**Default:** `false`
+Makes this branch aware of active release branches and main branch tags. Typically enabled for `develop`.
 
-Track the merge target branch's version.
+#### prevent-increment-of-merged-branch-version
 
-### tag-number-pattern
-**Type:** Regex with `(?<number>\d+)` capture group
+| | |
+|---|---|
+| **Type** | Boolean |
+| **Default** | varies by branch |
+
+When `true`, merging from this branch won't trigger an increment from merge message version extraction.
+
+#### tag-number-pattern
+
+| | |
+|---|---|
+| **Type** | Regex with `(?<number>\d+)` capture group |
 
 Extracts a number from the branch name to append to the pre-release tag. Used for pull-request branches:
+
 ```yaml
 tag-number-pattern: '[/-](?<number>\d+)'
+# PR branch: pull/123 → pre-release includes 123
 ```
 
-### pre-release-weight
-**Type:** Integer
+#### priority
 
-Weight for sorting pre-release versions. Higher = more recent in sorting. Used in `WeightedPreReleaseNumber` calculation.
+| | |
+|---|---|
+| **Type** | Integer |
+| **Default** | varies by branch |
 
-### commit-message-incrementing
-**Type:** Enum (same as global)
+When multiple branch configs match a branch name, the highest priority wins. Built-in priorities: main=100, release=90, hotfix=80, support=70, develop=60, feature=50, pull-request=40, unknown=0.
 
-Override commit message incrementing mode for this branch.
+#### pre-release-weight
+
+| | |
+|---|---|
+| **Type** | Integer |
+
+Weight for sorting pre-release versions. Used in `WeightedPreReleaseNumber` output calculation.
+
+#### commit-message-incrementing
+
+| | |
+|---|---|
+| **Type** | Enum (same as global) |
+
+Override commit message incrementing mode for this branch only.
 
 ---
 
-## Ignore Configuration
+## Built-in branch defaults
+
+| Key | Regex | Increment | Mode | Tag | Release | Mainline | Priority |
+|-----|-------|-----------|------|-----|---------|----------|----------|
+| `main` | `^master$\|^main$` | Patch | CD | `""` | No | Yes | 100 |
+| `develop` | `^dev(elop)?(ment)?$` | Minor | CDeployment | `alpha` | No | No | 60 |
+| `release` | `^releases?[/-]` | None | CD | `beta` | Yes | No | 90 |
+| `feature` | `^features?[/-]` | Inherit | CD | `{BranchName}` | No | No | 50 |
+| `hotfix` | `^hotfix(es)?[/-]` | Patch | CD | `beta` | No | No | 80 |
+| `pull-request` | `^(pull\|pull-requests\|pr)[/-]` | Inherit | CD | `PullRequest` | No | No | 40 |
+| `support` | `^support[/-]` | Patch | CD | `""` | No | Yes | 70 |
+| `unknown` | `.*` | Inherit | CD | `{BranchName}` | No | No | 0 |
+
+---
+
+## Ignore configuration
+
+Exclude specific commits from version calculation:
 
 ```yaml
 ignore:
   sha:
-    - abc1234def567890   # ignore specific commit SHAs
-  commits-before: 2020-01-01T00:00:00   # ignore commits before this date
+    - abc1234def567890    # Ignore specific commit SHAs
+  commits-before: 2020-01-01T00:00:00   # Ignore commits before this date
 ```
 
-Commits matching ignore rules are excluded from version calculation. Their tags are still visible but filtered out during base version selection.
+Ignored commits are excluded during base version selection. Their tags remain visible but are filtered out.
 
 ---
 
-## Configuration Resolution Order
+## Configuration resolution order
 
-1. **CreateDefaultConfiguration()** - Hard-coded defaults in `ConfigurationBuilder`
-2. **File override** - Values from `.gitversion.yml` merged on top
-3. **CLI overrides** - Command-line argument overrides (highest priority)
-4. **Branch finalization** - Branch configs inherit from global config where unset
-5. **EffectiveConfiguration** - Final merged config for the specific branch context
+1. **Built-in defaults** — `CreateDefaultConfiguration()` with 8 branch configs
+2. **Config file** — Values from `gitsemver.yml` / `GitVersion.yml` merged on top
+3. **CLI flags** — `--config` file override
+4. **Branch finalization** — Branch configs inherit from global config where unset
+5. **Effective configuration** — Final resolved config for the specific branch
 
-### Branch Config Inheritance
+### Branch config inheritance
 
-When a branch config property is `null`, it inherits from global config:
-- `Increment`: if null → global `Increment` → `Inherit`
-- `VersioningMode`: if null → global `VersioningMode` → `ContinuousDelivery`
+When a branch config property is unset (`null`), it inherits from the global config:
+
+- `increment`: if unset → global `increment` → `Inherit`
+- `mode`: if unset → global `mode` → `ContinuousDelivery`
   - Exception: `develop` gets `ContinuousDeployment` unless global is `Mainline`
 
-### Increment "Inherit" Resolution
+### Increment "Inherit" resolution
 
-When `Increment = Inherit`, GitVersion walks up the branch hierarchy:
+When `increment = Inherit`, gitsemver walks up the source-branch hierarchy:
+
 1. Find the source branch for the current branch
-2. Check its `Increment` setting
+2. Check its `increment` setting
 3. If also `Inherit`, continue walking up
 4. Final fallback: `Patch`
 
 ---
 
-## Example Configurations
+## Example configurations
 
 ### Minimal (all defaults)
+
 ```yaml
-# .gitversion.yml
-# Empty file - all defaults apply
+# Empty file — all defaults apply
 ```
 
 ### GitFlow with custom labels
+
 ```yaml
 mode: ContinuousDelivery
 branches:
@@ -360,18 +427,44 @@ branches:
     tag: '{BranchName}'
 ```
 
-### Trunk-Based Development
+### Trunk-based development
+
 ```yaml
 mode: Mainline
+commit-message-convention: ConventionalCommits
 branches:
   main:
     increment: Patch
     is-mainline: true
-  feature:
-    increment: Minor
+```
+
+### ContinuousDeployment
+
+```yaml
+mode: ContinuousDeployment
+continuous-delivery-fallback-tag: ci
 ```
 
 ### Force next major version
+
 ```yaml
 next-version: 2.0.0
+# Remove this line after tagging v2.0.0
+```
+
+### Custom bump patterns
+
+```yaml
+commit-message-convention: BumpDirective
+major-version-bump-message: '\[major\]'
+minor-version-bump-message: '\[minor\]'
+patch-version-bump-message: '\[patch\]'
+no-bump-message: '\[skip\]'
+```
+
+### Monorepo (per-service)
+
+```yaml
+# service-a/gitsemver.yml
+tag-prefix: 'service-a/v'
 ```
