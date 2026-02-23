@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/MyCarrier-DevOps/go-gitsemver/main/gitsemver-schema.json",
-  "title": "gitsemver configuration",
-  "description": "Configuration schema for gitsemver — automatic semantic versioning from git history.",
+  "$id": "https://raw.githubusercontent.com/MyCarrier-DevOps/go-gitsemver/main/go-gitsemver-schema.json",
+  "title": "go-gitsemver configuration",
+  "description": "Configuration schema for go-gitsemver — automatic semantic versioning from git history.",
   "type": "object",
   "additionalProperties": true,
   "properties": {
