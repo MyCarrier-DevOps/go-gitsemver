@@ -61,7 +61,7 @@ func (s *MergeMessageStrategy) GetBaseVersions(
 		}
 	}
 
-	// Pass 2: squash merges (DI-8) — single-parent commits against squash formats.
+	// Pass 2: squash merges — single-parent commits against squash formats.
 	for _, commit := range commits {
 		if len(results) >= maxMergeMessageResults {
 			break

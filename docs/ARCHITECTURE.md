@@ -1,142 +1,209 @@
-# GitVersion 5.12.0 Architecture Overview
+# gitsemver Architecture
 
-This document describes the architecture of the original C# GitVersion 5.12.0 application, serving as the reference for the Go rewrite (`go-gitsemver`).
+This document describes the architecture of gitsemver, a semantic versioning tool that automatically calculates versions from git history.
 
-## Purpose
-
-GitVersion is a tool that automatically calculates semantic versions (SemVer 2.0) from git history. It analyzes tags, commits, branches, and merge relationships to determine the next version number without manual version file management.
+---
 
 ## High-Level Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     CLI / Entry Point                    │
-│          (GitVersionApp, ArgumentParser, Output)         │
+│                     CLI (cmd/)                           │
+│          Root command, flags, output formatting          │
 └────────────────────────┬────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────┐
-│                  GitVersionContext                        │
-│  (CurrentBranch, CurrentCommit, Config, TaggedVersion,   │
-│   NumberOfUncommittedChanges)                             │
+│               GitVersionContext (context/)                │
+│  CurrentBranch, CurrentCommit, Config, TaggedVersion,    │
+│  NumberOfUncommittedChanges                              │
 └────────────────────────┬────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────┐
-│               NextVersionCalculator                      │
-│  (Orchestrates: strategies → increment → deployment mode │
-│   → pre-release tag → final version)                     │
+│              NextVersionCalculator (calculator/)          │
+│  Orchestrates: strategies → increment → mode branching   │
+│  → pre-release tag → build metadata → final version      │
 └────────┬───────────────┬──────────────────┬─────────────┘
          │               │                  │
 ┌────────▼───┐  ┌───────▼──────┐  ┌────────▼─────────┐
 │   Base      │  │  Increment   │  │   Mainline        │
 │   Version   │  │  Strategy    │  │   Version         │
-│   Calculator│  │  Finder      │  │   Calculator      │
-│  (6 strats) │  │              │  │                   │
+│  Calculator │  │  Finder      │  │  Calculator       │
+│ (6 strats)  │  │              │  │                   │
 └─────────────┘  └──────────────┘  └───────────────────┘
          │               │                  │
 ┌────────▼───────────────▼──────────────────▼─────────┐
-│                  RepositoryStore                      │
-│   (Tags, Commits, Branches, Merge History queries)   │
-│                via LibGit2Sharp                       │
+│                  RepositoryStore (git/)               │
+│   Tags, commits, branches, merge history queries     │
+│                  via go-git                           │
 └──────────────────────────────────────────────────────┘
 ```
 
-## Core Source Files (v5.12.0)
+---
 
-All paths relative to `GitVersion/src/GitVersion.Core/`:
-
-### Version Calculation
-| File | Responsibility |
-|------|---------------|
-| `VersionCalculation/NextVersionCalculator.cs` | Main orchestrator - runs strategies, applies increment, handles pre-release tags |
-| `VersionCalculation/BaseVersionCalculator.cs` | Runs all 6 strategies, selects maximum version, resolves ties by oldest source |
-| `VersionCalculation/MainlineVersionCalculator.cs` | Mainline mode - walks commits, aggregates merge increments |
-| `VersionCalculation/IncrementStrategyFinder.cs` | Scans commit messages for `+semver:` bump directives |
-| `VersionCalculation/VariableProvider.cs` | Converts SemanticVersion into output variables (30+ vars) |
-
-### Version Strategies
-| File | Strategy |
-|------|----------|
-| `VersionCalculation/BaseVersionCalculators/ConfigNextVersionVersionStrategy.cs` | Uses `next-version` from config file |
-| `VersionCalculation/BaseVersionCalculators/TaggedCommitVersionStrategy.cs` | Extracts version from git tags |
-| `VersionCalculation/BaseVersionCalculators/MergeMessageVersionStrategy.cs` | Extracts version from merge commit messages |
-| `VersionCalculation/BaseVersionCalculators/VersionInBranchNameVersionStrategy.cs` | Extracts version from branch name (release branches) |
-| `VersionCalculation/BaseVersionCalculators/TrackReleaseBranchesVersionStrategy.cs` | Tracks release branch versions for develop-like branches |
-| `VersionCalculation/BaseVersionCalculators/FallbackVersionStrategy.cs` | Returns `0.1.0` from root commit as last resort |
-| `VersionCalculation/BaseVersionCalculators/BaseVersion.cs` | Base version value object (source, semanticVersion, shouldIncrement, baseVersionSource) |
-
-### Semantic Versioning Types
-| File | Responsibility |
-|------|---------------|
-| `VersionCalculation/SemanticVersioning/SemanticVersion.cs` | Core type: Major.Minor.Patch with parsing, comparison, increment, formatting |
-| `VersionCalculation/SemanticVersioning/SemanticVersionPreReleaseTag.cs` | Pre-release tag: Name + Number (e.g., `beta.4`) |
-| `VersionCalculation/SemanticVersioning/SemanticVersionBuildMetaData.cs` | Build metadata: CommitsSinceTag, Branch, SHA, etc. |
-| `VersionCalculation/SemanticVersioning/SemanticVersionFormatValues.cs` | All 30+ output format values |
-| `VersionCalculation/SemanticVersioning/VersionField.cs` | Enum: None, Patch, Minor, Major |
-| `VersionCalculation/IncrementStrategy.cs` | Enum: None, Major, Minor, Patch, Inherit |
-| `VersionCalculation/VersioningMode.cs` | Enum: ContinuousDelivery, ContinuousDeployment, Mainline |
-
-### Configuration
-| File | Responsibility |
-|------|---------------|
-| `Model/Configuration/Config.cs` | Main config model (YAML-mapped), branch regex patterns, default keys |
-| `Model/Configuration/BranchConfig.cs` | Per-branch config: increment, tag, mode, source branches, flags |
-| `Model/Configuration/EffectiveConfiguration.cs` | Resolved config (merged global + branch), all values guaranteed non-null |
-| `Configuration/ConfigurationBuilder.cs` | Builds default config, applies overrides, finalizes branch configs |
-| `Configuration/ConfigProvider.cs` | Loads config from `.gitversion.yml` file |
-
-### Git Layer
-| File | Responsibility |
-|------|---------------|
-| `Core/RepositoryStore.cs` | All git queries: tags, branches, commits, merge bases |
-| `Core/GitVersionContextFactory.cs` | Creates GitVersionContext (branch, commit, tagged version, config) |
-| `Core/MergeBaseFinder.cs` | Finds merge base between branches |
-| `Core/MergeCommitFinder.cs` | Finds merge commits on a branch |
-| `Model/MergeMessage.cs` | Parses merge messages (6 formats: Default, SmartGit, BitBucket, GitHub, etc.) |
-
-## Semantic Version Structure
+## Package Structure
 
 ```
-Major.Minor.Patch[-PreReleaseTag][+BuildMetaData]
-
-Examples:
-  1.2.3                                              (stable release)
-  1.2.3-beta.4                                       (pre-release)
-  1.2.3-beta.4+5                                     (full semver with build number)
-  1.2.3-beta.4+5.Branch.main.Sha.abc1234             (informational)
+go-gitsemver/
+├── cmd/                        # CLI commands (cobra)
+│   ├── root.go                 # Root command with persistent flags
+│   ├── calculate.go            # Default command: full calculation pipeline
+│   └── version.go              # Version subcommand
+├── internal/
+│   ├── semver/                 # Semantic version types (immutable)
+│   │   ├── version.go          # SemanticVersion: parse, compare, increment
+│   │   ├── prereleasetag.go    # PreReleaseTag: name + number
+│   │   ├── buildmetadata.go    # BuildMetaData: commits, branch, SHA, date
+│   │   ├── enums.go            # VersionField, IncrementStrategy, VersioningMode, etc.
+│   │   ├── formatvalues.go     # ComputeFormatValues() pure function
+│   │   └── yaml.go             # YAML unmarshaling for enum types
+│   ├── config/                 # YAML configuration and resolution
+│   │   ├── config.go           # Root Config struct with YAML tags
+│   │   ├── branch.go           # BranchConfig struct
+│   │   ├── defaults.go         # 8 default branch configurations
+│   │   ├── builder.go          # Config merging and finalization
+│   │   ├── effective.go        # EffectiveConfiguration (all fields resolved)
+│   │   ├── loader.go           # YAML file loading
+│   │   ├── extensions.go       # Branch matching, tag resolution
+│   │   └── ignore.go           # SHA and date ignore filters
+│   ├── git/                    # Git abstraction layer
+│   │   ├── interfaces.go       # Repository interface (15 methods)
+│   │   ├── types.go            # Commit, Branch, Tag, ObjectID, VersionTag
+│   │   ├── gogit.go            # go-git implementation of Repository
+│   │   ├── repostore.go        # RepositoryStore: domain-level queries
+│   │   ├── mergemessage.go     # Merge/squash message parsing (8 formats)
+│   │   └── mock.go             # MockRepository for testing
+│   ├── context/                # Immutable git state snapshot
+│   │   ├── context.go          # GitVersionContext struct
+│   │   └── factory.go          # NewContext() factory
+│   ├── strategy/               # 6 version discovery strategies
+│   │   ├── base.go             # BaseVersion type, VersionStrategy interface
+│   │   ├── confignextversion.go
+│   │   ├── taggedcommit.go
+│   │   ├── mergemessage.go
+│   │   ├── branchname.go
+│   │   ├── trackrelease.go
+│   │   ├── fallback.go
+│   │   └── strategies.go       # AllStrategies() registry
+│   ├── calculator/             # Version calculation pipeline
+│   │   ├── nextversion.go      # NextVersionCalculator: full pipeline
+│   │   ├── baseversion.go      # BaseVersionCalculator: strategy selection
+│   │   ├── mainline.go         # MainlineVersionCalculator
+│   │   └── increment.go        # IncrementStrategyFinder: commit scanning
+│   ├── output/                 # Output formatting
+│   │   ├── variables.go        # GetVariables(): compute all output vars
+│   │   ├── promote.go          # PromoteCommitsToPreRelease(): CD mode
+│   │   └── json.go             # JSON, text, single-variable output
+│   └── testutil/               # Test helpers (temp repos, commits, tags)
+├── e2e/                        # End-to-end tests
+├── docs/                       # Documentation
+├── main.go                     # Entry point
+└── go.mod
 ```
 
-### SemanticVersion Fields
+---
 
-| Field           | Type    | Description |
-|-----------------|---------|-------------|
-| `Major`         | `long`  | Breaking changes |
-| `Minor`         | `long`  | New features (backwards compatible) |
-| `Patch`         | `long`  | Bug fixes (backwards compatible) |
-| `PreReleaseTag` | struct  | `.Name` (string, e.g. "beta") + `.Number` (long?, e.g. 4) |
-| `BuildMetaData` | struct  | CommitsSinceTag, Branch, Sha, ShortSha, CommitDate, VersionSourceSha, CommitsSinceVersionSource, UncommittedChanges |
+## Calculation Flow
 
-### Version Format Specifiers
+1. **Open Repository** — Open the git repo at the specified path using go-git
+2. **Load Configuration** — Search for `gitsemver.yml` or `GitVersion.yml`, merge with defaults
+3. **Build Context** — Resolve current branch, commit, check for version tags, count uncommitted changes
+4. **Resolve Branch Config** — Match branch name against config regexes (priority-ordered), produce `EffectiveConfiguration`
+5. **Run Strategies** — Execute all 6 version strategies to collect candidate base versions
+6. **Select Winner** — Rank candidates by effective version, tie-break by oldest source commit
+7. **Apply Increment** — Scan commit messages for Conventional Commits / bump directives, determine increment
+8. **Branch on Mode** — Mainline uses aggregate or per-commit increment; Standard applies single increment
+9. **Update Pre-Release Tag** — Apply branch-specific label, auto-increment number
+10. **Build Metadata** — Compute commits-since-tag, branch, SHA, date
+11. **Output** — Generate 25+ output variables, write as JSON/text/single-variable
 
-| Specifier | Name           | Example                                             |
-|-----------|----------------|-----------------------------------------------------|
-| `j`       | Just version   | `1.2.3`                                             |
-| `s`       | Default SemVer | `1.2.3-beta.4`                                      |
-| `f`       | Full SemVer    | `1.2.3-beta.4+5`                                    |
-| `i`       | Informational  | `1.2.3-beta.4+5.Branch.main.Sha.abc1234`            |
-| `t`       | Tagged         | `1.2.3-beta.4`                                      |
-| `l`       | Legacy         | `1.2.3-beta4` (no dot separator)                    |
-| `lp`      | Legacy padded  | `1.2.3-beta0004`                                    |
+---
 
-## Calculation Flow Summary
+## Key Interfaces
 
-1. **Build Context** - Determine current branch, commit, load config, check if commit is tagged, count uncommitted changes
-2. **Run Strategies** - Execute all 6 version strategies to get candidate base versions
-3. **Select Maximum** - Pick the highest base version; on tie, prefer the oldest source commit for accurate commit counting
-4. **Determine Increment** - Scan commit messages for `+semver:` bump directives, fall back to branch config increment
-5. **Apply Increment** - Bump the base version (Major/Minor/Patch) based on determined field
-6. **Apply Versioning Mode** - For Mainline mode, use MainlineVersionCalculator instead of standard increment
-7. **Update Pre-Release Tag** - Apply branch-specific pre-release label, auto-increment number
-8. **Handle Tagged Commits** - If current commit is tagged and tag version >= calculated, use tag version
-9. **Generate Variables** - Convert final SemanticVersion into 30+ output variables via VariableProvider
+### Repository
 
-See [SEMVER_CALCULATION.md](SEMVER_CALCULATION.md) for the detailed algorithm walkthrough.
+```go
+type Repository interface {
+    Path() string
+    IsHeadDetached() bool
+    Head() (Branch, error)
+    Branches() ([]Branch, error)
+    Tags() ([]Tag, error)
+    CommitLog(from, to string) ([]Commit, error)
+    FindMergeBase(sha1, sha2 string) (string, error)
+    // ... 15 methods total
+}
+```
+
+Implemented by `GoGitRepository` (using `go-git/go-git/v5`). `MockRepository` is provided for unit testing.
+
+### VersionStrategy
+
+```go
+type VersionStrategy interface {
+    Name() string
+    GetBaseVersions(ctx, ec, explain) ([]BaseVersion, error)
+}
+```
+
+Six implementations: ConfigNextVersion, TaggedCommit, MergeMessage, VersionInBranchName, TrackReleaseBranches, Fallback.
+
+---
+
+## Design Principles
+
+### Immutable Types
+
+`SemanticVersion`, `PreReleaseTag`, and `BuildMetaData` are immutable value types. All operations return new values:
+
+```go
+newVer := ver.IncrementField(semver.VersionFieldMinor)  // returns new version
+newVer := ver.WithPreReleaseTag(tag)                     // returns new version
+```
+
+No hidden state mutations through the calculation pipeline.
+
+### Single-Increment Pipeline
+
+Candidate base versions are ranked by computing an effective version for comparison (without mutation). The winning candidate is incremented exactly once. No double-increment.
+
+### Pure Functions
+
+Output computation is a pure function: `ComputeFormatValues(ver, config) → map[string]string`. Commit promotion for ContinuousDeployment mode is also a pure function: `PromoteCommitsToPreRelease(ver, mode, fallbackTag) → ver`.
+
+### Priority-Based Branch Matching
+
+Branch configs are matched by regex with explicit priority ordering (main=100, release=90, hotfix=80, etc.). Highest priority wins. A catch-all `unknown` config (priority=0) ensures every branch gets a configuration.
+
+---
+
+## Package Dependency Graph
+
+```
+semver (zero external deps)
+  ↓
+config (→ semver, gopkg.in/yaml.v3)
+  ↓
+git (→ semver, config, go-git/go-git/v5)
+  ↓
+context (→ semver, config, git)
+  ↓
+strategy (→ semver, config, git, context)
+  ↓
+calculator (→ semver, config, git, context, strategy)
+  ↓
+output (→ semver, config)
+  ↓
+cmd (→ all internal packages, github.com/spf13/cobra)
+```
+
+---
+
+## External Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `github.com/go-git/go-git/v5` | Pure-Go git operations |
+| `github.com/spf13/cobra` | CLI framework |
+| `gopkg.in/yaml.v3` | YAML configuration parsing |
+| `github.com/stretchr/testify` | Test assertions (require only) |

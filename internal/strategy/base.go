@@ -31,7 +31,7 @@ type BaseVersion struct {
 	BranchNameOverride string
 
 	// Explanation records the reasoning chain for how this version was derived.
-	// Nil when explain mode is disabled (DI-9).
+	// Nil when explain mode is disabled.
 	Explanation *Explanation
 }
 
@@ -45,7 +45,7 @@ func (bv BaseVersion) String() string {
 		bv.Source, bv.SemanticVersion.SemVer(), source, bv.ShouldIncrement)
 }
 
-// Explanation records how a strategy derived a BaseVersion (DI-9).
+// Explanation records how a strategy derived a BaseVersion.
 type Explanation struct {
 	// Strategy is the name of the strategy that produced this version.
 	Strategy string

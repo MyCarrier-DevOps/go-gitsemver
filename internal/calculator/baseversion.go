@@ -11,7 +11,7 @@ import (
 )
 
 // BaseVersionCalculator runs all strategies, computes effective versions for
-// ranking, and selects the winning base version (DI-3).
+// ranking, and selects the winning base version.
 type BaseVersionCalculator struct {
 	store      *git.RepositoryStore
 	strategies []strategy.VersionStrategy
@@ -66,7 +66,7 @@ func (c *BaseVersionCalculator) Calculate(
 		return BaseVersionResult{}, errors.New("all base versions were filtered out by ignore config")
 	}
 
-	// Select winner by computing effective versions (DI-3).
+	// Select winner by computing effective versions.
 	winner := c.selectWinner(ctx, candidates, ec)
 
 	return BaseVersionResult{
@@ -103,7 +103,7 @@ func filterCandidates(candidates []strategy.BaseVersion, ec config.EffectiveConf
 }
 
 // selectWinner selects the base version with the highest "effective version."
-// DI-3: if ShouldIncrement, tentatively increment to compute effective version
+// If ShouldIncrement, tentatively increment to compute effective version
 // for ranking. The actual increment happens later in the pipeline.
 // Tie-break: oldest BaseVersionSource (more commits → more accurate count).
 func (c *BaseVersionCalculator) selectWinner(

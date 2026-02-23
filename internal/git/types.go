@@ -16,7 +16,7 @@ const (
 )
 
 // PathFilter constrains git queries to files matching a path pattern.
-// Used for monorepo support (DI-11). An empty PathFilter means no filtering.
+// Used for monorepo support. An empty PathFilter means no filtering.
 type PathFilter string
 
 // ObjectID represents a git object identifier.

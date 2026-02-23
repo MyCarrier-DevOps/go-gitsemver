@@ -352,14 +352,15 @@ make ci              # Full CI pipeline (fmt + lint + test-all + coverage + buil
 | Document | Description |
 |----------|-------------|
 | [Configuration Reference](docs/CONFIGURATION.md) | All configuration options with defaults |
-| [Architecture](docs/ARCHITECTURE.md) | System design and module layout |
-| [SemVer Calculation](docs/SEMVER_CALCULATION.md) | How versions are calculated step by step |
-| [Version Strategies](docs/VERSION_STRATEGIES.md) | The 6 strategies used to discover base versions |
-| [Branch Workflows](docs/BRANCH_WORKFLOWS.md) | Branch types, versioning modes, and defaults |
+| [Strategies and Modes](docs/STRATEGIES_AND_MODES.md) | Version strategies, versioning modes, and manual overrides |
+| [Branch Workflows](docs/BRANCH_WORKFLOWS.md) | Branch types, defaults, and priority matching |
+| [Version Strategies](docs/VERSION_STRATEGIES.md) | How the 6 version discovery strategies work |
+| [Architecture](docs/ARCHITECTURE.md) | Package structure and design principles |
+| [Features](docs/FEATURES.md) | Key features and design highlights |
 
 ## Acknowledgements
 
-gitsemver is a ground-up rewrite of [GitVersion](https://github.com/GitTools/GitVersion) v5.12.0 (C#/.NET) in Go. It preserves the core versioning model — branch-aware strategies, three versioning modes, and `GitVersion.yml` configuration compatibility — while introducing 12 design improvements including immutable types, a single-increment pipeline, Conventional Commits support, squash merge awareness, and a simplified mainline calculator. See [COMPARISON.md](docs/COMPARISON.md) for a full breakdown.
+gitsemver is inspired by [GitVersion](https://github.com/GitTools/GitVersion) v5.12.0. It preserves the core versioning model — branch-aware strategies, three versioning modes, and `GitVersion.yml` configuration compatibility — while introducing improvements including immutable types, a single-increment pipeline, Conventional Commits support, squash merge awareness, and a simplified mainline calculator. See [Features](docs/FEATURES.md) for details.
 
 ## License
 

@@ -26,8 +26,7 @@ func (m MergeMessage) IsEmpty() bool {
 	return m.FormatName == ""
 }
 
-// defaultFormats are the 6 built-in merge message formats matching the C#
-// GitVersion reference implementation.
+// defaultFormats are the 6 built-in merge message formats.
 var defaultFormats = []MergeMessageFormat{
 	{
 		Name:    "Default",
@@ -55,7 +54,7 @@ var defaultFormats = []MergeMessageFormat{
 	},
 }
 
-// squashFormats are merge message formats for squash merges (DI-8).
+// squashFormats are merge message formats for squash merges.
 var squashFormats = []MergeMessageFormat{
 	{
 		Name:    "GitHubSquash",
@@ -72,7 +71,7 @@ func DefaultMergeMessageFormats() []MergeMessageFormat {
 	return defaultFormats
 }
 
-// SquashMergeMessageFormats returns the squash merge message formats (DI-8).
+// SquashMergeMessageFormats returns the squash merge message formats.
 func SquashMergeMessageFormats() []MergeMessageFormat {
 	return squashFormats
 }

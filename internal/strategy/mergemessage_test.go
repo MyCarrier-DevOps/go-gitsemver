@@ -134,7 +134,7 @@ func TestMergeMessage_NonMergeCommit(t *testing.T) {
 }
 
 func TestMergeMessage_SquashMerge(t *testing.T) {
-	// DI-8: Single-parent commit with merge-style message is treated as a squash merge.
+	// Single-parent commit with merge-style message is treated as a squash merge.
 	squashCommit := git.Commit{
 		Sha:     "aaa0000000000000000000000000000000000000",
 		Parents: []string{"p1"},

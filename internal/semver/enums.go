@@ -149,7 +149,7 @@ const (
 	// since the last tag and applies it once. Commit count goes into build metadata.
 	MainlineIncrementAggregate MainlineIncrementMode = iota
 	// MainlineIncrementEachCommit increments the version for each commit
-	// individually, matching GitVersion's per-commit behavior.
+	// individually.
 	MainlineIncrementEachCommit
 )
 

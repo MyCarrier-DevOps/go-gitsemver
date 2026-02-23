@@ -1,6 +1,6 @@
 # Custom Branch Patterns
 #
-# Demonstrates custom branch configurations with priority ordering (DI-12).
+# Demonstrates custom branch configurations with priority ordering.
 # When multiple branch regexes match, the one with the highest priority wins.
 #
 # Default priorities:

@@ -14,7 +14,7 @@ type branchMatch struct {
 }
 
 // GetBranchConfiguration returns the best-matching BranchConfig for the given
-// branch name, using priority-ordered regex matching (DI-12). Returns the
+// branch name, using priority-ordered regex matching. Returns the
 // matched BranchConfig, the branch config key name, and any error.
 func (cfg *Config) GetBranchConfiguration(branchName string) (*BranchConfig, string, error) {
 	var matches []branchMatch

@@ -1,9 +1,5 @@
 # Claude Instructions for go-gitsemver
 
-## Before Starting Any Work
-
-1. **Always update `docs/PROJECT_STATE.md`** before beginning changes. Record what phase you're working on, what's in progress, and what's completed.
-
 ## After Making Changes
 
 Run these commands in order and fix any issues before considering the work done:
@@ -38,11 +34,10 @@ Verify that test coverage stays **above 85%** overall.
 
 ## Reference Documentation
 
-All design docs are in `docs/`:
-- `ARCHITECTURE.md` — System design overview
-- `SEMVER_CALCULATION.md` — Step-by-step calculation algorithm
-- `VERSION_STRATEGIES.md` — All 6 version strategies
-- `BRANCH_WORKFLOWS.md` — Branch types and defaults
-- `CONFIGURATION.md` — All config options
-- `GIT_ANALYSIS.md` — How git data is used
-- `CLI_INTERFACE.md` — CLI args and output variables
+All docs are in `docs/`:
+- `CONFIGURATION.md` — All config options with defaults
+- `STRATEGIES_AND_MODES.md` — Version strategies, versioning modes, manual overrides
+- `BRANCH_WORKFLOWS.md` — Branch types, defaults, priority matching
+- `VERSION_STRATEGIES.md` — How the 6 version discovery strategies work
+- `ARCHITECTURE.md` — Package structure and design principles
+- `FEATURES.md` — Key features and design highlights

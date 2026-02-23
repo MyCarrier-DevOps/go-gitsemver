@@ -5,7 +5,7 @@ import "time"
 // Repository provides low-level git operations.
 // This is the key abstraction point for testing and backend swapping.
 // All methods that traverse commits or list refs accept optional PathFilter
-// parameters for monorepo support (DI-11).
+// parameters for monorepo support.
 type Repository interface {
 	// Path returns the path to the .git directory.
 	Path() string

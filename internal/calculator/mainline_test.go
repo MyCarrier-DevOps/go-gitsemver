@@ -112,7 +112,7 @@ func TestMainline_NilSource(t *testing.T) {
 
 func TestMainline_EachCommit_IncrementPerCommit(t *testing.T) {
 	// v1.0.0 → fix → fix → feat → fix
-	// GitVersion behavior: 1.0.1 → 1.0.2 → 1.1.0 → 1.1.1
+	// Per-commit behavior: 1.0.1 → 1.0.2 → 1.1.0 → 1.1.1
 	tip := newCommit("aaa0000000000000000000000000000000000000", "fix: last fix")
 	c3 := newCommit("bbb0000000000000000000000000000000000000", "feat: new feature")
 	c2 := newCommit("ccc0000000000000000000000000000000000000", "fix: second fix")

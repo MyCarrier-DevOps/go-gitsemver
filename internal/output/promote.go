@@ -6,7 +6,7 @@ import (
 )
 
 // PromoteCommitsToPreRelease transforms a version for ContinuousDeployment
-// or Mainline modes by setting CommitsSinceTag as the pre-release number (DI-4).
+// or Mainline modes by setting CommitsSinceTag as the pre-release number.
 // This is a pure function — no side effects.
 //
 // In ContinuousDeployment mode, commit count becomes the pre-release number:

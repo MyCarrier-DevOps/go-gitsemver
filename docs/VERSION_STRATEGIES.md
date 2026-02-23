@@ -1,8 +1,8 @@
 # Version Strategies
 
-GitVersion 5.12.0 uses 6 pluggable strategies to discover candidate base versions. Each strategy proposes zero or more `BaseVersion` values. The highest candidate (after tentative incrementing) wins.
+gitsemver uses 6 pluggable strategies to discover candidate base versions. Each strategy proposes zero or more `BaseVersion` candidates. The highest candidate (after computing an effective version) wins.
 
-All strategies are in `GitVersion/src/GitVersion.Core/VersionCalculation/BaseVersionCalculators/`.
+All strategies implement the `VersionStrategy` interface in `internal/strategy/`.
 
 ---
 
@@ -12,114 +12,87 @@ Every strategy returns `BaseVersion` objects:
 
 ```
 BaseVersion {
-    Source:             string     // Human-readable description (e.g., "Git tag 'v1.2.3'")
-    ShouldIncrement:    bool       // If true, the version will be incremented before comparison
-    SemanticVersion:    SemVer     // The actual version found
-    BaseVersionSource:  ICommit?   // The git commit this version came from (used for commit counting)
-    BranchNameOverride: string?    // Optional override for pre-release tag naming
+    Source:             string          // Human-readable description
+    ShouldIncrement:    bool            // If true, version is incremented before comparison
+    SemanticVersion:    SemanticVersion  // The actual version found
+    BaseVersionSource:  *Commit         // Git commit this version came from
+    BranchNameOverride: string          // Optional override for pre-release tag naming
 }
 ```
 
 ---
 
-## Strategy 1: ConfigNextVersionVersionStrategy
+## Strategy 1: ConfigNextVersion
 
-**Source:** `ConfigNextVersionVersionStrategy.cs`
+**Source:** `internal/strategy/confignextversion.go`
 
-**Purpose:** Allows explicitly setting the next version in the config file.
+Uses the `next-version` field from `gitsemver.yml` as the base version directly — no incrementing.
 
 **When it produces a result:**
-- `next-version` is set in `.gitversion.yml` AND current commit is NOT tagged
+- `next-version` is set in config AND current commit is NOT tagged
 
 **BaseVersion:**
-- `Source`: "NextVersion in GitVersion configuration file"
 - `ShouldIncrement`: **false** (version is exact)
-- `SemanticVersion`: parsed from `next-version` config value
-- `BaseVersionSource`: **null** (external source, not tied to a commit)
+- `BaseVersionSource`: **nil** (external source, not tied to a commit)
 
-**Notes:**
-- If current commit is tagged, this strategy yields nothing (tag takes precedence)
-- `next-version` accepts both `"2"` (becomes `"2.0"`) and `"2.1.0"` formats
-- Use case: bootstrapping a repo or forcing a version jump
+**Use case:** Bootstrapping a repo or forcing a version jump.
 
 ---
 
-## Strategy 2: TaggedCommitVersionStrategy
+## Strategy 2: TaggedCommit
 
-**Source:** `TaggedCommitVersionStrategy.cs`
+**Source:** `internal/strategy/taggedcommit.go`
 
-**Purpose:** Extracts versions from git tags on the current branch.
+Extracts versions from git tags on the current branch using the `tag-prefix` regex (default: `[vV]`).
 
 **Algorithm:**
-1. Get all valid version tags (`GetValidVersionTags`) using `tag-prefix` regex (default: `[vV]`)
-2. Filter to tags on commits that are **not newer** than the current commit
-3. Group tags by commit SHA
-4. Walk commits on current branch, collect matching version tags
-5. For each matching tag, create a `BaseVersion`:
-   - `ShouldIncrement = true` if tag commit != current commit
-   - `ShouldIncrement = false` if tag IS on current commit
-6. **If any tags are on the current commit**, return ONLY those (ShouldIncrement=false)
-7. Otherwise return all found tags
+1. Get all valid version tags matching the tag prefix
+2. Walk commits on the current branch, collect matching tags
+3. If any tags are on the current commit, return only those (`ShouldIncrement = false`)
+4. Otherwise return all found tags (`ShouldIncrement = true`)
 
-**BaseVersion:**
-- `Source`: "Git tag '{tagName}'"
-- `ShouldIncrement`: `tagCommit.Sha != currentCommit.Sha`
-- `SemanticVersion`: parsed from tag name
-- `BaseVersionSource`: the tagged commit
-
-**Notes:**
+**Key behavior:**
+- Tag on current commit → that exact version is used (no increment)
+- Multiple tags on the same commit → highest semantic version wins
 - This is typically the most common source of base versions
-- Tag prefix is stripped before parsing (e.g., `v1.2.3` → `1.2.3`)
-- Tags on current commit result in that exact version being used (no increment)
 
 ---
 
-## Strategy 3: MergeMessageVersionStrategy
+## Strategy 3: MergeMessage
 
-**Source:** `MergeMessageVersionStrategy.cs`
+**Source:** `internal/strategy/mergemessage.go`
 
-**Purpose:** Extracts versions from merge commit messages (e.g., "Merge branch 'release/1.2.0'").
+Extracts version information from merge commit messages and squash merge messages.
 
-**Algorithm:**
-1. Get all commits on the current branch prior to the current commit's date
-2. For each commit that is a merge commit (>1 parent):
-   a. Parse the commit message using `MergeMessage` parser
-   b. If a version is found AND the merged branch is a release branch:
-      - Create a BaseVersion
-3. Take at most 5 results
-
-**Merge Message Formats Supported:**
+**Built-in formats (8 total):**
 
 | Format | Pattern Example |
 |--------|----------------|
 | Default | `Merge branch 'release/1.2.0'` |
 | SmartGit | `Finish release/1.2.0` |
-| BitBucketPull | `Merged in release/1.2.0 (pull request #123)` |
-| BitBucketPullv7 | `Pull request #123: release/1.2.0` |
-| GitHubPull | `Merge pull request #123 from release/1.2.0` |
-| RemoteTracking | `Merge remote-tracking branch 'origin/release/1.2.0'` |
+| GitHub Pull | `Merge pull request #123 from release/1.2.0` |
+| Bitbucket Pull | `Merged in release/1.2.0 (pull request #123)` |
+| Bitbucket Pull v7 | `Pull request #123: release/1.2.0` |
+| Remote Tracking | `Merge remote-tracking branch 'origin/release/1.2.0'` |
+| GitHub Squash | `feat: add login page (#123)` |
+| Bitbucket Squash | `Merged in feature/auth (pull request #123)` |
 
 Custom formats can be added via `merge-message-formats` in config.
 
-**BaseVersion:**
-- `Source`: "Merge message '{commit message}'"
-- `ShouldIncrement`: `!config.PreventIncrementOfMergedBranchVersion`
-- `SemanticVersion`: extracted from branch name in merge message
-- `BaseVersionSource`: the merge commit
+**Squash merge support:** Unlike tools that only detect two-parent merge commits, gitsemver also parses squash merge messages (single-parent commits), which are common on GitHub and GitLab.
 
 ---
 
-## Strategy 4: VersionInBranchNameVersionStrategy
+## Strategy 4: VersionInBranchName
 
-**Source:** `VersionInBranchNameVersionStrategy.cs`
+**Source:** `internal/strategy/branchname.go`
 
-**Purpose:** Extracts version from the branch name itself (for release branches).
+Extracts a version number from the branch name itself. Only active for branches with `is-release-branch: true`.
 
 **Algorithm:**
-1. Check if the current branch matches a release branch regex
-2. If yes, split the branch name by `/` and `-`
-3. Try to parse each part as a semantic version
-4. If found, find the commit where this branch was created from its parent
+1. Check if the current branch matches a release branch config
+2. Split the branch name by `/` and `-`
+3. Try to parse each segment as a semantic version
 
 **Examples:**
 - `release/1.2.0` → `1.2.0`
@@ -127,85 +100,61 @@ Custom formats can be added via `merge-message-formats` in config.
 - `release-1.2.0` → `1.2.0`
 
 **BaseVersion:**
-- `Source`: "Version in branch name"
 - `ShouldIncrement`: **false** (version is exact from branch name)
-- `SemanticVersion`: parsed from branch name
-- `BaseVersionSource`: commit where branch was created
-- `BranchNameOverride`: branch name with version stripped (for pre-release labeling)
-
-**Notes:**
-- Only active for branches matching `IsReleaseBranch = true` configuration
-- Commonly used in GitFlow where release branches are named `release/X.Y.Z`
+- `BranchNameOverride`: branch name with version stripped
 
 ---
 
-## Strategy 5: TrackReleaseBranchesVersionStrategy
+## Strategy 5: TrackReleaseBranches
 
-**Source:** `TrackReleaseBranchesVersionStrategy.cs`
+**Source:** `internal/strategy/trackrelease.go`
 
-**Purpose:** For branches that track release branches (like `develop` in GitFlow), finds versions from active release branches and main branch tags.
+For branches that track release branches (like `develop` in GitFlow). Collects versions from active release branches and main branch tags.
 
-**When active:** Only when `TracksReleaseBranches = true` in the branch config (default for `develop`).
+**When active:** Only when `tracks-release-branches: true` in the branch config (default for `develop`).
 
-**Algorithm (two sub-strategies merged):**
+**Two sub-strategies:**
+1. **Release branch versions** — find all active release branches, extract version from their names
+2. **Main branch tags** — get tagged versions on main
 
-**Sub-strategy A - Release Branch Versions:**
-1. Find all branches matching release branch config
-2. For each release branch:
-   a. Find the merge base between it and the current branch
-   b. If merge base == current commit, ignore (branch has no own commits)
-   c. Use `VersionInBranchNameVersionStrategy` to extract version from release branch name
-   d. Set `ShouldIncrement = true` and `BaseVersionSource = merge base`
-
-**Sub-strategy B - Main Branch Tags:**
-1. Find the main branch
-2. Use `TaggedCommitVersionStrategy` to get all tagged versions on main
-3. Return them as candidates
-
-**Use case:** When on `develop`, this finds the version from any active `release/X.Y.Z` branch and also considers tags on `main`, ensuring `develop` stays ahead.
+**Use case:** Ensures `develop` stays ahead of any active release branches.
 
 ---
 
-## Strategy 6: FallbackVersionStrategy
+## Strategy 6: Fallback
 
-**Source:** `FallbackVersionStrategy.cs`
+**Source:** `internal/strategy/fallback.go`
 
-**Purpose:** Provides a baseline version when no other strategy produces a result.
+Returns the `base-version` from config (default: `0.1.0`) from the root commit. Always present as a safety net.
 
-**Always returns:**
-- `Source`: "Fallback base version"
-- `ShouldIncrement`: **false**
-- `SemanticVersion`: `0.1.0`
-- `BaseVersionSource`: root commit (the very first commit reachable from current branch tip)
+**BaseVersion:**
+- `ShouldIncrement`: **true** (version is a starting point)
+- `BaseVersionSource`: root commit (first commit reachable from branch tip)
 
-**Notes:**
-- This is the last resort, used only when there are no tags, no merge messages, no config, and no branch name version
-- The root commit as source ensures commit counting starts from the beginning of history
-- Always bypasses ignore filters (checked via `strategy is FallbackVersionStrategy` in BaseVersionCalculator)
+**Note:** Always bypasses ignore filters.
 
 ---
 
-## Strategy Selection Process
+## Strategy Selection
 
-**Source:** `BaseVersionCalculator.cs`
+**Source:** `internal/calculator/baseversion.go`
+
+After all strategies return their candidates:
+
+1. **Filter** — Apply ignore config (SHA and date filters) to each candidate except Fallback
+2. **Compute effective version** — For each candidate, tentatively apply the increment for ranking (no mutation)
+3. **Select maximum** — Pick the highest effective version
+4. **Tie-break** — If multiple candidates produce the same effective version, the one with the **oldest** `BaseVersionSource` commit wins (ensures accurate commit-since-tag counting)
+5. **Increment once** — The winning candidate is incremented a single time
 
 ```
-1. Run all 6 strategies → collect all BaseVersion candidates
-2. Apply ignore filters to each (except Fallback)
-3. For each candidate, compute IncrementedVersion = MaybeIncrement(candidate)
-4. In Mainline mode: filter out candidates with pre-release tags
-5. Select the maximum IncrementedVersion
-6. Tie-break: if multiple candidates produce the same IncrementedVersion,
-   pick the one with the OLDEST BaseVersionSource (for accurate commit counting)
-7. Return the winning BaseVersion + EffectiveBranchConfiguration
+Candidates:
+  TaggedCommit:  1.2.0 (ShouldIncrement=true)  → effective 1.3.0
+  MergeMessage:  (none)
+  BranchName:    (none)
+  TrackRelease:  (none)
+  Fallback:      0.1.0 (ShouldIncrement=true)  → effective 0.1.1
+
+Winner: TaggedCommit (effective 1.3.0)
+Final increment: Minor → 1.3.0
 ```
-
-### Why Oldest Source on Tie?
-
-If two strategies both produce `1.3.0` after incrementing, the one with the older source commit will have more commits between it and HEAD. This gives a more accurate `CommitsSinceVersionSource` count in the build metadata.
-
----
-
-## Strategy Registration
-
-Strategies are registered via dependency injection in `GitVersionCoreModule.cs`. The order of registration determines the iteration order, but since the maximum is selected, order only matters for logging/debugging.

@@ -1,26 +1,24 @@
-# Branch Workflows and Default Branch Configuration
+# Branch Workflows and Default Configuration
 
-GitVersion 5.12.0 supports different branching strategies through per-branch configuration. This document details the default configuration for each branch type and how the two main workflows differ.
-
-Source: `GitVersion/src/GitVersion.Core/Configuration/ConfigurationBuilder.cs`
+gitsemver supports different branching strategies through per-branch configuration. This document details the default configuration for each branch type and how the versioning modes differ.
 
 ---
 
 ## Default Branch Configurations
 
-### main (or master)
+gitsemver ships with 8 default branch configurations, ordered by priority. When a branch name matches multiple regexes, the highest priority wins.
+
+### main (Priority: 100)
 
 | Property | Value |
 |----------|-------|
 | Regex | `^master$\|^main$` |
 | Increment | `Patch` |
-| VersioningMode | ContinuousDelivery (inherited from global default) |
-| Tag (pre-release label) | `""` (empty = stable, no pre-release) |
+| Tag | `""` (empty = stable, no pre-release) |
 | IsMainline | `true` |
 | IsReleaseBranch | `false` |
 | TracksReleaseBranches | `false` |
 | PreventIncrementOfMergedBranchVersion | `true` |
-| TrackMergeTarget | `false` |
 | SourceBranches | `develop`, `release` |
 | PreReleaseWeight | 55000 |
 
@@ -28,41 +26,15 @@ Source: `GitVersion/src/GitVersion.Core/Configuration/ConfigurationBuilder.cs`
 
 ---
 
-### develop
-
-| Property | Value |
-|----------|-------|
-| Regex | `^dev(elop)?(ment)?$` |
-| Increment | `Minor` |
-| VersioningMode | ContinuousDeployment (special: overridden unless global is Mainline) |
-| Tag (pre-release label) | `"alpha"` |
-| IsMainline | `false` |
-| IsReleaseBranch | `false` |
-| TracksReleaseBranches | `true` |
-| PreventIncrementOfMergedBranchVersion | `false` |
-| TrackMergeTarget | `true` |
-| SourceBranches | (empty) |
-| PreReleaseWeight | 0 |
-
-**Behavior:** Produces alpha pre-releases (e.g., `1.3.0-alpha.42`). Tracks release branches so it stays ahead of them. Uses ContinuousDeployment mode by default, meaning `CommitsSinceTag` is promoted to the pre-release number.
-
-**Special VersioningMode logic:** If global mode is Mainline, develop also gets Mainline. Otherwise, develop always gets ContinuousDeployment regardless of global setting. (Source: `ConfigurationBuilder.FinalizeBranchConfiguration()`)
-
----
-
-### release
+### release (Priority: 90)
 
 | Property | Value |
 |----------|-------|
 | Regex | `^releases?[/-]` |
 | Increment | `None` |
-| VersioningMode | ContinuousDelivery (inherited) |
-| Tag (pre-release label) | `"beta"` |
-| IsMainline | `false` |
+| Tag | `"beta"` |
 | IsReleaseBranch | `true` |
-| TracksReleaseBranches | `false` |
 | PreventIncrementOfMergedBranchVersion | `true` |
-| TrackMergeTarget | `false` |
 | SourceBranches | `develop`, `main`, `support`, `release` |
 | PreReleaseWeight | 30000 |
 
@@ -70,39 +42,13 @@ Source: `GitVersion/src/GitVersion.Core/Configuration/ConfigurationBuilder.cs`
 
 ---
 
-### feature
-
-| Property | Value |
-|----------|-------|
-| Regex | `^features?[/-]` |
-| Increment | `Inherit` |
-| VersioningMode | ContinuousDelivery (inherited) |
-| Tag (pre-release label) | `"{BranchName}"` |
-| IsMainline | `false` |
-| IsReleaseBranch | `false` |
-| TracksReleaseBranches | `false` |
-| PreventIncrementOfMergedBranchVersion | (default) |
-| TrackMergeTarget | (default) |
-| SourceBranches | `develop`, `main`, `release`, `feature`, `support`, `hotfix` |
-| PreReleaseWeight | 30000 |
-
-**Behavior:** Inherits increment strategy from its source branch. Pre-release label is the branch name itself (e.g., `feature/my-feature` → `1.3.0-my-feature.1`). The `{BranchName}` placeholder is replaced with the branch name part after the prefix.
-
----
-
-### hotfix
+### hotfix (Priority: 80)
 
 | Property | Value |
 |----------|-------|
 | Regex | `^hotfix(es)?[/-]` |
 | Increment | `Patch` |
-| VersioningMode | ContinuousDelivery (inherited) |
-| Tag (pre-release label) | `"beta"` |
-| IsMainline | `false` |
-| IsReleaseBranch | `false` |
-| TracksReleaseBranches | `false` |
-| PreventIncrementOfMergedBranchVersion | `false` |
-| TrackMergeTarget | `false` |
+| Tag | `"beta"` |
 | SourceBranches | `release`, `main`, `support`, `hotfix` |
 | PreReleaseWeight | 30000 |
 
@@ -110,37 +56,15 @@ Source: `GitVersion/src/GitVersion.Core/Configuration/ConfigurationBuilder.cs`
 
 ---
 
-### pull-request
-
-| Property | Value |
-|----------|-------|
-| Regex | `^(pull\|pull\-requests\|pr)[/-]` |
-| Increment | `Inherit` |
-| VersioningMode | ContinuousDelivery (inherited) |
-| Tag (pre-release label) | `"PullRequest"` |
-| TagNumberPattern | `[/-](?<number>\d+)` |
-| IsMainline | `false` |
-| IsReleaseBranch | `false` |
-| SourceBranches | `develop`, `main`, `release`, `feature`, `support`, `hotfix` |
-| PreReleaseWeight | 30000 |
-
-**Behavior:** Uses PR number extracted from branch name as part of pre-release tag (e.g., `pull/123` → `1.3.0-PullRequest0123.1`). TagNumberPattern extracts the PR number, which gets padded and appended to the label.
-
----
-
-### support
+### support (Priority: 70)
 
 | Property | Value |
 |----------|-------|
 | Regex | `^support[/-]` |
 | Increment | `Patch` |
-| VersioningMode | ContinuousDelivery (inherited) |
-| Tag (pre-release label) | `""` (empty = stable) |
+| Tag | `""` (empty = stable) |
 | IsMainline | `true` |
-| IsReleaseBranch | `false` |
-| TracksReleaseBranches | `false` |
 | PreventIncrementOfMergedBranchVersion | `true` |
-| TrackMergeTarget | `false` |
 | SourceBranches | `main` |
 | PreReleaseWeight | 55000 |
 
@@ -148,33 +72,117 @@ Source: `GitVersion/src/GitVersion.Core/Configuration/ConfigurationBuilder.cs`
 
 ---
 
+### develop (Priority: 60)
+
+| Property | Value |
+|----------|-------|
+| Regex | `^dev(elop)?(ment)?$` |
+| Increment | `Minor` |
+| Tag | `"alpha"` |
+| TracksReleaseBranches | `true` |
+| TrackMergeTarget | `true` |
+| PreReleaseWeight | 0 |
+
+**Behavior:** Produces alpha pre-releases (e.g., `1.3.0-alpha.42`). Tracks release branches so it stays ahead of them.
+
+**Special mode logic:** If no mode is explicitly set for develop:
+- If global mode is `Mainline` → develop also gets `Mainline`
+- Otherwise → develop gets `ContinuousDeployment` (regardless of global setting)
+
+This ensures every commit on develop gets a unique, auto-incrementing version.
+
+---
+
+### feature (Priority: 50)
+
+| Property | Value |
+|----------|-------|
+| Regex | `^features?[/-]` |
+| Increment | `Inherit` |
+| Tag | `"{BranchName}"` |
+| SourceBranches | `develop`, `main`, `release`, `feature`, `support`, `hotfix` |
+| PreReleaseWeight | 30000 |
+
+**Behavior:** Inherits increment strategy from its source branch. Pre-release label is the branch name itself (e.g., `feature/my-feature` → `1.3.0-my-feature.1`). The `{BranchName}` placeholder is replaced with the branch name part after the prefix.
+
+---
+
+### pull-request (Priority: 40)
+
+| Property | Value |
+|----------|-------|
+| Regex | `^(pull\|pull-requests\|pr)[/-]` |
+| Increment | `Inherit` |
+| Tag | `"PullRequest"` |
+| TagNumberPattern | `[/-](?<number>\d+)` |
+| SourceBranches | `develop`, `main`, `release`, `feature`, `support`, `hotfix` |
+| PreReleaseWeight | 30000 |
+
+**Behavior:** Uses PR number extracted from branch name as part of pre-release tag (e.g., `pull/123` → `1.3.0-PullRequest0123.1`).
+
+---
+
+### unknown (Priority: 0) — Catch-All
+
+| Property | Value |
+|----------|-------|
+| Regex | `.*` |
+| Increment | `Inherit` |
+| Tag | `"{BranchName}"` |
+| SourceBranches | `develop`, `main`, `release`, `feature`, `support`, `hotfix` |
+| PreReleaseWeight | 30000 |
+
+**Behavior:** Catches any branch that doesn't match a known pattern. Treated like a feature branch with `{BranchName}` as the pre-release tag. Ensures every branch gets a configuration — no errors, no surprises.
+
+---
+
+## Priority-Based Branch Matching
+
+When resolving which config applies to a branch:
+
+1. All branch configs with a regex matching the branch name are collected
+2. Matches are sorted by priority (descending), then by config key name (for determinism)
+3. The highest-priority match is used
+
+This avoids the "first match wins" ambiguity of regex ordering. You can add custom branches with explicit priorities:
+
+```yaml
+branches:
+  staging:
+    regex: ^staging$
+    increment: Patch
+    tag: rc
+    priority: 85    # between hotfix (80) and release (90)
+```
+
+---
+
 ## Versioning Modes
 
 ### ContinuousDelivery (default)
 
-- Version stays as-is from calculation
-- Pre-release number comes from tag scanning (finding existing tags with same label)
+- Pre-release number comes from tag scanning (existing tags with same label)
 - Build metadata includes `CommitsSinceTag`
+- Stable versions are produced only when a tag is manually applied
 - Best for: teams that manually trigger releases
 - Versions look like: `1.2.3-beta.1+3`
 
 ### ContinuousDeployment
 
 - `CommitsSinceTag` is promoted to the pre-release number
-- Every commit gets a unique, incrementing pre-release number
-- If no pre-release tag is configured, falls back to `ContinuousDeploymentFallbackTag` (default: `"ci"`)
+- Every commit gets a unique, monotonically increasing version
+- If no pre-release tag is configured, uses `continuous-delivery-fallback-tag` (default: `"ci"`)
 - Best for: auto-deploying every commit
 - Versions look like: `1.2.3-alpha.42`
 
 ### Mainline
 
-- Each commit on mainline increments the version
-- Merge commits increment based on the merged branch's commit messages
-- Direct commits on mainline each get their own increment
-- Branches off mainline get one additional increment for "the act of branching"
-- Pre-release tags are NOT supported on mainline branches
+- Designed for trunk-based development
+- **Aggregate mode (default):** highest increment from all commits applied once, commit count in metadata
+- **EachCommit mode:** version incremented per commit individually
+- Pre-release tags are NOT used on mainline branches (stable versions)
 - Best for: trunk-based development
-- Versions look like: `1.2.3` (on main) or `1.3.0-feature.1` (on branches)
+- Versions look like: `1.2.3+5` (on main) or `1.3.0-feature.1` (on branches)
 
 ---
 
@@ -200,30 +208,24 @@ hotfix/1.1.1:                                    1.1.1-β.1
 
 ---
 
-## Key Branch Configuration Properties Explained
+## Key Branch Configuration Properties
 
 ### IsMainline
-Marks the branch as a mainline branch. Used by `MainlineVersionCalculator` to find the trunk. Produces stable versions (empty pre-release tag). `main` and `support` branches are mainline by default.
+Marks the branch as a mainline branch. Produces stable versions (empty pre-release tag). `main` and `support` are mainline by default.
 
 ### IsReleaseBranch
-Marks the branch as a release branch. Enables `VersionInBranchNameVersionStrategy` to extract version from the branch name. Used by `MergeMessageVersionStrategy` to identify release merges.
+Enables `VersionInBranchName` strategy to extract version from the branch name. Used by `MergeMessage` strategy to identify release merges.
 
 ### TracksReleaseBranches
-Makes the branch "aware" of active release branches. Enables `TrackReleaseBranchesVersionStrategy` which considers both release branch versions and main branch tags. Only `develop` has this by default.
+Makes the branch aware of active release branches. Enables `TrackReleaseBranches` strategy. Only `develop` has this by default.
 
 ### PreventIncrementOfMergedBranchVersion
-When `true`, merging this branch type into another won't trigger an increment from the merge message. Used on `main` and `release` to prevent double-incrementing when merging releases.
-
-### TrackMergeTarget
-When `true`, the branch considers the merge target's version. Only `develop` has this by default.
+When `true`, merging this branch type into another won't trigger an increment from the merge message. Used on `main` and `release` to prevent double-incrementing.
 
 ### SourceBranches
-Defines which branches this branch type can be created from. Used for:
-1. Resolving `Inherit` increment strategy (walks up to source branch config)
-2. Finding the commit where the branch was created (merge base with source)
+Defines which branches this branch type can be created from. Used for resolving `Inherit` increment strategy (walks up to source branch config).
 
 ### Tag (pre-release label)
-- `""` (empty string) → stable version, no pre-release tag
+- `""` (empty) → stable version, no pre-release tag
 - `"alpha"`, `"beta"`, etc. → literal pre-release label
-- `"{BranchName}"` → replaced with actual branch name
-- `"useBranchName"` → uses full branch name as label
+- `"{BranchName}"` → replaced with actual branch name (prefix stripped)

@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-// Conventional Commits patterns (DI-7).
+// Conventional Commits patterns.
 var (
 	ccTypeRe         = regexp.MustCompile(`^(\w+)(?:\(.+?\))?(!)?:\s`)
 	breakingFooterRe = regexp.MustCompile(`(?m)^BREAKING[ -]CHANGE:\s`)

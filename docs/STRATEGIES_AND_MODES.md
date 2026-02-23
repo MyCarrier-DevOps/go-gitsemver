@@ -140,7 +140,7 @@ Extracts version information from merge commit messages. Supports both real merg
 | GitLab | `Merge branch 'release/1.2.0' into 'main'` |
 | Remote Tracking | `Merge remote-tracking branch 'origin/release/1.2.0'` |
 
-**Squash merge formats (DI-8):**
+**Squash merge formats:**
 
 | Source | Pattern Example |
 |--------|----------------|
@@ -306,7 +306,7 @@ After all strategies return their candidates:
 1. **Compute effective version** for each candidate: if `ShouldIncrement`, tentatively apply the increment to get the effective version (this is for ranking only — no mutation).
 2. **Select the maximum** effective version.
 3. **Tie-break:** If two candidates have the same effective version, the one with the **oldest** `BaseVersionSource` commit wins. This ensures accurate commit-since-tag counting.
-4. **Increment once** — the winning candidate is incremented a single time (DI-3: no double-increment).
+4. **Increment once** — the winning candidate is incremented a single time (no double-increment).
 
 ```
 Candidates:
@@ -382,7 +382,7 @@ Every commit gets a unique, monotonically increasing version. The commit count s
 
 **How it works:**
 1. Base version found and incremented (same as ContinuousDelivery)
-2. CommitsSinceTag is promoted to the pre-release number (DI-4)
+2. CommitsSinceTag is promoted to the pre-release number
 3. If the branch has an empty tag (stable), the `continuous-delivery-fallback-tag` (default: `ci`) is used as the pre-release label
 
 **On main:**
@@ -424,7 +424,7 @@ Version: 1.1.0-alpha.3
 
 Designed for trunk-based development. The highest increment from all commits since the last tag is applied **once**. Commit count goes into build metadata for uniqueness.
 
-**How it works (DI-10: Aggregate Increment):**
+**How it works (Aggregate Increment):**
 1. Find the latest semver tag (e.g., `v1.2.0`)
 2. Collect all commits since that tag
 3. Scan commit messages for the **single highest** increment type (via Conventional Commits / bump directives)
@@ -450,14 +450,14 @@ Result: 1.1.0+5
          └─ +5 (commit count in metadata for uniqueness)
 ```
 
-**Contrast with per-commit incrementing (what we DON'T do):**
+**Contrast with per-commit incrementing:**
 
 ```
-Per-commit (wrong):  1.0.1 → 1.0.2 → 1.1.0 → 1.1.1 → 1.1.2
-Aggregate (correct): 1.1.0+5
-
-The aggregate approach keeps version numbers semantically meaningful.
+Per-commit:  1.0.1 → 1.0.2 → 1.1.0 → 1.1.1 → 1.1.2
+Aggregate:   1.1.0+5
 ```
+
+The aggregate approach keeps version numbers semantically meaningful. If you prefer per-commit incrementing, set `mainline-increment: EachCommit` in your config.
 
 **On feature branches in Mainline mode:**
 

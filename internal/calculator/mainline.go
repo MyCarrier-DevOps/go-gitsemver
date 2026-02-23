@@ -12,7 +12,7 @@ import (
 // MainlineVersionCalculator computes versions in mainline mode.
 // Supports two increment modes controlled by ec.MainlineIncrement:
 //   - Aggregate (default): highest increment applied once, commit count in build metadata
-//   - EachCommit: version incremented per commit, matching GitVersion behavior
+//   - EachCommit: version incremented per commit individually
 type MainlineVersionCalculator struct {
 	store     *git.RepositoryStore
 	increment *IncrementStrategyFinder
@@ -38,7 +38,7 @@ func (m *MainlineVersionCalculator) FindMainlineModeVersion(
 	return m.aggregateVersion(ctx, bv, ec)
 }
 
-// aggregateVersion is the default DI-10 approach: find the single highest
+// aggregateVersion is the default approach: find the single highest
 // increment from all commits since the last tag and apply it once.
 // Commit count goes into build metadata.
 func (m *MainlineVersionCalculator) aggregateVersion(
@@ -71,7 +71,7 @@ func (m *MainlineVersionCalculator) aggregateVersion(
 }
 
 // eachCommitVersion walks each commit since the base version and increments
-// the version individually for each one, matching GitVersion's behavior.
+// the version individually for each one.
 func (m *MainlineVersionCalculator) eachCommitVersion(
 	ctx *context.GitVersionContext,
 	bv strategy.BaseVersion,
