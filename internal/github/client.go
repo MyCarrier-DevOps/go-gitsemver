@@ -149,7 +149,7 @@ func IsNotFoundError(err error) bool {
 	}
 	var ghErr *gh.ErrorResponse
 	if errors.As(err, &ghErr) {
-		return ghErr.Response != nil && ghErr.Response.StatusCode == 404
+		return ghErr.Response != nil && ghErr.Response.StatusCode == http.StatusNotFound
 	}
 	return false
 }

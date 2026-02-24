@@ -1,6 +1,7 @@
 package github
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -183,7 +184,7 @@ func TestNewClient_InvalidAppIDEnv(t *testing.T) {
 
 func TestIsNotFoundError(t *testing.T) {
 	// 404 error should be detected.
-	resp := &http.Response{StatusCode: 404}
+	resp := &http.Response{StatusCode: http.StatusNotFound}
 	notFoundErr := &gh.ErrorResponse{Response: resp}
 	require.True(t, IsNotFoundError(notFoundErr))
 
@@ -192,12 +193,12 @@ func TestIsNotFoundError(t *testing.T) {
 	require.True(t, IsNotFoundError(wrappedErr))
 
 	// 401 error should not be detected as "not found".
-	resp401 := &http.Response{StatusCode: 401}
+	resp401 := &http.Response{StatusCode: http.StatusUnauthorized}
 	authErr := &gh.ErrorResponse{Response: resp401}
 	require.False(t, IsNotFoundError(authErr))
 
 	// Non-GitHub error should not match.
-	require.False(t, IsNotFoundError(fmt.Errorf("some other error")))
+	require.False(t, IsNotFoundError(errors.New("some other error")))
 
 	// Nil error should return false.
 	require.False(t, IsNotFoundError(nil))
