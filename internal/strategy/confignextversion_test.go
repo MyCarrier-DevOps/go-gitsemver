@@ -1,10 +1,11 @@
 package strategy
 
 import (
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/context"
-	"go-gitsemver/internal/semver"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 	"github.com/stretchr/testify/require"
 )

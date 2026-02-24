@@ -2,10 +2,11 @@ package strategy
 
 import (
 	"fmt"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
 )
 
 // TaggedCommitStrategy returns versions from git tags on the current branch.

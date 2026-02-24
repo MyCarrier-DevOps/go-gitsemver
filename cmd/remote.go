@@ -2,27 +2,30 @@ package cmd
 
 import (
 	"fmt"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/output"
-	"go-gitsemver/internal/strategy"
+	"os"
 	"strings"
 
-	configctx "go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/output"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 
-	ghprovider "go-gitsemver/internal/github"
+	configctx "github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+
+	ghprovider "github.com/MyCarrier-DevOps/go-gitsemver/internal/github"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	flagToken      string
-	flagAppID      int64
-	flagAppKeyPath string
-	flagGitHubURL  string
-	flagRef        string
-	flagMaxCommits int
+	flagToken            string
+	flagAppID            int64
+	flagAppKeyPath       string
+	flagGitHubURL        string
+	flagRef              string
+	flagMaxCommits       int
+	flagRemoteConfigPath string
 )
 
 var remoteCmd = &cobra.Command{
@@ -50,6 +53,7 @@ func init() {
 	remoteCmd.Flags().StringVar(&flagGitHubURL, "github-url", "", "GitHub API base URL for GitHub Enterprise (or set GITHUB_API_URL env var)")
 	remoteCmd.Flags().StringVar(&flagRef, "ref", "", "git ref to version: branch, tag, or SHA (default: repo default branch)")
 	remoteCmd.Flags().IntVar(&flagMaxCommits, "max-commits", 1000, "maximum commit depth to walk via API")
+	remoteCmd.Flags().StringVar(&flagRemoteConfigPath, "remote-config-path", "", "path to config file in the remote repo (e.g. .github/GitVersion.yml)")
 
 	rootCmd.AddCommand(remoteCmd)
 }
@@ -124,10 +128,17 @@ func remoteRunE(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("calculating version: %w", err)
 	}
 
-	// 10. Compute output variables.
+	// 10. Write explain output to stderr if requested.
+	if flagExplain {
+		if err := output.WriteExplanation(os.Stderr, result); err != nil {
+			return fmt.Errorf("writing explanation: %w", err)
+		}
+	}
+
+	// 11. Compute output variables.
 	vars := output.GetVariables(result.Version, ec)
 
-	// 11. Write output.
+	// 12. Write output.
 	return writeOutput(vars)
 }
 
@@ -150,8 +161,19 @@ func loadRemoteConfig(ghRepo *ghprovider.GitHubRepository) (*config.Config, erro
 			return nil, err
 		}
 		builder.Add(userCfg)
+	} else if flagRemoteConfigPath != "" {
+		// Fetch a specific config file from the remote repo.
+		content, err := ghRepo.FetchFileContent(flagRemoteConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("fetching remote config %s: %w", flagRemoteConfigPath, err)
+		}
+		userCfg, err := config.LoadFromBytes([]byte(content))
+		if err != nil {
+			return nil, fmt.Errorf("parsing remote config %s: %w", flagRemoteConfigPath, err)
+		}
+		builder.Add(userCfg)
 	} else {
-		// Try to fetch config from the remote repo root.
+		// Auto-detect: try known config file names in the remote repo.
 		for _, name := range configFileNames {
 			content, err := ghRepo.FetchFileContent(name)
 			if err != nil {

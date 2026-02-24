@@ -4,9 +4,10 @@
 package git
 
 import (
-	"go-gitsemver/internal/semver"
 	"strings"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 const (

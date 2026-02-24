@@ -10,18 +10,19 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/config"
-	configctx "go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
-	ghprovider "go-gitsemver/internal/github"
-	"go-gitsemver/internal/output"
-	"go-gitsemver/internal/strategy"
-	"go-gitsemver/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	configctx "github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	ghprovider "github.com/MyCarrier-DevOps/go-gitsemver/internal/github"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/output"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/testutil"
 
 	gh "github.com/google/go-github/v68/github"
 	"github.com/stretchr/testify/require"
@@ -411,8 +412,8 @@ func TestGitHub_Fallback_NoTags(t *testing.T) {
 
 	vars := runGitHubPipeline(t, mock)
 
-	require.Equal(t, "0", vars["Major"])
-	require.Equal(t, "1", vars["Minor"])
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "0", vars["Minor"])
 	require.Equal(t, "0", vars["Patch"])
 }
 
@@ -754,7 +755,7 @@ func TestGitHub_RemoteConfig(t *testing.T) {
 
 	mock := newGHMock("main", sha1)
 	mock.addCommit(sha1, "initial", "2025-01-01T12:00:00Z")
-	mock.registerConfigFile("gitsemver.yml", "next-version: 9.0.0\n")
+	mock.registerConfigFile("go-gitsemver.yml", "next-version: 9.0.0\n")
 
 	// Run the pipeline using the library API which handles remote config fetching.
 	mock.register()
@@ -769,7 +770,7 @@ func TestGitHub_RemoteConfig(t *testing.T) {
 	)
 
 	// Fetch config from remote.
-	content, err := ghRepo.FetchFileContent("gitsemver.yml")
+	content, err := ghRepo.FetchFileContent("go-gitsemver.yml")
 	require.NoError(t, err)
 
 	userCfg, err := config.LoadFromBytes([]byte(content))

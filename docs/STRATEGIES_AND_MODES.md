@@ -39,14 +39,14 @@ Each candidate contains:
 
 ### 1. ConfigNextVersion
 
-Reads the `next-version` field from `gitsemver.yml` and uses it as the base version directly — no incrementing.
+Reads the `next-version` field from `go-gitsemver.yml` and uses it as the base version directly — no incrementing.
 
 **When it activates:** `next-version` is set in config AND the current commit is not already tagged.
 
 **Use case:** Force a version jump without tagging. Useful when starting a new major version or bootstrapping a project.
 
 ```yaml
-# gitsemver.yml
+# go-gitsemver.yml
 next-version: 2.0.0
 ```
 
@@ -80,7 +80,7 @@ Scans the current branch for git tags that match the configured `tag-prefix` pat
 **Use case:** This is the primary strategy for most workflows. Tags are the source of truth for released versions.
 
 ```yaml
-# gitsemver.yml
+# go-gitsemver.yml
 tag-prefix: '[vV]'   # default — matches v1.0.0 and V1.0.0
 ```
 
@@ -261,7 +261,7 @@ On develop (HEAD = E):
 
 ### 6. Fallback
 
-Returns the `base-version` from config (default: `0.1.0`) from the root commit. Always present as a safety net.
+Returns the `base-version` from config (default: `1.0.0`) from the root commit. Always present as a safety net.
 
 **When it activates:** Always. Provides a baseline if no other strategy produces a result.
 
@@ -270,7 +270,7 @@ Returns the `base-version` from config (default: `0.1.0`) from the root commit. 
 **Configurable starting version:**
 
 ```yaml
-base-version: 1.0.0   # default: 0.1.0
+base-version: 2.0.0   # default: 1.0.0
 ```
 
 **Example:**
@@ -280,9 +280,9 @@ main ── A ── B ── C    (no tags, no config)
                   ^ HEAD
 
 All other strategies return nothing.
-Fallback: 0.1.0 (ShouldIncrement = true)
+Fallback: 1.0.0 (ShouldIncrement = true)
 Branch config: Patch increment
-Result: 0.1.1 (on main) or 0.1.1-alpha.1 (on develop)
+Result: 1.0.1 (on main) or 1.0.1-alpha.1 (on develop)
 ```
 
 **Example with `base-version: 1.0.0`:**
@@ -314,7 +314,7 @@ Candidates:
   MergeMessage:  (none)
   BranchName:    (none)
   TrackRelease:  (none)
-  Fallback:      0.1.0 (ShouldIncrement=true)  → effective 0.1.1
+  Fallback:      1.0.0 (ShouldIncrement=true)  → effective 1.0.1
 
 Winner: TaggedCommit (effective 1.3.0)
 Final increment: Minor → 1.3.0
@@ -650,7 +650,7 @@ v1.0.0, 3 commits ago → 1.0.1+3 (incremented, on main with Patch default)
 
 ### next-version Config
 
-Set the floor for the next version in `gitsemver.yml`. Useful for initial development or planned version jumps.
+Set the floor for the next version in `go-gitsemver.yml`. Useful for initial development or planned version jumps.
 
 ```yaml
 next-version: 2.0.0

@@ -1,9 +1,10 @@
 package strategy
 
 import (
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/semver"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 	"github.com/stretchr/testify/require"
 )

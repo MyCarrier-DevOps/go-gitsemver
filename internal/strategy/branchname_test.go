@@ -1,10 +1,11 @@
 package strategy
 
 import (
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
 
 	"github.com/stretchr/testify/require"
 )
@@ -181,4 +182,91 @@ func TestBranchName_PartialVersion(t *testing.T) {
 	require.Equal(t, int64(1), versions[0].SemanticVersion.Major)
 	require.Equal(t, int64(2), versions[0].SemanticVersion.Minor)
 	require.Equal(t, int64(0), versions[0].SemanticVersion.Patch)
+}
+
+func TestBranchName_WithExplain(t *testing.T) {
+	branchPoint := newTestCommit("aaa0000000000000000000000000000000000000", "fork point")
+	tip := newTestCommit("bbb0000000000000000000000000000000000000", "tip")
+	branch := git.Branch{
+		Name: git.NewReferenceName("refs/heads/release/2.0.0"),
+		Tip:  &tip,
+	}
+	cfg := releaseBranchConfig(t)
+
+	mock := &git.MockRepository{
+		BranchesFunc: func(filters ...git.PathFilter) ([]git.Branch, error) {
+			return []git.Branch{branch}, nil
+		},
+		FindMergeBaseFunc: func(sha1, sha2 string) (string, error) {
+			return branchPoint.Sha, nil
+		},
+		CommitFromShaFunc: func(sha string) (git.Commit, error) {
+			return branchPoint, nil
+		},
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{tip, branchPoint}, nil
+		},
+	}
+	store := git.NewRepositoryStore(mock)
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch:     branch,
+		CurrentCommit:     tip,
+		FullConfiguration: cfg,
+	}
+	ec := config.EffectiveConfiguration{TagPrefix: "[vV]"}
+
+	s := NewVersionInBranchNameStrategy(store)
+	versions, err := s.GetBaseVersions(ctx, ec, true)
+	require.NoError(t, err)
+	require.Len(t, versions, 1)
+	require.NotNil(t, versions[0].Explanation)
+	require.Equal(t, "VersionInBranchName", versions[0].Explanation.Strategy)
+	require.NotEmpty(t, versions[0].Explanation.Steps)
+}
+
+func TestBranchName_NotReleaseBranch_WithExplain(t *testing.T) {
+	tip := newTestCommit("bbb0000000000000000000000000000000000000", "tip")
+	branch := git.Branch{
+		Name: git.NewReferenceName("refs/heads/feature/auth"),
+		Tip:  &tip,
+	}
+	cfg := releaseBranchConfig(t)
+
+	store := git.NewRepositoryStore(&git.MockRepository{})
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch:     branch,
+		CurrentCommit:     tip,
+		FullConfiguration: cfg,
+	}
+	ec := config.EffectiveConfiguration{TagPrefix: "[vV]"}
+
+	s := NewVersionInBranchNameStrategy(store)
+	versions, err := s.GetBaseVersions(ctx, ec, true)
+	require.NoError(t, err)
+	require.Nil(t, versions)
+}
+
+func TestBranchName_NoVersionInName(t *testing.T) {
+	tip := newTestCommit("bbb0000000000000000000000000000000000000", "tip")
+	branch := git.Branch{
+		Name: git.NewReferenceName("refs/heads/release/next"),
+		Tip:  &tip,
+	}
+	cfg := releaseBranchConfig(t)
+
+	store := git.NewRepositoryStore(&git.MockRepository{})
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch:     branch,
+		CurrentCommit:     tip,
+		FullConfiguration: cfg,
+	}
+	ec := config.EffectiveConfiguration{TagPrefix: "[vV]"}
+
+	s := NewVersionInBranchNameStrategy(store)
+	versions, err := s.GetBaseVersions(ctx, ec, false)
+	require.NoError(t, err)
+	require.Nil(t, versions)
 }

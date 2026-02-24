@@ -3,22 +3,26 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/config"
-	configctx "go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/output"
-	"go-gitsemver/internal/strategy"
 	"os"
 	"path/filepath"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	configctx "github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/output"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 
 	"github.com/spf13/cobra"
 )
 
 // configFileNames lists the files searched for configuration in order.
+// Checks .github/ first, then repo root directory.
 var configFileNames = []string{
+	".github/GitVersion.yml",
+	".github/go-gitsemver.yml",
 	"GitVersion.yml",
-	"gitsemver.yml",
+	"go-gitsemver.yml",
 }
 
 func calculateRunE(_ *cobra.Command, _ []string) error {
@@ -63,10 +67,17 @@ func calculateRunE(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("calculating version: %w", err)
 	}
 
-	// 7. Compute output variables.
+	// 7. Write explain output to stderr if requested.
+	if flagExplain {
+		if err := output.WriteExplanation(os.Stderr, result); err != nil {
+			return fmt.Errorf("writing explanation: %w", err)
+		}
+	}
+
+	// 8. Compute output variables.
 	vars := output.GetVariables(result.Version, ec)
 
-	// 8. Write output.
+	// 9. Write output.
 	return writeOutput(vars)
 }
 

@@ -1,8 +1,9 @@
 package config
 
 import (
-	"go-gitsemver/internal/semver"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"

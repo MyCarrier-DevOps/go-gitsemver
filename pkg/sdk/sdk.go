@@ -1,36 +1,37 @@
-// Package gitsemver provides a public Go API for calculating semantic versions
+// Package sdk provides a public Go API for calculating semantic versions
 // from git history. It supports both local repositories (via go-git) and remote
 // GitHub repositories (via the GitHub API).
 //
 // Basic usage:
 //
-//	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+//	result, err := sdk.Calculate(sdk.LocalOptions{
 //	    Path: "/path/to/repo",
 //	})
 //	fmt.Println(result.Variables["SemVer"]) // "1.2.3"
 //
-//	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+//	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 //	    Owner: "myorg",
 //	    Repo:  "myrepo",
 //	    Token: os.Getenv("GITHUB_TOKEN"),
 //	})
 //	fmt.Println(result.Variables["FullSemVer"]) // "1.2.3+5"
-package gitsemver
+package sdk
 
 import (
 	"errors"
 	"fmt"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/output"
-	"go-gitsemver/internal/strategy"
 	"os"
 	"path/filepath"
 
-	configctx "go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/output"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 
-	ghprovider "go-gitsemver/internal/github"
+	configctx "github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+
+	ghprovider "github.com/MyCarrier-DevOps/go-gitsemver/internal/github"
 )
 
 // LocalOptions configures version calculation from a local git repository.
@@ -45,8 +46,11 @@ type LocalOptions struct {
 	Commit string
 
 	// ConfigPath is the path to a gitsemver/GitVersion YAML config file.
-	// If empty, auto-detects GitVersion.yml or gitsemver.yml in the repo root.
+	// If empty, auto-detects GitVersion.yml or go-gitsemver.yml in the repo root.
 	ConfigPath string
+
+	// Explain enables explain mode, populating ExplainResult on the returned Result.
+	Explain bool
 }
 
 // RemoteOptions configures version calculation via the GitHub API.
@@ -84,6 +88,14 @@ type RemoteOptions struct {
 
 	// ConfigPath is a local config file path that overrides remote config.
 	ConfigPath string
+
+	// RemoteConfigPath is a path to a config file in the remote repo (e.g.
+	// ".github/GitVersion.yml"). When set, this specific file is fetched instead
+	// of auto-detecting from known config file names. Ignored when ConfigPath is set.
+	RemoteConfigPath string
+
+	// Explain enables explain mode, populating ExplainResult on the returned Result.
+	Explain bool
 }
 
 // Result holds the calculated version and all output variables.
@@ -93,12 +105,60 @@ type Result struct {
 	// PreReleaseTag, PreReleaseNumber, CommitsSinceVersionSource, Sha, ShortSha,
 	// BranchName, etc.
 	Variables map[string]string
+
+	// ExplainResult contains the full explain output. Nil when Explain is false.
+	ExplainResult *ExplainResult
+}
+
+// ExplainResult holds structured explain data for programmatic consumption.
+type ExplainResult struct {
+	// Candidates lists all candidate base versions evaluated by strategies.
+	Candidates []ExplainCandidate
+
+	// SelectedSource is the human-readable name of the winning strategy.
+	SelectedSource string
+
+	// IncrementField is the increment applied (e.g. "Minor", "Patch", "None").
+	IncrementField string
+
+	// IncrementSteps records the reasoning for the increment decision.
+	IncrementSteps []string
+
+	// PreReleaseSteps records the reasoning for pre-release tag resolution.
+	PreReleaseSteps []string
+
+	// FinalVersion is the fully-qualified version string.
+	FinalVersion string
+
+	// FormattedOutput is the human-readable explain text (same as CLI --explain).
+	FormattedOutput string
+}
+
+// ExplainCandidate describes a single candidate base version from a strategy.
+type ExplainCandidate struct {
+	// Strategy is the name of the strategy that produced this candidate.
+	Strategy string
+
+	// Version is the semantic version string (e.g. "1.2.0").
+	Version string
+
+	// Source is the short SHA of the source commit, or "external".
+	Source string
+
+	// ShouldIncrement indicates whether this candidate would be incremented.
+	ShouldIncrement bool
+
+	// Steps records the reasoning chain for how the strategy derived this version.
+	Steps []string
 }
 
 // configFileNames lists the files searched for configuration in order.
+// Checks .github/ first, then repo root directory.
 var configFileNames = []string{
+	".github/GitVersion.yml",
+	".github/go-gitsemver.yml",
 	"GitVersion.yml",
-	"gitsemver.yml",
+	"go-gitsemver.yml",
 }
 
 // Calculate computes the next semantic version from a local git repository.
@@ -121,7 +181,7 @@ func Calculate(opts LocalOptions) (*Result, error) {
 	}
 
 	// 3. Run the shared calculation pipeline.
-	return calculate(repo, cfg, opts.Branch, opts.Commit)
+	return calculate(repo, cfg, opts.Branch, opts.Commit, opts.Explain)
 }
 
 // CalculateRemote computes the next semantic version via the GitHub API.
@@ -158,17 +218,17 @@ func CalculateRemote(opts RemoteOptions) (*Result, error) {
 	ghRepo := ghprovider.NewGitHubRepository(client, opts.Owner, opts.Repo, ghOpts...)
 
 	// 3. Load configuration.
-	cfg, err := loadRemoteConfig(opts.ConfigPath, ghRepo)
+	cfg, err := loadRemoteConfig(opts.ConfigPath, opts.RemoteConfigPath, ghRepo)
 	if err != nil {
 		return nil, fmt.Errorf("loading configuration: %w", err)
 	}
 
 	// 4. Run the shared calculation pipeline.
-	return calculate(ghRepo, cfg, opts.Branch, opts.Commit)
+	return calculate(ghRepo, cfg, opts.Branch, opts.Commit, opts.Explain)
 }
 
 // calculate runs the shared version calculation pipeline.
-func calculate(repo git.Repository, cfg *config.Config, branch, commit string) (*Result, error) {
+func calculate(repo git.Repository, cfg *config.Config, branch, commit string, explain bool) (*Result, error) {
 	store := git.NewRepositoryStore(repo)
 
 	ctx, err := configctx.NewContext(store, repo, cfg, configctx.Options{
@@ -186,14 +246,61 @@ func calculate(repo git.Repository, cfg *config.Config, branch, commit string) (
 
 	strategies := strategy.AllStrategies(store)
 	calc := calculator.NewNextVersionCalculator(store, strategies)
-	result, err := calc.Calculate(ctx, ec, false)
+	result, err := calc.Calculate(ctx, ec, explain)
 	if err != nil {
 		return nil, fmt.Errorf("calculating version: %w", err)
 	}
 
 	vars := output.GetVariables(result.Version, ec)
 
-	return &Result{Variables: vars}, nil
+	r := &Result{Variables: vars}
+
+	if explain {
+		r.ExplainResult = buildExplainResult(result)
+	}
+
+	return r, nil
+}
+
+// buildExplainResult maps internal calculator.VersionResult to the public ExplainResult.
+func buildExplainResult(result calculator.VersionResult) *ExplainResult {
+	er := &ExplainResult{
+		SelectedSource:  result.BaseVersion.Source,
+		FinalVersion:    result.Version.FullSemVer(),
+		PreReleaseSteps: result.PreReleaseSteps,
+		FormattedOutput: output.FormatExplanation(result),
+	}
+
+	// Map increment explanation.
+	if result.IncrementExplanation != nil {
+		er.IncrementSteps = result.IncrementExplanation.Steps
+		// Extract the increment field from the steps (last "highest increment" step).
+		for _, step := range result.IncrementExplanation.Steps {
+			if len(step) > 0 {
+				er.IncrementField = step // will be overwritten; last step has the summary
+			}
+		}
+	}
+
+	// Map candidates.
+	for _, c := range result.AllCandidates {
+		ec := ExplainCandidate{
+			Version:         c.SemanticVersion.SemVer(),
+			ShouldIncrement: c.ShouldIncrement,
+		}
+		if c.BaseVersionSource != nil {
+			ec.Source = c.BaseVersionSource.ShortSha()
+		} else {
+			ec.Source = "external"
+		}
+		if c.Explanation != nil {
+			ec.Strategy = c.Explanation.Strategy
+			ec.Steps = c.Explanation.Steps
+		}
+		er.Candidates = append(er.Candidates, ec)
+	}
+
+	return er
 }
 
 // loadLocalConfig loads configuration from a file path or auto-detects it.
@@ -227,16 +334,31 @@ func findConfigFile(dir string) string {
 }
 
 // loadRemoteConfig loads configuration from a local override or the remote repo.
-func loadRemoteConfig(configPath string, ghRepo *ghprovider.GitHubRepository) (*config.Config, error) {
+// When remoteConfigPath is set, that specific file is fetched from the remote repo
+// instead of auto-detecting from known config file names.
+func loadRemoteConfig(configPath, remoteConfigPath string, ghRepo *ghprovider.GitHubRepository) (*config.Config, error) {
 	builder := config.NewBuilder()
 
 	if configPath != "" {
+		// Use explicit local config file.
 		userCfg, err := config.LoadFromFile(configPath)
 		if err != nil {
 			return nil, err
 		}
 		builder.Add(userCfg)
+	} else if remoteConfigPath != "" {
+		// Fetch a specific config file from the remote repo.
+		content, err := ghRepo.FetchFileContent(remoteConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("fetching remote config %s: %w", remoteConfigPath, err)
+		}
+		userCfg, err := config.LoadFromBytes([]byte(content))
+		if err != nil {
+			return nil, fmt.Errorf("parsing remote config %s: %w", remoteConfigPath, err)
+		}
+		builder.Add(userCfg)
 	} else {
+		// Auto-detect: try known config file names in the remote repo.
 		for _, name := range configFileNames {
 			content, err := ghRepo.FetchFileContent(name)
 			if err != nil {

@@ -1,8 +1,9 @@
 package config
 
 import (
-	"go-gitsemver/internal/semver"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 // EffectiveConfiguration is a fully resolved configuration with all fields
@@ -58,7 +59,7 @@ func NewEffectiveConfiguration(cfg *Config, branch *BranchConfig) EffectiveConfi
 		// Global fields with defaults
 		Mode:                             derefVersioningMode(cfg.Mode, semver.VersioningModeContinuousDelivery),
 		TagPrefix:                        derefString(cfg.TagPrefix, "[vV]"),
-		BaseVersion:                      derefString(cfg.BaseVersion, "0.1.0"),
+		BaseVersion:                      derefString(cfg.BaseVersion, "1.0.0"),
 		NextVersion:                      derefString(cfg.NextVersion, ""),
 		Increment:                        derefIncrementStrategy(cfg.Increment, semver.IncrementStrategyInherit),
 		ContinuousDeploymentFallbackTag:  derefString(cfg.ContinuousDeploymentFallbackTag, "ci"),

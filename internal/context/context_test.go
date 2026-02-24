@@ -1,8 +1,9 @@
 package context
 
 import (
-	"go-gitsemver/internal/config"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
 
 	"github.com/stretchr/testify/require"
 )

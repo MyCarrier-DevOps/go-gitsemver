@@ -2,11 +2,12 @@ package git
 
 import (
 	"fmt"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/semver"
 	"regexp"
 	"sort"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 // RepositoryStore provides higher-level domain queries built on top of a

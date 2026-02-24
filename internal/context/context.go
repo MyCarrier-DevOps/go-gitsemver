@@ -3,9 +3,9 @@
 package context
 
 import (
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/semver"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 // GitVersionContext holds the resolved state needed for version calculation.

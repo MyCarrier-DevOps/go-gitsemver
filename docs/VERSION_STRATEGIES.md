@@ -26,7 +26,7 @@ BaseVersion {
 
 **Source:** `internal/strategy/confignextversion.go`
 
-Uses the `next-version` field from `gitsemver.yml` as the base version directly — no incrementing.
+Uses the `next-version` field from `go-gitsemver.yml` as the base version directly — no incrementing.
 
 **When it produces a result:**
 - `next-version` is set in config AND current commit is NOT tagged
@@ -125,7 +125,7 @@ For branches that track release branches (like `develop` in GitFlow). Collects v
 
 **Source:** `internal/strategy/fallback.go`
 
-Returns the `base-version` from config (default: `0.1.0`) from the root commit. Always present as a safety net.
+Returns the `base-version` from config (default: `1.0.0`) from the root commit. Always present as a safety net.
 
 **BaseVersion:**
 - `ShouldIncrement`: **true** (version is a starting point)
@@ -153,7 +153,7 @@ Candidates:
   MergeMessage:  (none)
   BranchName:    (none)
   TrackRelease:  (none)
-  Fallback:      0.1.0 (ShouldIncrement=true)  → effective 0.1.1
+  Fallback:      1.0.0 (ShouldIncrement=true)  → effective 1.0.1
 
 Winner: TaggedCommit (effective 1.3.0)
 Final increment: Minor → 1.3.0

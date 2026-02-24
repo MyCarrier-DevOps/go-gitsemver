@@ -192,12 +192,25 @@ func (r *TestRepo) MergeCommit(message, otherSha string) string {
 	return hash.String()
 }
 
-// WriteConfig writes a gitsemver.yml file in the repo root.
+// WriteConfig writes a go-gitsemver.yml file in the repo root.
 func (r *TestRepo) WriteConfig(content string) {
 	r.t.Helper()
-	path := filepath.Join(r.path, "gitsemver.yml")
+	path := filepath.Join(r.path, "go-gitsemver.yml")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		r.t.Fatalf("writing config: %v", err)
+	}
+}
+
+// WriteConfigAt writes a config file at a custom path relative to the repo root.
+func (r *TestRepo) WriteConfigAt(relPath, content string) {
+	r.t.Helper()
+	absPath := filepath.Join(r.path, relPath)
+	dir := filepath.Dir(absPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		r.t.Fatalf("creating directory %s: %v", dir, err)
+	}
+	if err := os.WriteFile(absPath, []byte(content), 0o644); err != nil {
+		r.t.Fatalf("writing config at %s: %v", relPath, err)
 	}
 }
 

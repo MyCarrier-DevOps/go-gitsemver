@@ -1,4 +1,4 @@
-// Example program demonstrating the gitsemver library API.
+// Example program demonstrating the sdk library API.
 //
 // Run from the repo root:
 //
@@ -11,14 +11,16 @@ package main
 
 import (
 	"fmt"
-	"go-gitsemver/pkg/gitsemver"
 	"log"
 	"os"
 	"sort"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
 )
 
 func main() {
 	localVersion()
+	localVersionExplain()
 
 	if os.Getenv("GITHUB_TOKEN") != "" {
 		remoteVersion()
@@ -26,7 +28,7 @@ func main() {
 }
 
 func localVersion() {
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: ".",
 	})
 	if err != nil {
@@ -36,8 +38,27 @@ func localVersion() {
 	printVersion("Local", result)
 }
 
+func localVersionExplain() {
+	result, err := sdk.Calculate(sdk.LocalOptions{
+		Path:    ".",
+		Explain: true,
+	})
+	if err != nil {
+		log.Fatalf("local explain calculation failed: %v", err)
+	}
+
+	fmt.Println("=== Explain Output ===")
+	if result.ExplainResult != nil {
+		fmt.Println(result.ExplainResult.FormattedOutput)
+		fmt.Printf("Final version: %s\n", result.ExplainResult.FinalVersion)
+		fmt.Printf("Selected source: %s\n", result.ExplainResult.SelectedSource)
+		fmt.Printf("Candidates: %d\n", len(result.ExplainResult.Candidates))
+	}
+	fmt.Println()
+}
+
 func remoteVersion() {
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner: "MyCarrier-DevOps",
 		Repo:  "go-gitsemver",
 		Token: os.Getenv("GITHUB_TOKEN"),
@@ -50,7 +71,7 @@ func remoteVersion() {
 	printVersion("Remote", result)
 }
 
-func printVersion(label string, result *gitsemver.Result) {
+func printVersion(label string, result *sdk.Result) {
 	fmt.Printf("=== %s Version ===\n", label)
 
 	keys := make([]string, 0, len(result.Variables))

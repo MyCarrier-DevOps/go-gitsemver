@@ -2,7 +2,7 @@
 package output
 
 import (
-	"go-gitsemver/internal/semver"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 // PromoteCommitsToPreRelease transforms a version for ContinuousDeployment

@@ -19,7 +19,7 @@
     "base-version": {
       "type": "string",
       "description": "Floor version used when no tags exist in the repository.",
-      "default": "0.1.0"
+      "default": "1.0.0"
     },
     "next-version": {
       "type": "string",

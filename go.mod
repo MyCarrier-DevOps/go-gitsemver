@@ -1,4 +1,4 @@
-module go-gitsemver
+module github.com/MyCarrier-DevOps/go-gitsemver
 
 go 1.26
 

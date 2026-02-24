@@ -12,7 +12,7 @@ import (
 	gh "github.com/google/go-github/v68/github"
 	"github.com/stretchr/testify/require"
 
-	ghprovider "go-gitsemver/internal/github"
+	ghprovider "github.com/MyCarrier-DevOps/go-gitsemver/internal/github"
 )
 
 func TestParseOwnerRepo_Valid(t *testing.T) {
@@ -128,8 +128,8 @@ func TestLoadRemoteConfig_FallsBackToGitsemverYml(t *testing.T) {
 	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/GitVersion.yml", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
 	})
-	// gitsemver.yml succeeds.
-	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/gitsemver.yml", func(w http.ResponseWriter, r *http.Request) {
+	// go-gitsemver.yml succeeds.
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/go-gitsemver.yml", func(w http.ResponseWriter, r *http.Request) {
 		writeTestJSON(w, map[string]interface{}{
 			"type":     "file",
 			"encoding": "base64",

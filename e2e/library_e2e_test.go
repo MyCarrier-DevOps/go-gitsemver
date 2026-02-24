@@ -1,4 +1,4 @@
-// Package e2e contains end-to-end tests for the pkg/gitsemver library API.
+// Package e2e contains end-to-end tests for the pkg/sdk library API.
 //
 // These tests exercise the public Calculate() and CalculateRemote() functions
 // through the full pipeline, verifying that the library produces correct
@@ -7,14 +7,15 @@ package e2e
 
 import (
 	"encoding/json"
-	"go-gitsemver/internal/testutil"
-	"go-gitsemver/pkg/gitsemver"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/testutil"
+	"github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
 
 	gh "github.com/google/go-github/v68/github"
 	"github.com/stretchr/testify/require"
@@ -29,13 +30,13 @@ func TestLibrary_Calculate_BasicRepo(t *testing.T) {
 	repo.AddCommit("initial commit")
 	repo.AddCommit("second commit")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, "0", result.Variables["Major"])
-	require.Equal(t, "1", result.Variables["Minor"])
+	require.Equal(t, "1", result.Variables["Major"])
+	require.Equal(t, "0", result.Variables["Minor"])
 	require.Equal(t, "0", result.Variables["Patch"])
 }
 
@@ -44,7 +45,7 @@ func TestLibrary_Calculate_WithTag(t *testing.T) {
 	sha := repo.AddCommit("initial")
 	repo.CreateTag("v2.0.0", sha)
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -57,7 +58,7 @@ func TestLibrary_Calculate_CommitsAfterTag(t *testing.T) {
 	repo.CreateTag("v1.0.0", sha)
 	repo.AddCommit("feat: add auth")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -66,7 +67,7 @@ func TestLibrary_Calculate_CommitsAfterTag(t *testing.T) {
 }
 
 func TestLibrary_Calculate_InvalidPath(t *testing.T) {
-	_, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	_, err := sdk.Calculate(sdk.LocalOptions{
 		Path: "/nonexistent/path",
 	})
 	require.Error(t, err)
@@ -81,7 +82,7 @@ func TestLibrary_Calculate_WithConfigPath(t *testing.T) {
 	configPath := filepath.Join(configDir, "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("next-version: 5.0.0\n"), 0o644))
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:       repo.Path(),
 		ConfigPath: configPath,
 	})
@@ -94,7 +95,7 @@ func TestLibrary_Calculate_AutoDetectsGitsemverYml(t *testing.T) {
 	repo.AddCommit("initial")
 	repo.WriteConfig("next-version: 8.0.0\n")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -109,7 +110,7 @@ func TestLibrary_Calculate_AutoDetectsGitVersionYml(t *testing.T) {
 	configPath := filepath.Join(repo.Path(), "GitVersion.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("next-version: 6.0.0\n"), 0o644))
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -124,7 +125,7 @@ func TestLibrary_Calculate_WithBranch(t *testing.T) {
 	repo.Checkout("feature/login")
 	repo.AddCommit("feat: add login page")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:   repo.Path(),
 		Branch: "feature/login",
 	})
@@ -139,7 +140,7 @@ func TestLibrary_Calculate_WithCommitOverride(t *testing.T) {
 	repo.CreateTag("v3.0.0", sha)
 	repo.AddCommit("after release")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:   repo.Path(),
 		Commit: sha,
 	})
@@ -157,7 +158,7 @@ func TestLibrary_Calculate_ConventionalCommits(t *testing.T) {
 	configPath := filepath.Join(configDir, "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("commit-message-convention: ConventionalCommits\n"), 0o644))
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:       repo.Path(),
 		ConfigPath: configPath,
 	})
@@ -177,7 +178,7 @@ func TestLibrary_Calculate_BreakingChange(t *testing.T) {
 	configPath := filepath.Join(configDir, "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("commit-message-convention: ConventionalCommits\n"), 0o644))
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:       repo.Path(),
 		ConfigPath: configPath,
 	})
@@ -195,7 +196,7 @@ func TestLibrary_Calculate_HotfixBranch(t *testing.T) {
 	repo.Checkout("hotfix/critical-fix")
 	repo.AddCommit("fix: critical patch")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -212,7 +213,7 @@ func TestLibrary_Calculate_ReleaseBranch(t *testing.T) {
 	repo.Checkout("release/3.0.0")
 	repo.AddCommit("release prep")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -226,7 +227,7 @@ func TestLibrary_Calculate_AnnotatedTag(t *testing.T) {
 	sha := repo.AddCommit("release")
 	repo.CreateAnnotatedTag("v4.0.0", sha, "Release 4.0.0")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -239,7 +240,7 @@ func TestLibrary_Calculate_AllOutputVariables(t *testing.T) {
 	repo.CreateTag("v1.0.0", sha)
 	repo.AddCommit("second commit")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -272,7 +273,7 @@ func TestLibrary_Calculate_ContinuousDeployment(t *testing.T) {
 	configPath := filepath.Join(configDir, "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("mode: ContinuousDeployment\ncontinuous-delivery-fallback-tag: ci\n"), 0o644))
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:       repo.Path(),
 		ConfigPath: configPath,
 	})
@@ -292,7 +293,7 @@ func TestLibrary_Calculate_Mainline(t *testing.T) {
 	configPath := filepath.Join(configDir, "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("mode: Mainline\ncommit-message-convention: ConventionalCommits\n"), 0o644))
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:       repo.Path(),
 		ConfigPath: configPath,
 	})
@@ -566,7 +567,7 @@ func TestLibrary_CalculateRemote_NoTags(t *testing.T) {
 	)
 	defer server.Close()
 
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:   "testowner",
 		Repo:    "testrepo",
 		Token:   "ghp_test",
@@ -574,8 +575,8 @@ func TestLibrary_CalculateRemote_NoTags(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, "0", result.Variables["Major"])
-	require.Equal(t, "1", result.Variables["Minor"])
+	require.Equal(t, "1", result.Variables["Major"])
+	require.Equal(t, "0", result.Variables["Minor"])
 	require.Equal(t, "0", result.Variables["Patch"])
 }
 
@@ -592,7 +593,7 @@ func TestLibrary_CalculateRemote_WithTag(t *testing.T) {
 	)
 	defer server.Close()
 
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:   "testowner",
 		Repo:    "testrepo",
 		Token:   "ghp_test",
@@ -617,7 +618,7 @@ func TestLibrary_CalculateRemote_CommitsAfterTag(t *testing.T) {
 	)
 	defer server.Close()
 
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:   "testowner",
 		Repo:    "testrepo",
 		Token:   "ghp_test",
@@ -630,7 +631,7 @@ func TestLibrary_CalculateRemote_CommitsAfterTag(t *testing.T) {
 
 func TestLibrary_CalculateRemote_ValidationErrors(t *testing.T) {
 	t.Run("missing owner", func(t *testing.T) {
-		_, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+		_, err := sdk.CalculateRemote(sdk.RemoteOptions{
 			Repo:  "myrepo",
 			Token: "ghp_test",
 		})
@@ -639,7 +640,7 @@ func TestLibrary_CalculateRemote_ValidationErrors(t *testing.T) {
 	})
 
 	t.Run("missing repo", func(t *testing.T) {
-		_, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+		_, err := sdk.CalculateRemote(sdk.RemoteOptions{
 			Owner: "myorg",
 			Token: "ghp_test",
 		})
@@ -652,7 +653,7 @@ func TestLibrary_CalculateRemote_ValidationErrors(t *testing.T) {
 		t.Setenv("GH_APP_ID", "")
 		t.Setenv("GH_APP_PRIVATE_KEY", "")
 
-		_, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+		_, err := sdk.CalculateRemote(sdk.RemoteOptions{
 			Owner: "myorg",
 			Repo:  "myrepo",
 		})
@@ -680,7 +681,7 @@ func TestLibrary_CalculateRemote_ConventionalCommits(t *testing.T) {
 	configPath := filepath.Join(configDir, "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("commit-message-convention: ConventionalCommits\n"), 0o644))
 
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:      "testowner",
 		Repo:       "testrepo",
 		Token:      "ghp_test",
@@ -708,7 +709,7 @@ func TestLibrary_CalculateRemote_AllOutputVariables(t *testing.T) {
 	)
 	defer server.Close()
 
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:   "testowner",
 		Repo:    "testrepo",
 		Token:   "ghp_test",
@@ -741,7 +742,7 @@ func TestLibrary_Parity_LocalVsRemote(t *testing.T) {
 	tipSha := repo.AddCommit("second commit")
 
 	// Calculate locally.
-	localResult, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	localResult, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -758,7 +759,7 @@ func TestLibrary_Parity_LocalVsRemote(t *testing.T) {
 	)
 	defer server.Close()
 
-	remoteResult, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	remoteResult, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:   "testowner",
 		Repo:    "testrepo",
 		Token:   "ghp_test",
@@ -772,4 +773,115 @@ func TestLibrary_Parity_LocalVsRemote(t *testing.T) {
 	require.Equal(t, localResult.Variables["Patch"], remoteResult.Variables["Patch"])
 	require.Equal(t, localResult.Variables["MajorMinorPatch"], remoteResult.Variables["MajorMinorPatch"])
 	require.Equal(t, localResult.Variables["CommitsSinceVersionSource"], remoteResult.Variables["CommitsSinceVersionSource"])
+}
+
+// ---------------------------------------------------------------------------
+// Library: Explain Mode
+// ---------------------------------------------------------------------------
+
+func TestLibrary_Calculate_WithExplain(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("feat: add dashboard")
+
+	result, err := sdk.Calculate(sdk.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+
+	er := result.ExplainResult
+
+	// Candidates should be populated.
+	require.NotEmpty(t, er.Candidates)
+
+	// At least one candidate should be TaggedCommit.
+	hasTagged := false
+	for _, c := range er.Candidates {
+		if c.Strategy == "TaggedCommit" {
+			hasTagged = true
+			require.Equal(t, "1.0.0", c.Version)
+			require.NotEmpty(t, c.Steps)
+		}
+	}
+	require.True(t, hasTagged, "should have TaggedCommit candidate")
+
+	// Selected source should be set.
+	require.NotEmpty(t, er.SelectedSource)
+
+	// Increment steps should be populated.
+	require.NotEmpty(t, er.IncrementSteps)
+
+	// Final version should be set.
+	require.NotEmpty(t, er.FinalVersion)
+
+	// Formatted output should contain key sections.
+	require.Contains(t, er.FormattedOutput, "Strategies evaluated:")
+	require.Contains(t, er.FormattedOutput, "Selected:")
+	require.Contains(t, er.FormattedOutput, "Result:")
+}
+
+func TestLibrary_Calculate_WithoutExplain(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	result, err := sdk.Calculate(sdk.LocalOptions{
+		Path:    repo.Path(),
+		Explain: false,
+	})
+	require.NoError(t, err)
+	require.Nil(t, result.ExplainResult, "ExplainResult should be nil when Explain=false")
+}
+
+func TestLibrary_Calculate_ExplainFeatureBranch(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial on main")
+	repo.CreateTag("v1.0.0", sha)
+	repo.CreateBranch("feature/search", sha)
+	repo.Checkout("feature/search")
+	repo.AddCommit("feat: add search")
+
+	result, err := sdk.Calculate(sdk.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+
+	// Feature branch should have pre-release steps.
+	require.NotEmpty(t, result.ExplainResult.PreReleaseSteps)
+}
+
+func TestLibrary_CalculateRemote_WithExplain(t *testing.T) {
+	tagSha := sha("tag100")
+	tipSha := sha("tip200")
+
+	server := newLibraryMockServer(t,
+		tipSha, "feat: new feature", "2025-01-01T12:01:00Z",
+		[]string{tagSha},
+		[]mockTag{{name: "v1.0.0", commitSha: tagSha}},
+		[]mockCommit{
+			{sha: tagSha, message: "initial", date: "2025-01-01T12:00:00Z"},
+			{sha: tipSha, message: "feat: new feature", date: "2025-01-01T12:01:00Z", parents: []string{tagSha}},
+		},
+	)
+	defer server.Close()
+
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
+		Owner:   "testowner",
+		Repo:    "testrepo",
+		Token:   "ghp_test",
+		BaseURL: server.URL + "/api/v3",
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+
+	er := result.ExplainResult
+	require.NotEmpty(t, er.Candidates)
+	require.NotEmpty(t, er.SelectedSource)
+	require.NotEmpty(t, er.FinalVersion)
+	require.Contains(t, er.FormattedOutput, "Strategies evaluated:")
 }

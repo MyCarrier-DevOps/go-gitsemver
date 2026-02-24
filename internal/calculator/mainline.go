@@ -1,12 +1,14 @@
 package calculator
 
 import (
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/semver"
-	"go-gitsemver/internal/strategy"
 	"slices"
+	"strings"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 )
 
 // MainlineVersionCalculator computes versions in mainline mode.
@@ -31,11 +33,12 @@ func (m *MainlineVersionCalculator) FindMainlineModeVersion(
 	ctx *context.GitVersionContext,
 	bv strategy.BaseVersion,
 	ec config.EffectiveConfiguration,
-) (semver.SemanticVersion, error) {
+	explain bool,
+) (semver.SemanticVersion, *IncrementExplanation, error) {
 	if ec.MainlineIncrement == semver.MainlineIncrementEachCommit {
-		return m.eachCommitVersion(ctx, bv, ec)
+		return m.eachCommitVersion(ctx, bv, ec, explain)
 	}
-	return m.aggregateVersion(ctx, bv, ec)
+	return m.aggregateVersion(ctx, bv, ec, explain)
 }
 
 // aggregateVersion is the default approach: find the single highest
@@ -45,16 +48,17 @@ func (m *MainlineVersionCalculator) aggregateVersion(
 	ctx *context.GitVersionContext,
 	bv strategy.BaseVersion,
 	ec config.EffectiveConfiguration,
-) (semver.SemanticVersion, error) {
-	field, err := m.increment.DetermineIncrementedField(ctx, bv, ec)
+	explain bool,
+) (semver.SemanticVersion, *IncrementExplanation, error) {
+	result, err := m.increment.DetermineIncrementedFieldExplained(ctx, bv, ec, explain)
 	if err != nil {
-		return semver.SemanticVersion{}, err
+		return semver.SemanticVersion{}, nil, err
 	}
 
 	ver := bv.SemanticVersion
 
-	if field != semver.VersionFieldNone {
-		ver = ver.IncrementField(field)
+	if result.Field != semver.VersionFieldNone {
+		ver = ver.IncrementField(result.Field)
 	} else if bv.ShouldIncrement {
 		defaultField := ec.BranchIncrement.ToVersionField()
 		if defaultField == semver.VersionFieldNone {
@@ -67,7 +71,7 @@ func (m *MainlineVersionCalculator) aggregateVersion(
 	_ = commits
 
 	ver = m.withBuildMetaData(ver, ctx, count)
-	return ver, nil
+	return ver, result.Explanation, nil
 }
 
 // eachCommitVersion walks each commit since the base version and increments
@@ -76,8 +80,15 @@ func (m *MainlineVersionCalculator) eachCommitVersion(
 	ctx *context.GitVersionContext,
 	bv strategy.BaseVersion,
 	ec config.EffectiveConfiguration,
-) (semver.SemanticVersion, error) {
+	explain bool,
+) (semver.SemanticVersion, *IncrementExplanation, error) {
 	commits, count := m.commitsSince(bv, ctx)
+
+	var exp *IncrementExplanation
+	if explain {
+		exp = &IncrementExplanation{}
+		exp.Addf("mainline EachCommit mode: walking %d commits", count)
+	}
 
 	ver := bv.SemanticVersion
 	defaultField := ec.BranchIncrement.ToVersionField()
@@ -106,10 +117,22 @@ func (m *MainlineVersionCalculator) eachCommitVersion(
 		} else if bv.ShouldIncrement {
 			ver = ver.IncrementField(defaultField)
 		}
+
+		if explain {
+			firstLine := c.Message
+			if idx := strings.IndexByte(firstLine, '\n'); idx >= 0 {
+				firstLine = firstLine[:idx]
+			}
+			exp.Addf("commit %s %q -> %s -> %s", c.ShortSha(), firstLine, field, ver.SemVer())
+		}
+	}
+
+	if explain {
+		exp.Addf("final mainline version: %s", ver.SemVer())
 	}
 
 	ver = m.withBuildMetaData(ver, ctx, count)
-	return ver, nil
+	return ver, exp, nil
 }
 
 // commitsSince returns commits between base version source and current commit,

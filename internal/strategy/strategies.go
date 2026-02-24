@@ -1,6 +1,6 @@
 package strategy
 
-import "go-gitsemver/internal/git"
+import "github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
 
 // AllStrategies returns all version strategies in priority order.
 // Strategies are evaluated in this order during base version selection:

@@ -1,10 +1,11 @@
 package config
 
 import (
-	"go-gitsemver/internal/semver"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 	"github.com/stretchr/testify/require"
 )
@@ -135,7 +136,7 @@ func TestLoadFromBytes_InvalidYAML(t *testing.T) {
 
 func TestLoadFromFile_Success(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "gitsemver.yml")
+	path := filepath.Join(dir, "go-gitsemver.yml")
 	require.NoError(t, os.WriteFile(path, []byte("tag-prefix: 'v'\n"), 0o644))
 
 	cfg, err := LoadFromFile(path)
@@ -144,7 +145,7 @@ func TestLoadFromFile_Success(t *testing.T) {
 }
 
 func TestLoadFromFile_NotFound(t *testing.T) {
-	_, err := LoadFromFile("/nonexistent/gitsemver.yml")
+	_, err := LoadFromFile("/nonexistent/go-gitsemver.yml")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "reading config file")
 }

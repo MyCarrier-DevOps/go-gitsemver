@@ -1,20 +1,24 @@
 package calculator
 
 import (
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/semver"
-	"go-gitsemver/internal/strategy"
+	"fmt"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 )
 
 // VersionResult holds the calculated version and metadata.
 type VersionResult struct {
-	Version       semver.SemanticVersion
-	BaseVersion   strategy.BaseVersion
-	BranchName    string
-	CommitsSince  int64
-	AllCandidates []strategy.BaseVersion
+	Version              semver.SemanticVersion
+	BaseVersion          strategy.BaseVersion
+	BranchName           string
+	CommitsSince         int64
+	AllCandidates        []strategy.BaseVersion
+	IncrementExplanation *IncrementExplanation // nil when explain is false
+	PreReleaseSteps      []string              // nil when explain is false
 }
 
 // NextVersionCalculator orchestrates the full version calculation pipeline.
@@ -63,14 +67,15 @@ func (c *NextVersionCalculator) Calculate(
 
 	// Step 3: Branch to Mainline or Standard mode.
 	var ver semver.SemanticVersion
+	var incrExp *IncrementExplanation
 
 	if ec.BranchMode == semver.VersioningModeMainline {
-		ver, err = c.mainline.FindMainlineModeVersion(ctx, bv, ec)
+		ver, incrExp, err = c.mainline.FindMainlineModeVersion(ctx, bv, ec, explain)
 		if err != nil {
 			return VersionResult{}, err
 		}
 	} else {
-		ver, err = c.standardModeVersion(ctx, bv, ec)
+		ver, incrExp, err = c.standardModeVersion(ctx, bv, ec, explain)
 		if err != nil {
 			return VersionResult{}, err
 		}
@@ -78,7 +83,7 @@ func (c *NextVersionCalculator) Calculate(
 
 	// Step 4: Update pre-release tag for non-release branches.
 	branchName := effectiveBranchName(ctx, bv, ec)
-	ver = c.updatePreReleaseTag(ver, ctx, ec, branchName)
+	ver, preReleaseSteps := c.updatePreReleaseTag(ver, ctx, ec, branchName, explain)
 
 	// Step 5: Count commits since base version source.
 	commitsSince := c.countCommitsSince(ctx, bv)
@@ -87,11 +92,13 @@ func (c *NextVersionCalculator) Calculate(
 	ver = c.applyBuildMetadata(ver, ctx, bv, branchName, commitsSince)
 
 	return VersionResult{
-		Version:       ver,
-		BaseVersion:   bv,
-		BranchName:    branchName,
-		CommitsSince:  commitsSince,
-		AllCandidates: baseResult.AllCandidates,
+		Version:              ver,
+		BaseVersion:          bv,
+		BranchName:           branchName,
+		CommitsSince:         commitsSince,
+		AllCandidates:        baseResult.AllCandidates,
+		IncrementExplanation: incrExp,
+		PreReleaseSteps:      preReleaseSteps,
 	}, nil
 }
 
@@ -101,35 +108,43 @@ func (c *NextVersionCalculator) standardModeVersion(
 	ctx *context.GitVersionContext,
 	bv strategy.BaseVersion,
 	ec config.EffectiveConfiguration,
-) (semver.SemanticVersion, error) {
-	field, err := c.incr.DetermineIncrementedField(ctx, bv, ec)
+	explain bool,
+) (semver.SemanticVersion, *IncrementExplanation, error) {
+	result, err := c.incr.DetermineIncrementedFieldExplained(ctx, bv, ec, explain)
 	if err != nil {
-		return semver.SemanticVersion{}, err
+		return semver.SemanticVersion{}, nil, err
 	}
 
 	ver := bv.SemanticVersion
-	if field != semver.VersionFieldNone {
-		ver = ver.IncrementField(field)
+	if result.Field != semver.VersionFieldNone {
+		ver = ver.IncrementField(result.Field)
 	}
 
-	return ver, nil
+	return ver, result.Explanation, nil
 }
 
 // updatePreReleaseTag sets the pre-release tag based on branch config.
+// Returns the updated version and optional explain steps.
 func (c *NextVersionCalculator) updatePreReleaseTag(
 	ver semver.SemanticVersion,
 	ctx *context.GitVersionContext,
 	ec config.EffectiveConfiguration,
 	branchName string,
-) semver.SemanticVersion {
+	explain bool,
+) (semver.SemanticVersion, []string) {
 	// Release branches and main branches don't get pre-release tags.
 	if ec.Tag == "" || ec.IsReleaseBranch || ec.IsMainline {
-		return ver
+		return ver, nil
 	}
 
 	tagName := config.GetBranchSpecificTag(branchName, ec.Tag)
 	if tagName == "" {
-		return ver
+		return ver, nil
+	}
+
+	var steps []string
+	if explain {
+		steps = append(steps, fmt.Sprintf("branch config tag=%q -> %q", ec.Tag, tagName))
 	}
 
 	// Find the next pre-release number by looking at existing tags.
@@ -149,7 +164,15 @@ func (c *NextVersionCalculator) updatePreReleaseTag(
 		}
 	}
 
-	return ver.WithPreReleaseTag(semver.PreReleaseTag{Name: tagName, Number: &number})
+	if explain {
+		if number == 1 {
+			steps = append(steps, fmt.Sprintf("no existing tag for %d.%d.%d-%s -> number = 1", ver.Major, ver.Minor, ver.Patch, tagName))
+		} else {
+			steps = append(steps, fmt.Sprintf("existing tag for %d.%d.%d-%s -> number = %d", ver.Major, ver.Minor, ver.Patch, tagName, number))
+		}
+	}
+
+	return ver.WithPreReleaseTag(semver.PreReleaseTag{Name: tagName, Number: &number}), steps
 }
 
 // effectiveBranchName returns the branch name to use for pre-release tags.

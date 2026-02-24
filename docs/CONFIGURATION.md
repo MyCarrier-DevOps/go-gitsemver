@@ -1,6 +1,6 @@
 # Configuration Reference
 
-gitsemver is configured via a `gitsemver.yml` or `GitVersion.yml` file in the repository root. All fields are optional — sensible defaults are applied.
+gitsemver is configured via a `go-gitsemver.yml` or `GitVersion.yml` file in the repository root. All fields are optional — sensible defaults are applied.
 
 ---
 
@@ -10,24 +10,29 @@ gitsemver is configured via a `gitsemver.yml` or `GitVersion.yml` file in the re
 
 gitsemver searches for configuration in this order:
 
-1. `GitVersion.yml` in the repository root
-2. `gitsemver.yml` in the repository root
-3. Path specified by `--config` flag (highest priority)
+1. `.github/GitVersion.yml`
+2. `.github/go-gitsemver.yml`
+3. `GitVersion.yml` in the repository root
+4. `go-gitsemver.yml` in the repository root
+5. Path specified by `--config` flag (highest priority)
 
-If no file is found, built-in defaults are used.
+The first file found is used. If no file is found, built-in defaults are used.
 
 ### Remote mode (`gitsemver remote`)
 
 When using the `remote` subcommand, configuration is fetched from the GitHub repository via API:
 
-1. `GitVersion.yml` in the repo root (fetched via `GET /repos/{owner}/{repo}/contents/`)
-2. `gitsemver.yml` in the repo root (fallback)
-3. Path specified by `--config` flag (local file override, highest priority)
+1. `.github/GitVersion.yml` (fetched via `GET /repos/{owner}/{repo}/contents/`)
+2. `.github/go-gitsemver.yml`
+3. `GitVersion.yml` in the repo root
+4. `go-gitsemver.yml` in the repo root
+5. Path specified by `--remote-config-path` flag (fetches a specific file from the remote repo)
+6. Path specified by `--config` flag (local file override, highest priority)
 
-If no remote config file exists and no `--config` is provided, built-in defaults are used.
+If no remote config file exists and no override flags are provided, built-in defaults are used.
 
 ```yaml
-# gitsemver.yml — minimal example
+# go-gitsemver.yml — minimal example
 mode: ContinuousDelivery
 tag-prefix: '[vV]'
 next-version: 1.0.0
@@ -80,12 +85,12 @@ tag-prefix: 'release-'  # matches release-1.0.0
 | | |
 |---|---|
 | **Type** | Semver string |
-| **Default** | `0.1.0` |
+| **Default** | `1.0.0` |
 
 The starting version used by the Fallback strategy when no tags exist. This is permanent — it applies whenever no tags are found.
 
 ```yaml
-base-version: 1.0.0    # start at 1.0.0 instead of 0.1.0
+base-version: 2.0.0    # start at 2.0.0 instead of default 1.0.0
 ```
 
 ### next-version
@@ -392,7 +397,7 @@ Ignored commits are excluded during base version selection. Their tags remain vi
 ## Configuration resolution order
 
 1. **Built-in defaults** — `CreateDefaultConfiguration()` with 8 branch configs
-2. **Config file** — Values from `gitsemver.yml` / `GitVersion.yml` merged on top
+2. **Config file** — Values from `go-gitsemver.yml` / `GitVersion.yml` merged on top
 3. **CLI flags** — `--config` file override
 4. **Branch finalization** — Branch configs inherit from global config where unset
 5. **Effective configuration** — Final resolved config for the specific branch
@@ -477,6 +482,6 @@ no-bump-message: '\[skip\]'
 ### Monorepo (per-service)
 
 ```yaml
-# service-a/gitsemver.yml
+# service-a/go-gitsemver.yml
 tag-prefix: 'service-a/v'
 ```

@@ -2,9 +2,10 @@ package strategy
 
 import (
 	"fmt"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
 )
 
 // TrackReleaseBranchesStrategy combines release branch versions and main

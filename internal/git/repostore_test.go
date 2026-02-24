@@ -2,9 +2,10 @@ package git
 
 import (
 	"errors"
-	"go-gitsemver/internal/config"
 	"testing"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
 
 	"github.com/stretchr/testify/require"
 )

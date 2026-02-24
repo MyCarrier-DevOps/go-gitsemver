@@ -1,6 +1,6 @@
 package main
 
-import "go-gitsemver/cmd"
+import "github.com/MyCarrier-DevOps/go-gitsemver/cmd"
 
 var version = "dev"
 

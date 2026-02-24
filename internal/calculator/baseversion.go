@@ -3,11 +3,12 @@ package calculator
 import (
 	"errors"
 	"fmt"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/semver"
-	"go-gitsemver/internal/strategy"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 )
 
 // BaseVersionCalculator runs all strategies, computes effective versions for

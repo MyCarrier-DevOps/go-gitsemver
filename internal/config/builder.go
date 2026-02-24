@@ -2,8 +2,9 @@ package config
 
 import (
 	"fmt"
-	"go-gitsemver/internal/semver"
 	"regexp"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 // Builder constructs a Config by layering overrides on top of defaults.

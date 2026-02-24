@@ -1,6 +1,6 @@
 package config
 
-import "go-gitsemver/internal/semver"
+import "github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 func stringPtr(s string) *string        { return &s }
 func intPtr(n int) *int                 { return &n }
