@@ -13,6 +13,10 @@ inputs:
     description: 'GitHub token for authenticated downloads (avoids rate limits).'
     required: false
     default: ''
+  verify-checksum:
+    description: 'Verify SHA-256 checksum of the downloaded binary.'
+    required: false
+    default: 'true'
 
 runs:
   using: 'composite'
@@ -56,11 +60,13 @@ runs:
       run: |
         VERSION="${{ inputs.version }}"
         BINARY="${{ steps.platform.outputs.binary }}"
+        DOWNLOAD_DIR="${RUNNER_TEMP:-/tmp}/go-gitsemver-download"
+        mkdir -p "$DOWNLOAD_DIR"
 
         if [ "$VERSION" = "latest" ]; then
-          URL="https://github.com/MyCarrier-DevOps/go-gitsemver/releases/latest/download/${BINARY}"
+          BASE_URL="https://github.com/MyCarrier-DevOps/go-gitsemver/releases/latest/download"
         else
-          URL="https://github.com/MyCarrier-DevOps/go-gitsemver/releases/download/${VERSION}/${BINARY}"
+          BASE_URL="https://github.com/MyCarrier-DevOps/go-gitsemver/releases/download/${VERSION}"
         fi
 
         CURL_ARGS=(-sL --fail --retry 3 --retry-delay 2)
@@ -68,24 +74,52 @@ runs:
           CURL_ARGS+=(-H "Authorization: token ${{ inputs.token }}")
         fi
 
-        echo "Downloading go-gitsemver from: $URL"
-        curl "${CURL_ARGS[@]}" "$URL" -o go-gitsemver || {
-          echo "::error::Failed to download go-gitsemver from $URL"
+        echo "Downloading go-gitsemver from: ${BASE_URL}/${BINARY}"
+        curl "${CURL_ARGS[@]}" "${BASE_URL}/${BINARY}" -o "${DOWNLOAD_DIR}/go-gitsemver" || {
+          echo "::error::Failed to download go-gitsemver from ${BASE_URL}/${BINARY}"
           exit 1
         }
 
-        chmod +x go-gitsemver
+        # Checksum verification
+        if [ "${{ inputs.verify-checksum }}" = "true" ]; then
+          echo "Downloading checksums..."
+          curl "${CURL_ARGS[@]}" "${BASE_URL}/checksums.txt" -o "${DOWNLOAD_DIR}/checksums.txt" || {
+            echo "::error::Failed to download checksums.txt from ${BASE_URL}/checksums.txt"
+            exit 1
+          }
+
+          EXPECTED=$(grep "${BINARY}" "${DOWNLOAD_DIR}/checksums.txt" | awk '{print $1}')
+          if [ -z "$EXPECTED" ]; then
+            echo "::error::No checksum found for ${BINARY} in checksums.txt"
+            exit 1
+          fi
+
+          ACTUAL=$(shasum -a 256 "${DOWNLOAD_DIR}/go-gitsemver" | awk '{print $1}')
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Checksum mismatch for ${BINARY}"
+            echo "::error::  Expected: $EXPECTED"
+            echo "::error::  Actual:   $ACTUAL"
+            exit 1
+          fi
+          echo "Checksum verified: $ACTUAL"
+        fi
+
+        chmod +x "${DOWNLOAD_DIR}/go-gitsemver"
+        echo "download_dir=$DOWNLOAD_DIR" >> "$GITHUB_OUTPUT"
 
     - name: Install go-gitsemver
+      id: download
       shell: bash
       run: |
+        DOWNLOAD_DIR="${RUNNER_TEMP:-/tmp}/go-gitsemver-download"
         if [ "${{ steps.platform.outputs.os }}" = "windows" ]; then
           mkdir -p "$HOME/bin"
-          mv go-gitsemver "$HOME/bin/go-gitsemver.exe"
+          mv "${DOWNLOAD_DIR}/go-gitsemver" "$HOME/bin/go-gitsemver.exe"
           echo "$HOME/bin" >> "$GITHUB_PATH"
         else
-          sudo mv go-gitsemver /usr/local/bin/
+          sudo mv "${DOWNLOAD_DIR}/go-gitsemver" /usr/local/bin/
         fi
+        rm -rf "$DOWNLOAD_DIR"
 
     - name: Verify installation
       shell: bash

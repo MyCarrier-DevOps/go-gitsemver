@@ -20,11 +20,11 @@ var (
 	flagVerbosity    string
 )
 
-// rootCmd is the top-level command for gitsemver.
+// rootCmd is the top-level command for go-gitsemver.
 var rootCmd = &cobra.Command{
-	Use:   "gitsemver",
+	Use:   "go-gitsemver",
 	Short: "Semantic versioning from git history",
-	Long:  "gitsemver calculates the next semantic version based on git history, tags, and branch conventions.",
+	Long:  "go-gitsemver calculates the next semantic version based on git history, tags, and branch conventions.",
 	// Default action is calculate.
 	RunE: calculateRunE,
 }

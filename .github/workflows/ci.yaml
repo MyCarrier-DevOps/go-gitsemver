@@ -82,7 +82,7 @@ jobs:
       - name: Build binary
         run: make build
       - name: Verify binary
-        run: ./bin/gitsemver version
+        run: ./bin/go-gitsemver version
 
   status-check:
     name: Status Check
@@ -139,13 +139,13 @@ jobs:
         run: |
           EXT=""
           if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
-          OUTFILE="gitsemver-${GOOS}-${GOARCH}${EXT}"
+          OUTFILE="go-gitsemver-${GOOS}-${GOARCH}${EXT}"
           go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o "dist/${OUTFILE}" .
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: gitsemver-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/gitsemver-*
+          name: go-gitsemver-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/go-gitsemver-*
           retention-days: 90
 
   release:
@@ -163,7 +163,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum gitsemver-* > checksums.txt
+          sha256sum go-gitsemver-* > checksums.txt
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

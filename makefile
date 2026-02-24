@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-BINARY := gitsemver
+BINARY := go-gitsemver
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -X main.version=$(VERSION)
 
@@ -63,6 +63,22 @@ coverage-check: test
 		echo "FAIL: Coverage $$TOTAL% is below 85% threshold"; \
 		exit 1; \
 	fi
+
+.PHONY: release-build
+release-build:
+	@mkdir -p bin/
+	@echo "Building release binaries..."
+	GOOS=linux   GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/go-gitsemver-linux-amd64   .
+	GOOS=linux   GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/go-gitsemver-linux-arm64   .
+	GOOS=darwin  GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/go-gitsemver-darwin-amd64  .
+	GOOS=darwin  GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/go-gitsemver-darwin-arm64  .
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/go-gitsemver-windows-amd64.exe .
+	@echo "Generating checksums..."
+	cd bin && shasum -a 256 go-gitsemver-* > checksums.txt
+	@echo "Release artifacts:"
+	@ls -lh bin/go-gitsemver-*
+	@echo ""
+	@cat bin/checksums.txt
 
 .PHONY: ci
 ci: fmt lint test-all coverage-check build
