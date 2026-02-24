@@ -43,7 +43,6 @@ This document describes the architecture of gitsemver, a semantic versioning too
 ## Package Structure
 
 ```
-```
 go-gitsemver/
 ├── cmd/                        # CLI commands (cobra)
 │   ├── root.go                 # Root command with persistent flags

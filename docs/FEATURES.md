@@ -1,6 +1,6 @@
 # Key Features
 
-gitsemver is a semantic versioning tool that automatically calculates versions from git history. It is inspired by [GitVersion](https://gitversion.net/) and reimplements its core functionality in Go as a single static binary with zero runtime dependencies.
+gitsemver is a semantic versioning tool that automatically calculates versions from git history. It is inspired by [GitVersion](https://gitversion.net/) and implements its core versioning model in Go as a single static binary with zero runtime dependencies.
 
 This document highlights gitsemver's key capabilities and design decisions.
 

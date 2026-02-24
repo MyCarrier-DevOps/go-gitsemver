@@ -1,6 +1,6 @@
 # gitsemver
 
-A Go rewrite of [GitVersion](https://github.com/GitTools/GitVersion) (v5.12.0), redesigned with 12 architectural improvements. Automatic [Semantic Versioning](https://semver.org/) from your git history — no version files to maintain.
+A Go application inspired by [GitVersion](https://github.com/GitTools/GitVersion) (v5.12.0). Automatic [Semantic Versioning](https://semver.org/) from your git history — no version files to maintain.
 
 [![CI](../../actions/workflows/ci.yaml/badge.svg)](../../actions/workflows/ci.yaml)
 
