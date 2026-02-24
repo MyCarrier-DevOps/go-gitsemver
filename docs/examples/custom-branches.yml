@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../gitsemver-schema.json
+# yaml-language-server: $schema=../../go-gitsemver-schema.json
 # Custom Branch Patterns
 #
 # Demonstrates custom branch configurations with priority ordering.

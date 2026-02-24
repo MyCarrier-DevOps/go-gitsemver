@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../gitsemver-schema.json
+# yaml-language-server: $schema=../../go-gitsemver-schema.json
 # Trunk-Based Development
 #
 # Mode: Mainline — aggregate increment, commit count in metadata

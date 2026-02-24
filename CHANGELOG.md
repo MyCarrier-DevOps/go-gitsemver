@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - Go Library API
+
+### Added
+
+- **`pkg/gitsemver` public Go library** — embed version calculation in Go applications without shelling out to the CLI
+  - `Calculate(LocalOptions)` for local git repositories
+  - `CalculateRemote(RemoteOptions)` for GitHub API-based calculation
+  - `Result.Variables` map with all 30+ output variables
+  - Auto-detects `gitsemver.yml` / `GitVersion.yml` config files
+- `example/main.go` — runnable example demonstrating library usage
+
 ## [1.1.0] - GitHub API Remote Provider
 
 ### Added

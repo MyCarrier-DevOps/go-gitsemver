@@ -13,6 +13,11 @@ This document describes the architecture of gitsemver, a semantic versioning too
 └────────────────────────┬────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────┐
+│              Go Library (pkg/gitsemver/)                  │
+│  Calculate(LocalOptions), CalculateRemote(RemoteOptions) │
+└────────────────────────┬────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────┐
 │               GitVersionContext (context/)                │
 │  CurrentBranch, CurrentCommit, Config, TaggedVersion,    │
 │  NumberOfUncommittedChanges                              │
@@ -49,6 +54,12 @@ go-gitsemver/
 │   ├── calculate.go            # Default command: full calculation pipeline
 │   ├── remote.go               # Remote subcommand: version via GitHub API
 │   └── version.go              # Version subcommand
+├── pkg/
+│   └── gitsemver/              # Public Go library API
+│       ├── gitsemver.go        # Calculate() and CalculateRemote() functions
+│       └── gitsemver_test.go   # Unit tests with httptest mocks
+├── example/
+│   └── main.go                 # Runnable example showing library usage
 ├── internal/
 │   ├── semver/                 # Semantic version types (immutable)
 │   │   ├── version.go          # SemanticVersion: parse, compare, increment
@@ -202,8 +213,12 @@ calculator (→ semver, config, git, context, strategy)
   ↓
 output (→ semver, config)
   ↓
+pkg/gitsemver (→ all internal packages — public library API)
+  ↓
 cmd (→ all internal packages, github.com/spf13/cobra)
 ```
+
+`pkg/gitsemver/` lives inside the same Go module, so it can import `internal/` packages freely. External consumers only see the public API surface: `Calculate()`, `CalculateRemote()`, `LocalOptions`, `RemoteOptions`, and `Result`.
 
 ---
 
