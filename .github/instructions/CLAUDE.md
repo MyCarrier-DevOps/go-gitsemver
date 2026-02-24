@@ -16,7 +16,7 @@ Verify that test coverage stays **above 85%** overall.
 ## Code Conventions
 
 - **Go style:** Follow `.github/instructions/go.instructions.md` for idiomatic Go practices
-- **Testing:** Use `testify/require` — never `testify/assert` (enforced by linter)
+- **Testing:** Use `testify/require` — never `testify/assert` (enforced by linter). Code coverage must be above 85%.
 - **Adapter patterns:** Git operations go behind the `Repository` interface (`internal/git/interfaces.go`)
 - **Table-driven tests:** Prefer table-driven tests for functions with clear input/output
 - **Formatting:** Code must pass `gofumpt` with extra rules and `goimports` with `go-gitsemver` as the local prefix

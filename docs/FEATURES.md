@@ -14,6 +14,25 @@ Cross-platform builds are provided for Linux (amd64/arm64), macOS (amd64/arm64),
 
 ---
 
+## GitHub API Remote Mode
+
+The `gitsemver remote owner/repo` subcommand calculates versions via the GitHub API — no local clone required. This eliminates the biggest CI/CD pain point: cloning a large repo with full history (`fetch-depth: 0`) just to read tags and commit history.
+
+```bash
+GITHUB_TOKEN=ghp_xxx gitsemver remote myorg/myrepo --show-variable SemVer
+```
+
+**Key design decisions:**
+
+- **Same interface, different backend** — `GitHubRepository` implements the same 15-method `Repository` interface as the local `GoGitRepository`. Everything above (strategies, calculator, output) stays untouched.
+- **GraphQL batch fetching** — Branches and tags are fetched in a single GraphQL query each, avoiding N+1 REST calls. Tag peel info is pre-resolved, so `PeelTagToCommit` returns instantly from cache.
+- **Smart early termination** — The `Tags()` GraphQL query gives us the set of commit SHAs that have version tags. During the paginated commit walk, once a tagged commit is found, one more buffer page is fetched and the walk stops. The common case is 1-3 API calls, not hundreds.
+- **In-memory caching** — Branches, tags, commits, merge bases, and commit logs are cached for the duration of the run. `RepositoryStore` calls the same methods repeatedly (e.g., `Tags()` called by 3 strategies), so caching eliminates redundant API calls.
+- **Dual auth** — Token auth (`--token` / `GITHUB_TOKEN`) and GitHub App auth (`--github-app-id` + `--github-app-key`) with automatic installation detection. Works with GitHub Enterprise via `--github-url`.
+- **Safety cap** — `--max-commits` (default 1000) prevents runaway API usage on repos with no version tags.
+
+---
+
 ## Immutable Version Types
 
 All version types (`SemanticVersion`, `PreReleaseTag`, `BuildMetaData`) are immutable value types. Methods like `IncrementField()`, `WithPreReleaseTag()`, and `WithBuildMetaData()` return new values instead of mutating in place. This eliminates hidden state changes through the calculation pipeline.
@@ -151,6 +170,8 @@ base-version: 1.0.0
 ## Shallow Clone Protection
 
 gitsemver detects shallow clones and exits with a clear error by default. The `--allow-shallow` flag explicitly opts into running with potentially incomplete history. The error message suggests `git fetch --unshallow`.
+
+Alternatively, use `gitsemver remote owner/repo` to skip cloning entirely and calculate the version via the GitHub API.
 
 ---
 

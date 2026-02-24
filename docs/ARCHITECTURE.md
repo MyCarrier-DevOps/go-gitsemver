@@ -9,7 +9,7 @@ This document describes the architecture of gitsemver, a semantic versioning too
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     CLI (cmd/)                           │
-│          Root command, flags, output formatting          │
+│     Root command, remote subcommand, output formatting   │
 └────────────────────────┬────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────┐
@@ -34,7 +34,7 @@ This document describes the architecture of gitsemver, a semantic versioning too
 ┌────────▼───────────────▼──────────────────▼─────────┐
 │                  RepositoryStore (git/)               │
 │   Tags, commits, branches, merge history queries     │
-│                  via go-git                           │
+│        via go-git (local) or GitHub API (remote)     │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -43,10 +43,12 @@ This document describes the architecture of gitsemver, a semantic versioning too
 ## Package Structure
 
 ```
+```
 go-gitsemver/
 ├── cmd/                        # CLI commands (cobra)
 │   ├── root.go                 # Root command with persistent flags
 │   ├── calculate.go            # Default command: full calculation pipeline
+│   ├── remote.go               # Remote subcommand: version via GitHub API
 │   └── version.go              # Version subcommand
 ├── internal/
 │   ├── semver/                 # Semantic version types (immutable)
@@ -72,6 +74,11 @@ go-gitsemver/
 │   │   ├── repostore.go        # RepositoryStore: domain-level queries
 │   │   ├── mergemessage.go     # Merge/squash message parsing (8 formats)
 │   │   └── mock.go             # MockRepository for testing
+│   ├── github/                 # GitHub API provider (remote mode)
+│   │   ├── client.go           # Auth resolution, GitHub client factory
+│   │   ├── repository.go       # GitHubRepository: implements git.Repository
+│   │   ├── graphql.go          # Batch GraphQL queries for branches and tags
+│   │   └── cache.go            # In-memory API response cache
 │   ├── context/                # Immutable git state snapshot
 │   │   ├── context.go          # GitVersionContext struct
 │   │   └── factory.go          # NewContext() factory
@@ -104,8 +111,8 @@ go-gitsemver/
 
 ## Calculation Flow
 
-1. **Open Repository** — Open the git repo at the specified path using go-git
-2. **Load Configuration** — Search for `gitsemver.yml` or `GitVersion.yml`, merge with defaults
+1. **Open Repository** — Open the git repo at the specified path using go-git (local), or connect via GitHub API (remote)
+2. **Load Configuration** — Search for `gitsemver.yml` or `GitVersion.yml` (locally or via API), merge with defaults
 3. **Build Context** — Resolve current branch, commit, check for version tags, count uncommitted changes
 4. **Resolve Branch Config** — Match branch name against config regexes (priority-ordered), produce `EffectiveConfiguration`
 5. **Run Strategies** — Execute all 6 version strategies to collect candidate base versions
@@ -135,7 +142,7 @@ type Repository interface {
 }
 ```
 
-Implemented by `GoGitRepository` (using `go-git/go-git/v5`). `MockRepository` is provided for unit testing.
+Implemented by `GoGitRepository` (local, using `go-git/go-git/v5`) and `GitHubRepository` (remote, using GitHub REST + GraphQL APIs). `MockRepository` is provided for unit testing.
 
 ### VersionStrategy
 
@@ -186,6 +193,8 @@ config (→ semver, gopkg.in/yaml.v3)
   ↓
 git (→ semver, config, go-git/go-git/v5)
   ↓
+github (→ git, go-github/v68, oauth2, ghinstallation)
+  ↓
 context (→ semver, config, git)
   ↓
 strategy (→ semver, config, git, context)
@@ -203,7 +212,10 @@ cmd (→ all internal packages, github.com/spf13/cobra)
 
 | Package | Purpose |
 |---------|---------|
-| `github.com/go-git/go-git/v5` | Pure-Go git operations |
+| `github.com/go-git/go-git/v5` | Pure-Go git operations (local mode) |
+| `github.com/google/go-github/v68` | GitHub REST API client (remote mode) |
+| `golang.org/x/oauth2` | Token-based HTTP auth for GitHub API |
+| `github.com/bradleyfalzon/ghinstallation/v2` | GitHub App JWT authentication |
 | `github.com/spf13/cobra` | CLI framework |
 | `gopkg.in/yaml.v3` | YAML configuration parsing |
 | `github.com/stretchr/testify` | Test assertions (require only) |
