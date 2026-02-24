@@ -35,8 +35,8 @@ func TestLibrary_Calculate_BasicRepo(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, "0", result.Variables["Major"])
-	require.Equal(t, "1", result.Variables["Minor"])
+	require.Equal(t, "1", result.Variables["Major"])
+	require.Equal(t, "0", result.Variables["Minor"])
 	require.Equal(t, "0", result.Variables["Patch"])
 }
 
@@ -575,8 +575,8 @@ func TestLibrary_CalculateRemote_NoTags(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, "0", result.Variables["Major"])
-	require.Equal(t, "1", result.Variables["Minor"])
+	require.Equal(t, "1", result.Variables["Major"])
+	require.Equal(t, "0", result.Variables["Minor"])
 	require.Equal(t, "0", result.Variables["Patch"])
 }
 

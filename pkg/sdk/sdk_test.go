@@ -93,7 +93,7 @@ func TestCalculate_AutoDetectsConfig(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.AddCommit("initial commit")
 
-	// Write sdk.yml in the repo root.
+	// Write go-gitsemver.yml in the repo root.
 	repo.WriteConfig("next-version: 7.0.0\n")
 
 	result, err := sdk.Calculate(sdk.LocalOptions{

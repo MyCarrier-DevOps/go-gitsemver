@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Renamed `pkg/gitsemver` → `pkg/sdk`** — import path is now `github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk`
 - **Renamed config file `gitsemver.yml` → `go-gitsemver.yml`** — `GitVersion.yml` still supported as an alternative
 - **Module path** updated to `github.com/MyCarrier-DevOps/go-gitsemver` for valid pkg.go.dev resolution
+- **Default `base-version` changed from `0.1.0` to `1.0.0`** — new repos without tags now start at `1.0.0` instead of `0.1.0`
 - SDK `LocalOptions` and `RemoteOptions` now include `Explain bool` field
 - SDK `Result` now includes `ExplainResult *ExplainResult` (nil when explain is disabled)
 

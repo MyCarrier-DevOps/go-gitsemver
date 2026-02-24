@@ -9,7 +9,7 @@ func CreateDefaultConfiguration() *Config {
 	return &Config{
 		Mode:                             versioningModePtr(semver.VersioningModeContinuousDelivery),
 		TagPrefix:                        stringPtr("[vV]"),
-		BaseVersion:                      stringPtr("0.1.0"),
+		BaseVersion:                      stringPtr("1.0.0"),
 		Increment:                        incrementPtr(semver.IncrementStrategyInherit),
 		ContinuousDeploymentFallbackTag:  stringPtr("ci"),
 		CommitMessageIncrementing:        commitMsgIncrPtr(semver.CommitMessageIncrementEnabled),

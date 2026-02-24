@@ -18,7 +18,7 @@ func TestNewEffectiveConfiguration_FullyPopulated(t *testing.T) {
 	// Global fields
 	require.Equal(t, semver.VersioningModeContinuousDelivery, ec.Mode)
 	require.Equal(t, "[vV]", ec.TagPrefix)
-	require.Equal(t, "0.1.0", ec.BaseVersion)
+	require.Equal(t, "1.0.0", ec.BaseVersion)
 	require.Equal(t, "", ec.NextVersion)
 	require.Equal(t, semver.IncrementStrategyInherit, ec.Increment)
 	require.Equal(t, "ci", ec.ContinuousDeploymentFallbackTag)
@@ -95,7 +95,7 @@ func TestNewEffectiveConfiguration_EmptyConfig(t *testing.T) {
 	// All should resolve to hard-coded defaults
 	require.Equal(t, semver.VersioningModeContinuousDelivery, ec.Mode)
 	require.Equal(t, "[vV]", ec.TagPrefix)
-	require.Equal(t, "0.1.0", ec.BaseVersion)
+	require.Equal(t, "1.0.0", ec.BaseVersion)
 	require.Equal(t, semver.IncrementStrategyInherit, ec.Increment)
 	require.Equal(t, "ci", ec.ContinuousDeploymentFallbackTag)
 	require.Equal(t, 4, ec.LegacySemVerPadding)

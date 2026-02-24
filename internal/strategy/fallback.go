@@ -10,7 +10,7 @@ import (
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
-// FallbackStrategy returns the base version (default 0.1.0) from the root commit.
+// FallbackStrategy returns the base version (default 1.0.0) from the root commit.
 type FallbackStrategy struct {
 	store *git.RepositoryStore
 }
@@ -44,8 +44,8 @@ func (s *FallbackStrategy) GetBaseVersions(
 	baseVersionStr := ec.BaseVersion
 	ver, err := semver.Parse(baseVersionStr, "")
 	if err != nil {
-		// Hard fallback to 0.1.0 if config value is unparseable.
-		ver = semver.SemanticVersion{Minor: 1}
+		// Hard fallback to 1.0.0 if config value is unparseable.
+		ver = semver.SemanticVersion{Major: 1}
 	}
 
 	exp.Addf("using base version %s from root commit %s", ver.SemVer(), rootCommit.ShortSha())

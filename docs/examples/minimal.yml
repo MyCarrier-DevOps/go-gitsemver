@@ -8,7 +8,7 @@
 #   mode: ContinuousDelivery
 #   tag-prefix: '[vV]'
 #   commit-message-convention: both
-#   base-version: 0.1.0
+#   base-version: 1.0.0
 #   increment: Inherit
 #   continuous-delivery-fallback-tag: ci
 #

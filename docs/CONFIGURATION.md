@@ -85,12 +85,12 @@ tag-prefix: 'release-'  # matches release-1.0.0
 | | |
 |---|---|
 | **Type** | Semver string |
-| **Default** | `0.1.0` |
+| **Default** | `1.0.0` |
 
 The starting version used by the Fallback strategy when no tags exist. This is permanent — it applies whenever no tags are found.
 
 ```yaml
-base-version: 1.0.0    # start at 1.0.0 instead of 0.1.0
+base-version: 2.0.0    # start at 2.0.0 instead of default 1.0.0
 ```
 
 ### next-version

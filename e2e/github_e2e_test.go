@@ -412,8 +412,8 @@ func TestGitHub_Fallback_NoTags(t *testing.T) {
 
 	vars := runGitHubPipeline(t, mock)
 
-	require.Equal(t, "0", vars["Major"])
-	require.Equal(t, "1", vars["Minor"])
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "0", vars["Minor"])
 	require.Equal(t, "0", vars["Patch"])
 }
 

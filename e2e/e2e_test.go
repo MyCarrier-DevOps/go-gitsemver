@@ -7,6 +7,7 @@
 package e2e
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
@@ -89,9 +90,9 @@ func TestE2E_Fallback_NoTags(t *testing.T) {
 
 	vars := runPipeline(t, repo.Path())
 
-	// No tags → Fallback strategy with base version 0.1.0, branch default increment Patch.
-	require.Equal(t, "0", vars["Major"])
-	require.Equal(t, "1", vars["Minor"])
+	// No tags → Fallback strategy with base version 1.0.0.
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "0", vars["Minor"])
 	require.Equal(t, "0", vars["Patch"])
 }
 
@@ -563,7 +564,7 @@ func TestE2E_Explain_TaggedCommitWithFeat(t *testing.T) {
 	require.NotNil(t, result.IncrementExplanation)
 	foundFeat := false
 	for _, step := range result.IncrementExplanation.Steps {
-		if contains(step, "feat") || contains(step, "Minor") {
+		if strings.Contains(step, "feat") || strings.Contains(step, "Minor") {
 			foundFeat = true
 		}
 	}
@@ -595,7 +596,7 @@ func TestE2E_Explain_FeatureBranch_PreRelease(t *testing.T) {
 	// Should mention the branch name.
 	foundBranch := false
 	for _, step := range result.PreReleaseSteps {
-		if contains(step, "login") {
+		if strings.Contains(step, "login") {
 			foundBranch = true
 		}
 	}
@@ -644,19 +645,6 @@ func TestE2E_Explain_NoExplain(t *testing.T) {
 	for _, c := range result.AllCandidates {
 		require.Nil(t, c.Explanation, "candidate %s should not have explanation when explain=false", c.Source)
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchSubstring(s, substr)
-}
-
-func searchSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 // ---------------------------------------------------------------------------

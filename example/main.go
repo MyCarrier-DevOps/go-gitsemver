@@ -20,6 +20,7 @@ import (
 
 func main() {
 	localVersion()
+	localVersionExplain()
 
 	if os.Getenv("GITHUB_TOKEN") != "" {
 		remoteVersion()
@@ -35,6 +36,25 @@ func localVersion() {
 	}
 
 	printVersion("Local", result)
+}
+
+func localVersionExplain() {
+	result, err := sdk.Calculate(sdk.LocalOptions{
+		Path:    ".",
+		Explain: true,
+	})
+	if err != nil {
+		log.Fatalf("local explain calculation failed: %v", err)
+	}
+
+	fmt.Println("=== Explain Output ===")
+	if result.ExplainResult != nil {
+		fmt.Println(result.ExplainResult.FormattedOutput)
+		fmt.Printf("Final version: %s\n", result.ExplainResult.FinalVersion)
+		fmt.Printf("Selected source: %s\n", result.ExplainResult.SelectedSource)
+		fmt.Printf("Candidates: %d\n", len(result.ExplainResult.Candidates))
+	}
+	fmt.Println()
 }
 
 func remoteVersion() {

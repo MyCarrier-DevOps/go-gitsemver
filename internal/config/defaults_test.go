@@ -13,7 +13,7 @@ func TestCreateDefaultConfiguration_GlobalDefaults(t *testing.T) {
 
 	require.Equal(t, semver.VersioningModeContinuousDelivery, *cfg.Mode)
 	require.Equal(t, "[vV]", *cfg.TagPrefix)
-	require.Equal(t, "0.1.0", *cfg.BaseVersion)
+	require.Equal(t, "1.0.0", *cfg.BaseVersion)
 	require.Equal(t, semver.IncrementStrategyInherit, *cfg.Increment)
 	require.Equal(t, "ci", *cfg.ContinuousDeploymentFallbackTag)
 	require.Equal(t, semver.CommitMessageIncrementEnabled, *cfg.CommitMessageIncrementing)

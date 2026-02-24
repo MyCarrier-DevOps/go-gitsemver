@@ -261,7 +261,7 @@ On develop (HEAD = E):
 
 ### 6. Fallback
 
-Returns the `base-version` from config (default: `0.1.0`) from the root commit. Always present as a safety net.
+Returns the `base-version` from config (default: `1.0.0`) from the root commit. Always present as a safety net.
 
 **When it activates:** Always. Provides a baseline if no other strategy produces a result.
 
@@ -270,7 +270,7 @@ Returns the `base-version` from config (default: `0.1.0`) from the root commit. 
 **Configurable starting version:**
 
 ```yaml
-base-version: 1.0.0   # default: 0.1.0
+base-version: 2.0.0   # default: 1.0.0
 ```
 
 **Example:**
@@ -280,9 +280,9 @@ main ── A ── B ── C    (no tags, no config)
                   ^ HEAD
 
 All other strategies return nothing.
-Fallback: 0.1.0 (ShouldIncrement = true)
+Fallback: 1.0.0 (ShouldIncrement = true)
 Branch config: Patch increment
-Result: 0.1.1 (on main) or 0.1.1-alpha.1 (on develop)
+Result: 1.0.1 (on main) or 1.0.1-alpha.1 (on develop)
 ```
 
 **Example with `base-version: 1.0.0`:**
@@ -314,7 +314,7 @@ Candidates:
   MergeMessage:  (none)
   BranchName:    (none)
   TrackRelease:  (none)
-  Fallback:      0.1.0 (ShouldIncrement=true)  → effective 0.1.1
+  Fallback:      1.0.0 (ShouldIncrement=true)  → effective 1.0.1
 
 Winner: TaggedCommit (effective 1.3.0)
 Final increment: Minor → 1.3.0

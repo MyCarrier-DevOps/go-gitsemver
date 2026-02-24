@@ -19,7 +19,7 @@ Six strategies are evaluated in priority order to determine the base version:
 | **MergeMessage** | Parses merge commit messages like `Merge branch 'release/1.3.0'` |
 | **VersionInBranchName** | Extracts version from branch names like `release/2.0.0` or `release-1.2` |
 | **TrackReleaseBranches** | Watches release branches from a develop branch for version signals |
-| **Fallback** | Default `0.0.1` when no other signal exists |
+| **Fallback** | Default `1.0.0` when no other signal exists (configurable via `base-version`) |
 
 The highest-priority strategy with a valid result wins.
 
@@ -104,14 +104,14 @@ The `--explain` flag provides full transparency into version calculation:
 
 ```
 Strategies evaluated:
-  TaggedCommit:         1.0.0 from tag v1.0.0 (source: abc1234)
+  TaggedCommit:          1.0.0 (source: abc1234, increment: true)
     → tag v1.0.0 on commit abc1234 → 1.0.0, ShouldIncrement=true
-  Fallback:             0.0.1
-    → using fallback base version 0.0.1
+  Fallback:              1.0.0 (source: external, increment: true)
+    → using fallback base version 1.0.0
 
-Selected: TaggedCommit (1.0.0)
+Selected: TaggedCommit (1.0.0, source: abc1234)
 
-Increment: Minor
+Increment:
   → commit e5f6a78 "feat: add auth module" → Minor (ConventionalCommits)
   → highest increment from commits: Minor
 
@@ -144,9 +144,9 @@ Embed versioning directly in Go applications — no CLI subprocess needed:
 ```go
 import "github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
 
-result, err := sdk.CalculateLocal(sdk.LocalOptions{
-    RepoPath: "/path/to/repo",
-    Explain:  true,
+result, err := sdk.Calculate(sdk.LocalOptions{
+    Path:    "/path/to/repo",
+    Explain: true,
 })
 
 fmt.Println(result.Variables["SemVer"])       // "1.2.3-alpha.4"

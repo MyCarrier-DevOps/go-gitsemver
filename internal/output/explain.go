@@ -34,12 +34,16 @@ func WriteExplanation(w io.Writer, result calculator.VersionResult) error {
 	}
 
 	// --- Strategies evaluated ---
-	fmt.Fprintln(w, "Strategies evaluated:")
+	if _, err := fmt.Fprintln(w, "Strategies evaluated:"); err != nil {
+		return err
+	}
 
 	for _, name := range strategyOrder {
 		candidates, ok := byStrategy[name]
 		if !ok || len(candidates) == 0 {
-			fmt.Fprintf(w, "  %-22s (none)\n", name+":")
+			if _, err := fmt.Fprintf(w, "  %-22s (none)\n", name+":"); err != nil {
+				return err
+			}
 			continue
 		}
 		for i, c := range candidates {
@@ -51,51 +55,75 @@ func WriteExplanation(w io.Writer, result calculator.VersionResult) error {
 			if c.BaseVersionSource != nil {
 				source = c.BaseVersionSource.ShortSha()
 			}
-			fmt.Fprintf(w, "  %-22s %s (source: %s, increment: %t)\n",
-				label, c.SemanticVersion.SemVer(), source, c.ShouldIncrement)
+			if _, err := fmt.Fprintf(w, "  %-22s %s (source: %s, increment: %t)\n",
+				label, c.SemanticVersion.SemVer(), source, c.ShouldIncrement); err != nil {
+				return err
+			}
 
 			// Print explanation steps indented.
 			if c.Explanation != nil {
 				for _, step := range c.Explanation.Steps {
-					fmt.Fprintf(w, "    %s %s\n", arrowPrefix, step)
+					if _, err := fmt.Fprintf(w, "    %s %s\n", arrowPrefix, step); err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
 
 	// --- Selected ---
-	fmt.Fprintln(w)
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
 	source := "external"
 	if result.BaseVersion.BaseVersionSource != nil {
 		source = result.BaseVersion.BaseVersionSource.ShortSha()
 	}
-	fmt.Fprintf(w, "Selected: %s (%s, source: %s)\n",
+	if _, err := fmt.Fprintf(w, "Selected: %s (%s, source: %s)\n",
 		result.BaseVersion.Source,
 		result.BaseVersion.SemanticVersion.SemVer(),
 		source,
-	)
+	); err != nil {
+		return err
+	}
 
 	// --- Increment ---
 	if result.IncrementExplanation != nil && len(result.IncrementExplanation.Steps) > 0 {
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Increment:")
+		if _, err := fmt.Fprintln(w); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(w, "Increment:"); err != nil {
+			return err
+		}
 		for _, step := range result.IncrementExplanation.Steps {
-			fmt.Fprintf(w, "  %s %s\n", arrowPrefix, step)
+			if _, err := fmt.Fprintf(w, "  %s %s\n", arrowPrefix, step); err != nil {
+				return err
+			}
 		}
 	}
 
 	// --- Pre-release ---
 	if len(result.PreReleaseSteps) > 0 {
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Pre-release:")
+		if _, err := fmt.Fprintln(w); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(w, "Pre-release:"); err != nil {
+			return err
+		}
 		for _, step := range result.PreReleaseSteps {
-			fmt.Fprintf(w, "  %s %s\n", arrowPrefix, step)
+			if _, err := fmt.Fprintf(w, "  %s %s\n", arrowPrefix, step); err != nil {
+				return err
+			}
 		}
 	}
 
 	// --- Result ---
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "Result: %s\n", result.Version.FullSemVer())
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "Result: %s\n", result.Version.FullSemVer()); err != nil {
+		return err
+	}
 
 	return nil
 }

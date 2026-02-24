@@ -120,7 +120,7 @@ Strategies evaluated:
   TaggedCommit:  1.2.0 from tag v1.2.0 (3 commits ago) → effective 1.3.0
   MergeMessage:  (none)
   BranchName:    (none)
-  Fallback:      0.1.0
+  Fallback:      1.0.0
 
 Selected: TaggedCommit (effective 1.3.0, oldest source at 2025-01-15)
 
@@ -183,7 +183,7 @@ A built-in `unknown` branch config (`.*` regex, priority 0) catches any branch t
 
 ## Configurable Base Version
 
-The `base-version` config option (default: `0.1.0`) sets the starting version when no tags exist. This is a permanent setting, separate from `next-version` which is a temporary override.
+The `base-version` config option (default: `1.0.0`) sets the starting version when no tags exist. This is a permanent setting, separate from `next-version` which is a temporary override.
 
 ```yaml
 base-version: 1.0.0

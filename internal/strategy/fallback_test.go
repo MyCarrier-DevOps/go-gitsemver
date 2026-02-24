@@ -26,7 +26,7 @@ func TestFallback_ReturnsBaseVersion(t *testing.T) {
 		CurrentBranch: git.Branch{Tip: &tip},
 		CurrentCommit: tip,
 	}
-	ec := config.EffectiveConfiguration{BaseVersion: "0.1.0"}
+	ec := config.EffectiveConfiguration{BaseVersion: "1.0.0"}
 
 	s := NewFallbackStrategy(store)
 	require.Equal(t, "Fallback", s.Name())
@@ -34,8 +34,8 @@ func TestFallback_ReturnsBaseVersion(t *testing.T) {
 	versions, err := s.GetBaseVersions(ctx, ec, false)
 	require.NoError(t, err)
 	require.Len(t, versions, 1)
-	require.Equal(t, int64(0), versions[0].SemanticVersion.Major)
-	require.Equal(t, int64(1), versions[0].SemanticVersion.Minor)
+	require.Equal(t, int64(1), versions[0].SemanticVersion.Major)
+	require.Equal(t, int64(0), versions[0].SemanticVersion.Minor)
 	require.False(t, versions[0].ShouldIncrement)
 	require.Equal(t, rootCommit.Sha, versions[0].BaseVersionSource.Sha)
 	require.Equal(t, "Fallback base version", versions[0].Source)
@@ -70,7 +70,7 @@ func TestFallback_NilTip(t *testing.T) {
 	ctx := &context.GitVersionContext{
 		CurrentBranch: git.Branch{},
 	}
-	ec := config.EffectiveConfiguration{BaseVersion: "0.1.0"}
+	ec := config.EffectiveConfiguration{BaseVersion: "1.0.0"}
 
 	s := NewFallbackStrategy(store)
 	_, err := s.GetBaseVersions(ctx, ec, false)
@@ -92,7 +92,7 @@ func TestFallback_Explanation(t *testing.T) {
 		CurrentBranch: git.Branch{Tip: &tip},
 		CurrentCommit: tip,
 	}
-	ec := config.EffectiveConfiguration{BaseVersion: "0.1.0"}
+	ec := config.EffectiveConfiguration{BaseVersion: "1.0.0"}
 
 	s := NewFallbackStrategy(store)
 	versions, err := s.GetBaseVersions(ctx, ec, true)

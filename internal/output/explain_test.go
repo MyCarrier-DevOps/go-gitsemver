@@ -44,10 +44,10 @@ func TestWriteExplanation_BasicTaggedCommit(t *testing.T) {
 			{
 				Source:          "Fallback",
 				ShouldIncrement: true,
-				SemanticVersion: semver.SemanticVersion{Major: 0, Minor: 1, Patch: 0},
+				SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
 				Explanation: &strategy.Explanation{
 					Strategy: "Fallback",
-					Steps:    []string{"using default base version 0.1.0"},
+					Steps:    []string{"using default base version 1.0.0"},
 				},
 			},
 		},
@@ -71,7 +71,7 @@ func TestWriteExplanation_BasicTaggedCommit(t *testing.T) {
 	require.Contains(t, out, "TaggedCommit:")
 	require.Contains(t, out, "1.0.0")
 	require.Contains(t, out, "Fallback:")
-	require.Contains(t, out, "0.1.0")
+	require.Contains(t, out, "1.0.0")
 	require.Contains(t, out, "Selected: TaggedCommit")
 	require.Contains(t, out, "Increment:")
 	require.Contains(t, out, "highest increment from commits: Minor")
@@ -131,20 +131,20 @@ func TestWriteExplanation_PreRelease(t *testing.T) {
 		BaseVersion: strategy.BaseVersion{
 			Source:          "Fallback",
 			ShouldIncrement: true,
-			SemanticVersion: semver.SemanticVersion{Major: 0, Minor: 1, Patch: 0},
+			SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
 			Explanation: &strategy.Explanation{
 				Strategy: "Fallback",
-				Steps:    []string{"using default base version 0.1.0"},
+				Steps:    []string{"using default base version 1.0.0"},
 			},
 		},
 		AllCandidates: []strategy.BaseVersion{
 			{
 				Source:          "Fallback",
 				ShouldIncrement: true,
-				SemanticVersion: semver.SemanticVersion{Major: 0, Minor: 1, Patch: 0},
+				SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
 				Explanation: &strategy.Explanation{
 					Strategy: "Fallback",
-					Steps:    []string{"using default base version 0.1.0"},
+					Steps:    []string{"using default base version 1.0.0"},
 				},
 			},
 		},
@@ -171,13 +171,13 @@ func TestWriteExplanation_PreRelease(t *testing.T) {
 
 func TestFormatExplanation_ReturnsString(t *testing.T) {
 	result := calculator.VersionResult{
-		Version: semver.SemanticVersion{Major: 0, Minor: 1, Patch: 0},
+		Version: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
 		BaseVersion: strategy.BaseVersion{
 			Source:          "Fallback",
-			SemanticVersion: semver.SemanticVersion{Major: 0, Minor: 1, Patch: 0},
+			SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
 		},
 	}
 
 	out := FormatExplanation(result)
-	require.Contains(t, out, "Result: 0.1.0")
+	require.Contains(t, out, "Result: 1.0.0")
 }

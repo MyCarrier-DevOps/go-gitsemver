@@ -209,7 +209,7 @@ Place a `go-gitsemver.yml` (or `GitVersion.yml`) in `.github/` or the repository
 # go-gitsemver.yml
 mode: ContinuousDelivery          # ContinuousDelivery, ContinuousDeployment, or Mainline
 tag-prefix: '[vV]'                 # Regex to match version tag prefixes
-base-version: 0.1.0               # Starting version when no tags exist
+base-version: 1.0.0               # Starting version when no tags exist
 commit-message-convention: Both    # ConventionalCommits, BumpDirective, or Both
 
 branches:
