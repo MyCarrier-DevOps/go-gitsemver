@@ -1,0 +1,92 @@
+name: 'Setup go-gitsemver'
+description: 'Install the go-gitsemver CLI from GitHub Releases'
+branding:
+  icon: 'download'
+  color: 'blue'
+
+inputs:
+  version:
+    description: 'Version to install (e.g., v1.5.0). Use "latest" for the most recent release.'
+    required: false
+    default: 'latest'
+  token:
+    description: 'GitHub token for authenticated downloads (avoids rate limits).'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine platform
+      id: platform
+      shell: bash
+      run: |
+        # Use runner context for reliable cross-platform detection
+        RUNNER_OS="${{ runner.os }}"
+        RUNNER_ARCH="${{ runner.arch }}"
+
+        # Map runner.os to release asset names
+        case "$RUNNER_OS" in
+          Linux)   OS="linux" ;;
+          macOS)   OS="darwin" ;;
+          Windows) OS="windows" ;;
+          *)       echo "::error::Unsupported OS: $RUNNER_OS"; exit 1 ;;
+        esac
+
+        # Map runner.arch to release asset names
+        case "$RUNNER_ARCH" in
+          X64)   ARCH="amd64" ;;
+          ARM64) ARCH="arm64" ;;
+          *)     echo "::error::Unsupported architecture: $RUNNER_ARCH"; exit 1 ;;
+        esac
+
+        # Build binary name
+        if [ "$OS" = "windows" ]; then
+          BINARY="go-gitsemver-${OS}-${ARCH}.exe"
+        else
+          BINARY="go-gitsemver-${OS}-${ARCH}"
+        fi
+
+        echo "os=$OS" >> "$GITHUB_OUTPUT"
+        echo "arch=$ARCH" >> "$GITHUB_OUTPUT"
+        echo "binary=$BINARY" >> "$GITHUB_OUTPUT"
+
+    - name: Download go-gitsemver
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        BINARY="${{ steps.platform.outputs.binary }}"
+
+        if [ "$VERSION" = "latest" ]; then
+          URL="https://github.com/MyCarrier-DevOps/go-gitsemver/releases/latest/download/${BINARY}"
+        else
+          URL="https://github.com/MyCarrier-DevOps/go-gitsemver/releases/download/${VERSION}/${BINARY}"
+        fi
+
+        CURL_ARGS=(-sL --fail --retry 3 --retry-delay 2)
+        if [ -n "${{ inputs.token }}" ]; then
+          CURL_ARGS+=(-H "Authorization: token ${{ inputs.token }}")
+        fi
+
+        echo "Downloading go-gitsemver from: $URL"
+        curl "${CURL_ARGS[@]}" "$URL" -o go-gitsemver || {
+          echo "::error::Failed to download go-gitsemver from $URL"
+          exit 1
+        }
+
+        chmod +x go-gitsemver
+
+    - name: Install go-gitsemver
+      shell: bash
+      run: |
+        if [ "${{ steps.platform.outputs.os }}" = "windows" ]; then
+          mkdir -p "$HOME/bin"
+          mv go-gitsemver "$HOME/bin/go-gitsemver.exe"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+        else
+          sudo mv go-gitsemver /usr/local/bin/
+        fi
+
+    - name: Verify installation
+      shell: bash
+      run: go-gitsemver version

@@ -53,6 +53,19 @@ Download the latest release from [GitHub Releases](../../releases):
 | macOS | amd64, arm64 |
 | Windows | amd64 |
 
+### GitHub Action
+
+Use the setup action to install go-gitsemver in your workflow:
+
+```yaml
+- uses: MyCarrier-DevOps/go-gitsemver/.github/actions/setup-go-gitsemver@main
+  with:
+    version: latest
+    token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+See the full [GitHub Action documentation](docs/GITHUB_ACTION.md) for all usage patterns.
+
 ### From source
 
 ```bash
@@ -486,6 +499,7 @@ make ci              # Full CI pipeline (fmt + lint + test-all + coverage + buil
 | [Version Strategies](docs/VERSION_STRATEGIES.md) | How the 6 version discovery strategies work |
 | [Architecture](docs/ARCHITECTURE.md) | Package structure and design principles |
 | [Features](docs/FEATURES.md) | Key features and design highlights |
+| [GitHub Action](docs/GITHUB_ACTION.md) | Setup action for installing go-gitsemver in CI |
 | [Go Library Example](example/main.go) | Runnable example of the `pkg/sdk` library API |
 
 ## Acknowledgements
