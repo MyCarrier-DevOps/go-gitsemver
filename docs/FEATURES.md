@@ -1,6 +1,6 @@
 # Key Features
 
-gitsemver is a semantic versioning tool that automatically calculates versions from git history. It is inspired by [GitVersion](https://gitversion.net/) and reimplements its core functionality in Go as a single static binary with zero runtime dependencies.
+gitsemver is a semantic versioning tool that automatically calculates versions from git history. It is inspired by [GitVersion](https://gitversion.net/) and implements its core versioning model in Go as a single static binary with zero runtime dependencies.
 
 This document highlights gitsemver's key capabilities and design decisions.
 
@@ -11,6 +11,25 @@ This document highlights gitsemver's key capabilities and design decisions.
 gitsemver is a single static binary (~10-15MB). Download it and run — no runtime, no SDK, no package manager required. Works with any language and any build system.
 
 Cross-platform builds are provided for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64).
+
+---
+
+## GitHub API Remote Mode
+
+The `gitsemver remote owner/repo` subcommand calculates versions via the GitHub API — no local clone required. This eliminates the biggest CI/CD pain point: cloning a large repo with full history (`fetch-depth: 0`) just to read tags and commit history.
+
+```bash
+GITHUB_TOKEN=ghp_xxx gitsemver remote myorg/myrepo --show-variable SemVer
+```
+
+**Key design decisions:**
+
+- **Same interface, different backend** — `GitHubRepository` implements the same 15-method `Repository` interface as the local `GoGitRepository`. Everything above (strategies, calculator, output) stays untouched.
+- **GraphQL batch fetching** — Branches and tags are fetched in a single GraphQL query each, avoiding N+1 REST calls. Tag peel info is pre-resolved, so `PeelTagToCommit` returns instantly from cache.
+- **Smart early termination** — The `Tags()` GraphQL query gives us the set of commit SHAs that have version tags. During the paginated commit walk, once a tagged commit is found, one more buffer page is fetched and the walk stops. The common case is 1-3 API calls, not hundreds.
+- **In-memory caching** — Branches, tags, commits, merge bases, and commit logs are cached for the duration of the run. `RepositoryStore` calls the same methods repeatedly (e.g., `Tags()` called by 3 strategies), so caching eliminates redundant API calls.
+- **Dual auth** — Token auth (`--token` / `GITHUB_TOKEN`) and GitHub App auth (`--github-app-id` + `--github-app-key`) with automatic installation detection. Works with GitHub Enterprise via `--github-url`.
+- **Safety cap** — `--max-commits` (default 1000) prevents runaway API usage on repos with no version tags.
 
 ---
 
@@ -151,6 +170,8 @@ base-version: 1.0.0
 ## Shallow Clone Protection
 
 gitsemver detects shallow clones and exits with a clear error by default. The `--allow-shallow` flag explicitly opts into running with potentially incomplete history. The error message suggests `git fetch --unshallow`.
+
+Alternatively, use `gitsemver remote owner/repo` to skip cloning entirely and calculate the version via the GitHub API.
 
 ---
 

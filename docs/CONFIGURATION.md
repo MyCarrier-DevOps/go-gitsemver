@@ -6,6 +6,8 @@ gitsemver is configured via a `gitsemver.yml` or `GitVersion.yml` file in the re
 
 ## Configuration file
 
+### Local mode
+
 gitsemver searches for configuration in this order:
 
 1. `GitVersion.yml` in the repository root
@@ -13,6 +15,16 @@ gitsemver searches for configuration in this order:
 3. Path specified by `--config` flag (highest priority)
 
 If no file is found, built-in defaults are used.
+
+### Remote mode (`gitsemver remote`)
+
+When using the `remote` subcommand, configuration is fetched from the GitHub repository via API:
+
+1. `GitVersion.yml` in the repo root (fetched via `GET /repos/{owner}/{repo}/contents/`)
+2. `gitsemver.yml` in the repo root (fallback)
+3. Path specified by `--config` flag (local file override, highest priority)
+
+If no remote config file exists and no `--config` is provided, built-in defaults are used.
 
 ```yaml
 # gitsemver.yml — minimal example

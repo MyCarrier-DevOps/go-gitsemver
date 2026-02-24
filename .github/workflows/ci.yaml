@@ -17,10 +17,10 @@ jobs:
       actions: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v6
         with:
           go-version: ^1.26
       - name: Run tests
@@ -37,8 +37,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ^1.26
       - name: Run e2e tests
@@ -48,8 +48,8 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ^1.26
       - name: Install tools
@@ -63,8 +63,8 @@ jobs:
     name: Vulnerability Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ^1.26
       - name: Run vulnerability scan
@@ -75,8 +75,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, e2e, lint]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ^1.26
       - name: Build binary
@@ -123,10 +123,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v6
         with:
           go-version: ^1.26
       - name: Set version
@@ -142,7 +142,7 @@ jobs:
           OUTFILE="gitsemver-${GOOS}-${GOARCH}${EXT}"
           go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o "dist/${OUTFILE}" .
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gitsemver-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/gitsemver-*
@@ -156,7 +156,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist/
           merge-multiple: true

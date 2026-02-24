@@ -1,13 +1,39 @@
 # gitsemver
 
-A Go rewrite of [GitVersion](https://github.com/GitTools/GitVersion) (v5.12.0), redesigned with 12 architectural improvements. Automatic [Semantic Versioning](https://semver.org/) from your git history — no version files to maintain.
+A Go application inspired by [GitVersion](https://github.com/GitTools/GitVersion) (v5.12.0). Automatic [Semantic Versioning](https://semver.org/) from your git history — no version files to maintain.
 
 [![CI](../../actions/workflows/ci.yaml/badge.svg)](../../actions/workflows/ci.yaml)
+
+## TL;DR
+
+gitsemver calculates the next semantic version based on git history, tags, and branch conventions. Single static binary, zero runtime dependencies.
+
+```bash
+# Local mode — works with any git provider (GitHub, GitLab, Bitbucket, etc.)
+# Requires a full clone (fetch-depth: 0 in CI)
+gitsemver                                 # all version variables (key=value)
+gitsemver --show-variable SemVer          # just the version string
+gitsemver -o json                         # JSON output for CI
+gitsemver --explain                       # show how the version was calculated
+
+# Remote mode — GitHub and GitHub Enterprise only, no clone needed
+# Requires a token (GITHUB_TOKEN) or GitHub App credentials
+GITHUB_TOKEN=ghp_xxx gitsemver remote owner/repo
+gitsemver remote owner/repo --token ghp_xxx --ref main
+gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
+```
+
+**What it gives you:** `SemVer`, `FullSemVer`, `Major`, `Minor`, `Patch`, `BranchName`, `Sha`, `CommitDate`, `NuGetVersionV2`, and 20+ more output variables.
+
+**What it understands:** Conventional Commits (`feat:`, `fix:`, `feat!:`), bump directives (`+semver: major`), 8 branch types (main, develop, release, feature, hotfix, pull-request, support, unknown), 3 versioning modes (ContinuousDelivery, ContinuousDeployment, Mainline), and squash merge formats from GitHub, GitLab, and Bitbucket.
+
+**Configuration:** Drop a `gitsemver.yml` or `GitVersion.yml` in your repo root, or use `--config`. Works with zero config out of the box.
 
 ## Why gitsemver
 
 - **Zero configuration required** — works out of the box with sensible defaults for GitFlow, trunk-based, and CD workflows
 - **Single static binary** — no runtime dependencies, runs on Linux, macOS, and Windows
+- **Two modes: local and remote** — run against a local clone, or version a GitHub repo via API without cloning
 - **Conventional Commits** — first-class support for `feat:`, `fix:`, `feat!:`, and `BREAKING CHANGE:` footers
 - **Branch-aware** — eight built-in branch types with configurable pre-release labels, increment strategies, and versioning modes
 - **30+ output variables** — `SemVer`, `FullSemVer`, `NuGetVersion`, `Sha`, `BranchName`, and more
@@ -39,7 +65,9 @@ gitsemver version
 
 ## Quick start
 
-Run `gitsemver` in any git repository:
+### Local mode (default)
+
+Run `gitsemver` inside a git repository with full history:
 
 ```bash
 # Show all version variables
@@ -56,7 +84,31 @@ gitsemver -o json
 gitsemver --show-config
 ```
 
+**Requires:** A local git clone with full history (`git clone` or `fetch-depth: 0` in CI). Reads tags, commits, and branches directly from the `.git` directory using go-git.
+
+### Remote mode (GitHub API)
+
+Version a GitHub repository without cloning it:
+
+```bash
+# Token auth (PAT, fine-grained token, or GitHub Actions GITHUB_TOKEN)
+GITHUB_TOKEN=ghp_xxx gitsemver remote myorg/myrepo
+
+# Specific branch
+gitsemver remote myorg/myrepo --token ghp_xxx --ref main --show-variable SemVer
+
+# GitHub App auth
+gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key /path/to/key.pem
+
+# GitHub Enterprise
+gitsemver remote myorg/myrepo --token ghp_xxx --github-url https://ghe.example.com/api/v3
+```
+
+**Requires:** A GitHub token or GitHub App credentials. No clone, no checkout, no `fetch-depth: 0`. Reads tags, commits, and branches via the GitHub REST and GraphQL APIs. Configuration is fetched from the repo root (`gitsemver.yml` or `GitVersion.yml`) automatically.
+
 ### Example output
+
+Both modes produce the same output:
 
 ```
 Major=1
@@ -71,6 +123,18 @@ ShortSha=abc1234
 CommitsSinceVersionSource=5
 ...
 ```
+
+### When to use which
+
+| | Local mode | Remote mode |
+|---|---|---|
+| **Command** | `gitsemver` | `gitsemver remote owner/repo` |
+| **Requires** | Local git clone with full history | GitHub token or App credentials |
+| **Best for** | Developer machines, CI with full checkout | CI without clone, fast pipelines, large repos |
+| **Git providers** | Any (GitHub, GitLab, Bitbucket, etc.) | GitHub and GitHub Enterprise only |
+| **Working dir** | Detects uncommitted changes | N/A (no working directory) |
+| **Speed** | Instant (reads local `.git`) | ~2-5 API calls for typical repos |
+| **Config source** | Local filesystem | Fetched from repo via API (or `--config` local override) |
 
 ## How it works
 
@@ -91,16 +155,18 @@ hotfix:     1.0.2-beta.1
 
 ## CLI reference
 
-```
-gitsemver [flags]
-gitsemver [command]
-```
+### Commands
 
-### Flags
+| Command | Mode | Description |
+|---------|------|-------------|
+| `gitsemver [flags]` | Local | Calculate version from a local git repository (default) |
+| `gitsemver remote owner/repo [flags]` | Remote | Calculate version from a GitHub repository via API |
+| `gitsemver version` | — | Print the gitsemver binary version |
+
+### Global flags (both local and remote)
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--path` | `-p` | `.` | Path to the git repository |
 | `--branch` | `-b` | *(HEAD)* | Target branch name |
 | `--commit` | `-c` | *(tip)* | Target commit SHA |
 | `--config` | | *(auto)* | Path to config file |
@@ -110,12 +176,24 @@ gitsemver [command]
 | `--explain` | | | Show how the version was calculated |
 | `--verbosity` | `-v` | `info` | Log verbosity: `quiet`, `info`, `debug` |
 
-### Commands
+### Local-only flags
 
-| Command | Description |
-|---------|-------------|
-| `gitsemver` | Calculate and display version (default) |
-| `gitsemver version` | Print the gitsemver binary version |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--path` | `-p` | `.` | Path to the git repository |
+
+### Remote-only flags
+
+| Flag | Env var | Default | Description |
+|------|---------|---------|-------------|
+| `--token` | `GITHUB_TOKEN` | | GitHub personal access token or Actions token |
+| `--github-app-id` | `GH_APP_ID` | | GitHub App ID |
+| `--github-app-key` | `GH_APP_PRIVATE_KEY` | | Path to GitHub App private key PEM file |
+| `--github-url` | `GITHUB_API_URL` | | GitHub Enterprise API base URL |
+| `--ref` | | *(default branch)* | Branch, tag, or SHA to version |
+| `--max-commits` | | `1000` | Maximum commit depth to walk via API |
+
+Authentication is resolved in order: `--token`/`GITHUB_TOKEN` > `--github-app-id` + `--github-app-key` > error.
 
 ## Configuration
 
@@ -259,7 +337,7 @@ some change +semver: skip           → No bump
 
 ## CI/CD integration
 
-### GitHub Actions
+### GitHub Actions (local mode)
 
 ```yaml
 jobs:
@@ -268,11 +346,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history required
+          fetch-depth: 0  # Full history required for local mode
 
       - name: Calculate version
         id: version
         run: echo "semver=$(gitsemver --show-variable SemVer)" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: docker build -t myapp:${{ steps.version.outputs.semver }} .
+```
+
+### GitHub Actions (remote mode — no clone needed)
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Calculate version
+        id: version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "semver=$(gitsemver remote ${{ github.repository }} --ref ${{ github.ref_name }} --show-variable SemVer)" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: docker build -t myapp:${{ steps.version.outputs.semver }} .
