@@ -71,7 +71,7 @@ func TestComputeFormatValues_FullVersion(t *testing.T) {
 	require.Equal(t, "25.03.abc1234", vals["CommitTag"])
 
 	// Assembly info
-	require.Equal(t, "1.2.3.0", vals["AssemblySemVer"])
+	require.Equal(t, "1.2.0.0", vals["AssemblySemVer"])
 	require.Equal(t, "1.2.3.0", vals["AssemblySemFileVer"])
 	require.Equal(t, vals["InformationalVersion"], vals["AssemblyInformationalVersion"])
 

@@ -122,9 +122,8 @@ func ComputeFormatValues(ver SemanticVersion, cfg FormatConfig) map[string]strin
 	}
 
 	// Assembly info (output-only, no file updates)
-	assemblyVer := majorStr + "." + minorStr + "." + patchStr + ".0"
-	vals["AssemblySemVer"] = assemblyVer
-	vals["AssemblySemFileVer"] = assemblyVer
+	vals["AssemblySemVer"] = majorStr + "." + minorStr + ".0.0"
+	vals["AssemblySemFileVer"] = majorStr + "." + minorStr + "." + patchStr + ".0"
 	vals["AssemblyInformationalVersion"] = ver.InformationalVersion()
 
 	// NuGet (output-only)

@@ -218,7 +218,7 @@ go-gitsemver generates a comprehensive set of output variables compatible with v
 - **Pre-release:** `PreReleaseTag`, `PreReleaseLabel`, `PreReleaseNumber`
 - **Build metadata:** `BuildMetaData`, `FullBuildMetaData`, `CommitsSinceVersionSource`
 - **Git info:** `BranchName`, `Sha`, `ShortSha`, `CommitDate`
-- **Assembly:** `AssemblySemVer`, `AssemblyFileSemVer`
+- **Assembly:** `AssemblySemVer`, `AssemblySemFileVer`
 - **NuGet:** `NuGetVersionV2`, `NuGetPreReleaseTagV2`
 
 Output formats: JSON (default), key=value text, or single variable via `--show-variable`.

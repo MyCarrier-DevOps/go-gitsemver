@@ -194,12 +194,9 @@ func (r *GoGitRepository) CommitLog(from, to string, _ ...PathFilter) ([]Commit,
 func (r *GoGitRepository) MainlineCommitLog(from, to string, _ ...PathFilter) ([]Commit, error) {
 	toHash := plumbing.NewHash(to)
 
-	iter, err := r.repo.Log(&gogit.LogOptions{
-		From:  toHash,
-		Order: gogit.LogOrderCommitterTime,
-	})
+	current, err := r.repo.CommitObject(toHash)
 	if err != nil {
-		return nil, fmt.Errorf("getting mainline commit log: %w", err)
+		return nil, fmt.Errorf("getting commit %s: %w", to, err)
 	}
 
 	fromHash := plumbing.ZeroHash
@@ -207,22 +204,19 @@ func (r *GoGitRepository) MainlineCommitLog(from, to string, _ ...PathFilter) ([
 		fromHash = plumbing.NewHash(from)
 	}
 
-	// First-parent only: follow only the first parent at each merge.
+	// First-parent only: at each commit, follow only Parent(0).
+	// This skips commits introduced via merge side branches.
 	var commits []Commit
-	err = iter.ForEach(func(c *object.Commit) error {
-		if c.Hash == fromHash {
-			return storer.ErrStop
+	for current.Hash != fromHash {
+		commits = append(commits, convertCommit(current))
+		if current.NumParents() == 0 {
+			break
 		}
-		commits = append(commits, convertCommit(c))
-		// For first-parent walk, we stop at the first parent only.
-		// go-git's default LogOrderCommitterTime already follows DAG order,
-		// but it visits all parents. We break manually after the merge
-		// commit to follow only the mainline. This is approximate; for
-		// exact first-parent semantics, use the parent-walking approach.
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("iterating mainline commits: %w", err)
+		parent, err := current.Parent(0)
+		if err != nil {
+			break
+		}
+		current = parent
 	}
 
 	return commits, nil

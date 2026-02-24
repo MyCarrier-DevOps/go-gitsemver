@@ -146,7 +146,7 @@ func (m *MainlineVersionCalculator) commitsSince(
 		from = *bv.BaseVersionSource
 	}
 
-	commits, err := m.store.GetCommitLog(from, ctx.CurrentCommit)
+	commits, err := m.store.GetMainlineCommitLog(from, ctx.CurrentCommit)
 	if err != nil {
 		return nil, 0
 	}

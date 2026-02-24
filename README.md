@@ -353,7 +353,7 @@ some change +semver: skip           → No bump
 | `CommitTag` | `25.03.abc1234` | Year.Week.ShortSha from commit date |
 | `CommitsSinceVersionSource` | `5` | Commits since base version |
 | `UncommittedChanges` | `0` | Dirty working tree count |
-| `AssemblySemVer` | `1.2.3.0` | .NET assembly version |
+| `AssemblySemVer` | `1.2.0.0` | .NET assembly version (Major.Minor.0.0) |
 | `NuGetVersionV2` | `1.2.3-beta0004` | NuGet-compatible version |
 | `WeightedPreReleaseNumber` | `60004` | Sortable pre-release weight |
 

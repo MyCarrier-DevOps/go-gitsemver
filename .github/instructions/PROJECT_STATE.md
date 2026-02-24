@@ -88,6 +88,14 @@ Tracks completed features, current work, and planned changes for go-gitsemver.
 - CI workflow updated: release artifacts use `go-gitsemver-*` naming
 - Files: `internal/github/client.go`, `cmd/remote.go`, `pkg/sdk/sdk.go`, `.github/actions/setup-go-gitsemver/action.yml`, `.github/workflows/ci.yaml`, `makefile`
 
+### Bug Fixes & Static Binaries (Phase 8)
+- `CommitsSinceVersionSource` fixed: Mainline mode now uses first-parent traversal for commit counting
+- `MainlineCommitLog` rewritten: proper `Parent(0)` walking instead of full DAG iterator
+- `countCommitsSince` in `NextVersionCalculator` is now mode-aware: first-parent for Mainline, full DAG for CD/CDeployment
+- `AssemblySemVer` output corrected from `Major.Minor.Patch.0` to `Major.Minor.0.0` (matches GitVersion reference)
+- Static binaries: `CGO_ENABLED=0` added to makefile `release-build` and CI workflow
+- Files: `internal/git/gogit.go`, `internal/calculator/mainline.go`, `internal/calculator/nextversion.go`, `internal/semver/formatvalues.go`, `makefile`, `.github/workflows/ci.yaml`
+
 ## Test Coverage
 - 589 tests across unit, integration, and end-to-end suites
 - 85% overall coverage

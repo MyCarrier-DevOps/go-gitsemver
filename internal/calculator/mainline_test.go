@@ -16,10 +16,12 @@ func TestMainline_AggregateIncrement(t *testing.T) {
 	mid := newCommit("bbb0000000000000000000000000000000000000", "fix: patch bug")
 	source := newCommit("ccc0000000000000000000000000000000000000", "v1.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, mid, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, mid, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -52,10 +54,12 @@ func TestMainline_NoCommitMessages(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "docs: update")
 	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -85,10 +89,12 @@ func TestMainline_NoCommitMessages(t *testing.T) {
 func TestMainline_NilSource(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: initial")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -120,10 +126,12 @@ func TestMainline_EachCommit_IncrementPerCommit(t *testing.T) {
 	c1 := newCommit("ddd0000000000000000000000000000000000000", "fix: first fix")
 	source := newCommit("eee0000000000000000000000000000000000000", "v1.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, c3, c2, c1, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, c3, c2, c1, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -157,10 +165,12 @@ func TestMainline_EachCommit_AllFixes(t *testing.T) {
 	c1 := newCommit("ccc0000000000000000000000000000000000000", "fix: first")
 	source := newCommit("ddd0000000000000000000000000000000000000", "v1.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, c2, c1, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, c2, c1, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -192,10 +202,12 @@ func TestMainline_EachCommit_NoMatchingMessages(t *testing.T) {
 	c1 := newCommit("bbb0000000000000000000000000000000000000", "docs: update readme")
 	source := newCommit("ccc0000000000000000000000000000000000000", "v1.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, c1, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, c1, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -231,10 +243,12 @@ func TestMainline_AggregateIncrement_Explain(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: add new feature")
 	source := newCommit("ccc0000000000000000000000000000000000000", "v1.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -264,10 +278,12 @@ func TestMainline_AggregateIncrement_NoExplain(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: add new feature")
 	source := newCommit("ccc0000000000000000000000000000000000000", "v1.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -296,10 +312,12 @@ func TestMainline_EachCommit_Explain(t *testing.T) {
 	c1 := newCommit("bbb0000000000000000000000000000000000000", "feat: feature")
 	source := newCommit("ccc0000000000000000000000000000000000000", "v1.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, c1, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, c1, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -341,10 +359,12 @@ func TestMainline_EachCommit_PreV1_CapMajor(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "feat!: breaking change")
 	source := newCommit("bbb0000000000000000000000000000000000000", "v0.1.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -375,10 +395,12 @@ func TestMainline_Aggregate_NoFieldAndShouldIncrement(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "docs: update readme")
 	source := newCommit("bbb0000000000000000000000000000000000000", "v2.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -408,10 +430,12 @@ func TestMainline_Aggregate_NoFieldInheritFallsToPatch(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "chore: cleanup")
 	source := newCommit("bbb0000000000000000000000000000000000000", "v3.0.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)
@@ -442,10 +466,12 @@ func TestMainline_Aggregate_NotShouldIncrement(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "docs: update")
 	source := newCommit("bbb0000000000000000000000000000000000000", "v1.5.0")
 
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
 	mock := &git.MockRepository{
-		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
-			return []git.Commit{tip, source}, nil
-		},
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
 	}
 	store := git.NewRepositoryStore(mock)
 	incr := NewIncrementStrategyFinder(store)

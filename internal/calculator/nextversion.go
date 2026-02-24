@@ -86,7 +86,7 @@ func (c *NextVersionCalculator) Calculate(
 	ver, preReleaseSteps := c.updatePreReleaseTag(ver, ctx, ec, branchName, explain)
 
 	// Step 5: Count commits since base version source.
-	commitsSince := c.countCommitsSince(ctx, bv)
+	commitsSince := c.countCommitsSince(ctx, bv, ec)
 
 	// Step 6: Build metadata.
 	ver = c.applyBuildMetadata(ver, ctx, bv, branchName, commitsSince)
@@ -195,16 +195,25 @@ func branchNameForTag(ctx *context.GitVersionContext, ec config.EffectiveConfigu
 }
 
 // countCommitsSince counts commits between base version source and current commit.
+// In Mainline mode it uses first-parent traversal so merged side-branch commits
+// are not counted.
 func (c *NextVersionCalculator) countCommitsSince(
 	ctx *context.GitVersionContext,
 	bv strategy.BaseVersion,
+	ec config.EffectiveConfiguration,
 ) int64 {
 	from := git.Commit{}
 	if bv.BaseVersionSource != nil {
 		from = *bv.BaseVersionSource
 	}
 
-	commits, err := c.store.GetCommitLog(from, ctx.CurrentCommit)
+	var commits []git.Commit
+	var err error
+	if ec.BranchMode == semver.VersioningModeMainline {
+		commits, err = c.store.GetMainlineCommitLog(from, ctx.CurrentCommit)
+	} else {
+		commits, err = c.store.GetCommitLog(from, ctx.CurrentCommit)
+	}
 	if err != nil {
 		return 0
 	}
