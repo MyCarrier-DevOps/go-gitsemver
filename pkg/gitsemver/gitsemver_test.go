@@ -309,3 +309,257 @@ func TestCalculateRemote_WithMockServer(t *testing.T) {
 	require.NotNil(t, result)
 	require.NotEmpty(t, result.Variables["SemVer"])
 }
+
+// ---------------------------------------------------------------------------
+// Explain mode tests
+// ---------------------------------------------------------------------------
+
+func TestCalculate_ExplainEnabled(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial commit")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("feat: add dashboard")
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+
+	er := result.ExplainResult
+	require.NotEmpty(t, er.Candidates)
+	require.NotEmpty(t, er.SelectedSource)
+	require.NotEmpty(t, er.FinalVersion)
+	require.NotEmpty(t, er.FormattedOutput)
+	require.Contains(t, er.FormattedOutput, "Strategies evaluated:")
+	require.Contains(t, er.FormattedOutput, "Selected:")
+	require.Contains(t, er.FormattedOutput, "Result:")
+
+	// Each candidate should have strategy and version.
+	for _, c := range er.Candidates {
+		require.NotEmpty(t, c.Strategy)
+		require.NotEmpty(t, c.Version)
+		require.NotEmpty(t, c.Source)
+	}
+}
+
+func TestCalculate_ExplainDisabled(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: false,
+	})
+	require.NoError(t, err)
+	require.Nil(t, result.ExplainResult)
+}
+
+func TestCalculate_ExplainWithTag(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial")
+	repo.CreateTag("v2.0.0", sha)
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "2.0.0", result.Variables["MajorMinorPatch"])
+}
+
+func TestCalculate_ExplainCandidateDetails(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("fix: patch fix")
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+
+	strategies := map[string]bool{}
+	for _, c := range result.ExplainResult.Candidates {
+		strategies[c.Strategy] = true
+	}
+	require.True(t, strategies["TaggedCommit"] || strategies["Fallback"],
+		"should have at least TaggedCommit or Fallback candidate")
+}
+
+func TestCalculate_ExplainIncrementSteps(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("feat: new feature")
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+	require.NotEmpty(t, result.ExplainResult.IncrementSteps)
+}
+
+func TestCalculate_ExplainFeatureBranch(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial on main")
+	repo.CreateTag("v1.0.0", sha)
+	repo.CreateBranch("feature/search", sha)
+	repo.Checkout("feature/search")
+	repo.AddCommit("feat: add search")
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+	require.NotEmpty(t, result.ExplainResult.PreReleaseSteps)
+}
+
+func TestCalculateRemote_ExplainEnabled(t *testing.T) {
+	mux := http.NewServeMux()
+	tipSha := "abc123def456abc123def456abc123def456abc1"
+
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{"default_branch": "main"})
+	})
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/branches/main", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{
+			"name": "main",
+			"commit": map[string]interface{}{
+				"sha": tipSha,
+				"commit": map[string]interface{}{
+					"message":   "feat: new feature",
+					"committer": map[string]interface{}{"date": "2025-01-15T12:00:00Z"},
+				},
+				"parents": []interface{}{},
+			},
+		})
+	})
+	mux.HandleFunc("/api/graphql", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"refs": map[string]interface{}{
+						"nodes": []map[string]interface{}{
+							{
+								"name": "main",
+								"target": map[string]interface{}{
+									"oid": tipSha, "message": "feat: new feature",
+									"committedDate": "2025-01-15T12:00:00Z",
+									"parents":       map[string]interface{}{"nodes": []interface{}{}},
+								},
+							},
+						},
+						"pageInfo": map[string]interface{}{"hasNextPage": false, "endCursor": ""},
+					},
+				},
+			},
+		})
+	})
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/commits", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, []map[string]interface{}{
+			{
+				"sha":     tipSha,
+				"commit":  map[string]interface{}{"message": "feat: new feature", "committer": map[string]interface{}{"date": "2025-01-15T12:00:00Z"}},
+				"parents": []interface{}{},
+			},
+		})
+	})
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		writeTestJSON(w, &gh.ErrorResponse{Response: &http.Response{StatusCode: http.StatusNotFound}, Message: "Not Found"})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+		Owner:   "testowner",
+		Repo:    "testrepo",
+		Token:   "ghp_test",
+		BaseURL: server.URL + "/api/v3",
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+	require.NotEmpty(t, result.ExplainResult.Candidates)
+	require.NotEmpty(t, result.ExplainResult.SelectedSource)
+	require.NotEmpty(t, result.ExplainResult.FinalVersion)
+	require.Contains(t, result.ExplainResult.FormattedOutput, "Strategies evaluated:")
+}
+
+func TestCalculateRemote_ExplainDisabled(t *testing.T) {
+	mux := http.NewServeMux()
+	tipSha := "abc123def456abc123def456abc123def456abc1"
+
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{"default_branch": "main"})
+	})
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/branches/main", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{
+			"name": "main",
+			"commit": map[string]interface{}{
+				"sha": tipSha,
+				"commit": map[string]interface{}{
+					"message":   "initial commit",
+					"committer": map[string]interface{}{"date": "2025-01-15T12:00:00Z"},
+				},
+				"parents": []interface{}{},
+			},
+		})
+	})
+	mux.HandleFunc("/api/graphql", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"refs": map[string]interface{}{
+						"nodes": []map[string]interface{}{
+							{
+								"name": "main",
+								"target": map[string]interface{}{
+									"oid": tipSha, "message": "initial commit",
+									"committedDate": "2025-01-15T12:00:00Z",
+									"parents":       map[string]interface{}{"nodes": []interface{}{}},
+								},
+							},
+						},
+						"pageInfo": map[string]interface{}{"hasNextPage": false, "endCursor": ""},
+					},
+				},
+			},
+		})
+	})
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/commits", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, []map[string]interface{}{
+			{
+				"sha":     tipSha,
+				"commit":  map[string]interface{}{"message": "initial commit", "committer": map[string]interface{}{"date": "2025-01-15T12:00:00Z"}},
+				"parents": []interface{}{},
+			},
+		})
+	})
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		writeTestJSON(w, &gh.ErrorResponse{Response: &http.Response{StatusCode: http.StatusNotFound}, Message: "Not Found"})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+		Owner:   "testowner",
+		Repo:    "testrepo",
+		Token:   "ghp_test",
+		BaseURL: server.URL + "/api/v3",
+		Explain: false,
+	})
+	require.NoError(t, err)
+	require.Nil(t, result.ExplainResult)
+}

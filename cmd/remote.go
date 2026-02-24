@@ -7,6 +7,7 @@ import (
 	"go-gitsemver/internal/git"
 	"go-gitsemver/internal/output"
 	"go-gitsemver/internal/strategy"
+	"os"
 	"strings"
 
 	configctx "go-gitsemver/internal/context"
@@ -124,10 +125,17 @@ func remoteRunE(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("calculating version: %w", err)
 	}
 
-	// 10. Compute output variables.
+	// 10. Write explain output to stderr if requested.
+	if flagExplain {
+		if err := output.WriteExplanation(os.Stderr, result); err != nil {
+			return fmt.Errorf("writing explanation: %w", err)
+		}
+	}
+
+	// 11. Compute output variables.
 	vars := output.GetVariables(result.Version, ec)
 
-	// 11. Write output.
+	// 12. Write output.
 	return writeOutput(vars)
 }
 

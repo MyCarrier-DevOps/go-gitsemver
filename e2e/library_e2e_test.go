@@ -773,3 +773,114 @@ func TestLibrary_Parity_LocalVsRemote(t *testing.T) {
 	require.Equal(t, localResult.Variables["MajorMinorPatch"], remoteResult.Variables["MajorMinorPatch"])
 	require.Equal(t, localResult.Variables["CommitsSinceVersionSource"], remoteResult.Variables["CommitsSinceVersionSource"])
 }
+
+// ---------------------------------------------------------------------------
+// Library: Explain Mode
+// ---------------------------------------------------------------------------
+
+func TestLibrary_Calculate_WithExplain(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("feat: add dashboard")
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+
+	er := result.ExplainResult
+
+	// Candidates should be populated.
+	require.NotEmpty(t, er.Candidates)
+
+	// At least one candidate should be TaggedCommit.
+	hasTagged := false
+	for _, c := range er.Candidates {
+		if c.Strategy == "TaggedCommit" {
+			hasTagged = true
+			require.Equal(t, "1.0.0", c.Version)
+			require.NotEmpty(t, c.Steps)
+		}
+	}
+	require.True(t, hasTagged, "should have TaggedCommit candidate")
+
+	// Selected source should be set.
+	require.NotEmpty(t, er.SelectedSource)
+
+	// Increment steps should be populated.
+	require.NotEmpty(t, er.IncrementSteps)
+
+	// Final version should be set.
+	require.NotEmpty(t, er.FinalVersion)
+
+	// Formatted output should contain key sections.
+	require.Contains(t, er.FormattedOutput, "Strategies evaluated:")
+	require.Contains(t, er.FormattedOutput, "Selected:")
+	require.Contains(t, er.FormattedOutput, "Result:")
+}
+
+func TestLibrary_Calculate_WithoutExplain(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: false,
+	})
+	require.NoError(t, err)
+	require.Nil(t, result.ExplainResult, "ExplainResult should be nil when Explain=false")
+}
+
+func TestLibrary_Calculate_ExplainFeatureBranch(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial on main")
+	repo.CreateTag("v1.0.0", sha)
+	repo.CreateBranch("feature/search", sha)
+	repo.Checkout("feature/search")
+	repo.AddCommit("feat: add search")
+
+	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+		Path:    repo.Path(),
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+
+	// Feature branch should have pre-release steps.
+	require.NotEmpty(t, result.ExplainResult.PreReleaseSteps)
+}
+
+func TestLibrary_CalculateRemote_WithExplain(t *testing.T) {
+	tagSha := sha("tag100")
+	tipSha := sha("tip200")
+
+	server := newLibraryMockServer(t,
+		tipSha, "feat: new feature", "2025-01-01T12:01:00Z",
+		[]string{tagSha},
+		[]mockTag{{name: "v1.0.0", commitSha: tagSha}},
+		[]mockCommit{
+			{sha: tagSha, message: "initial", date: "2025-01-01T12:00:00Z"},
+			{sha: tipSha, message: "feat: new feature", date: "2025-01-01T12:01:00Z", parents: []string{tagSha}},
+		},
+	)
+	defer server.Close()
+
+	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+		Owner:   "testowner",
+		Repo:    "testrepo",
+		Token:   "ghp_test",
+		BaseURL: server.URL + "/api/v3",
+		Explain: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result.ExplainResult)
+
+	er := result.ExplainResult
+	require.NotEmpty(t, er.Candidates)
+	require.NotEmpty(t, er.SelectedSource)
+	require.NotEmpty(t, er.FinalVersion)
+	require.Contains(t, er.FormattedOutput, "Strategies evaluated:")
+}

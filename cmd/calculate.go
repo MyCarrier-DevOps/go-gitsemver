@@ -63,10 +63,17 @@ func calculateRunE(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("calculating version: %w", err)
 	}
 
-	// 7. Compute output variables.
+	// 7. Write explain output to stderr if requested.
+	if flagExplain {
+		if err := output.WriteExplanation(os.Stderr, result); err != nil {
+			return fmt.Errorf("writing explanation: %w", err)
+		}
+	}
+
+	// 8. Compute output variables.
 	vars := output.GetVariables(result.Version, ec)
 
-	// 8. Write output.
+	// 9. Write output.
 	return writeOutput(vars)
 }
 

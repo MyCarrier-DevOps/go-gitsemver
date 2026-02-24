@@ -4,6 +4,7 @@
 package calculator
 
 import (
+	"fmt"
 	"go-gitsemver/internal/config"
 	"go-gitsemver/internal/context"
 	"go-gitsemver/internal/git"
@@ -12,6 +13,31 @@ import (
 	"regexp"
 	"strings"
 )
+
+// IncrementExplanation records the reasoning behind an increment decision.
+type IncrementExplanation struct {
+	Steps []string
+}
+
+// Add appends a reasoning step. Nil-safe.
+func (e *IncrementExplanation) Add(step string) {
+	if e != nil {
+		e.Steps = append(e.Steps, step)
+	}
+}
+
+// Addf appends a formatted reasoning step. Nil-safe.
+func (e *IncrementExplanation) Addf(format string, args ...any) {
+	if e != nil {
+		e.Steps = append(e.Steps, fmt.Sprintf(format, args...))
+	}
+}
+
+// IncrementResult holds the determined increment and optional reasoning.
+type IncrementResult struct {
+	Field       semver.VersionField
+	Explanation *IncrementExplanation // nil when explain is false
+}
 
 // Conventional Commits patterns.
 var (
@@ -37,9 +63,28 @@ func (f *IncrementStrategyFinder) DetermineIncrementedField(
 	bv strategy.BaseVersion,
 	ec config.EffectiveConfiguration,
 ) (semver.VersionField, error) {
+	result, err := f.DetermineIncrementedFieldExplained(ctx, bv, ec, false)
+	return result.Field, err
+}
+
+// DetermineIncrementedFieldExplained works like DetermineIncrementedField but
+// records reasoning steps when explain is true.
+func (f *IncrementStrategyFinder) DetermineIncrementedFieldExplained(
+	ctx *context.GitVersionContext,
+	bv strategy.BaseVersion,
+	ec config.EffectiveConfiguration,
+	explain bool,
+) (IncrementResult, error) {
+	var exp *IncrementExplanation
+	if explain {
+		exp = &IncrementExplanation{}
+	}
+
 	// If commit message incrementing is disabled, use branch default.
 	if ec.CommitMessageIncrementing == semver.CommitMessageIncrementDisabled {
-		return f.branchDefault(bv, ec), nil
+		field := f.branchDefault(bv, ec)
+		exp.Addf("commit message incrementing disabled, using branch default: %s", field)
+		return IncrementResult{Field: field, Explanation: exp}, nil
 	}
 
 	from := git.Commit{}
@@ -49,8 +94,10 @@ func (f *IncrementStrategyFinder) DetermineIncrementedField(
 
 	commits, err := f.store.GetCommitLog(from, ctx.CurrentCommit)
 	if err != nil {
-		return semver.VersionFieldNone, err
+		return IncrementResult{}, err
 	}
+
+	exp.Addf("scanned %d commits", len(commits))
 
 	// Scan commits for highest bump.
 	highest := semver.VersionFieldNone
@@ -61,15 +108,26 @@ func (f *IncrementStrategyFinder) DetermineIncrementedField(
 		}
 
 		field := f.analyzeCommit(c, ec)
+		if field != semver.VersionFieldNone {
+			firstLine := c.Message
+			if idx := strings.IndexByte(firstLine, '\n'); idx >= 0 {
+				firstLine = firstLine[:idx]
+			}
+			convention := conventionName(c.Message, ec)
+			exp.Addf("commit %s %q -> %s (%s)", c.ShortSha(), firstLine, field, convention)
+		}
 		if field > highest {
 			highest = field
 		}
 	}
 
+	exp.Addf("highest increment from commits: %s", highest)
+
 	// If version < 1.0.0, cap at Minor (no Major bumps before 1.0).
 	if bv.SemanticVersion.Major == 0 {
 		if highest == semver.VersionFieldMajor {
 			highest = semver.VersionFieldMinor
+			exp.Add("pre-1.0: capping Major -> Minor")
 		}
 	}
 
@@ -77,11 +135,12 @@ func (f *IncrementStrategyFinder) DetermineIncrementedField(
 	if bv.ShouldIncrement {
 		branchField := f.branchDefault(bv, ec)
 		if highest < branchField {
+			exp.Addf("ShouldIncrement=true, branch default=%s > %s, using %s", branchField, highest, branchField)
 			highest = branchField
 		}
 	}
 
-	return highest, nil
+	return IncrementResult{Field: highest, Explanation: exp}, nil
 }
 
 // branchDefault returns the branch's configured increment as a VersionField.
@@ -186,6 +245,29 @@ func analyzeBumpDirective(msg string, ec config.EffectiveConfiguration) semver.V
 		return semver.VersionFieldPatch
 	}
 	return semver.VersionFieldNone
+}
+
+// conventionName returns a human-readable label for the convention that matched
+// the commit message. Used in explain mode output.
+func conventionName(msg string, ec config.EffectiveConfiguration) string {
+	switch ec.CommitMessageConvention {
+	case semver.CommitMessageConventionConventionalCommits:
+		return "Conventional Commits"
+	case semver.CommitMessageConventionBumpDirective:
+		return "Bump Directive"
+	case semver.CommitMessageConventionBoth:
+		cc := analyzeConventionalCommit(msg)
+		bd := analyzeBumpDirective(msg, ec)
+		if cc >= bd && cc != semver.VersionFieldNone {
+			return "Conventional Commits"
+		}
+		if bd != semver.VersionFieldNone {
+			return "Bump Directive"
+		}
+		return "Conventional Commits"
+	default:
+		return "Bump Directive"
+	}
 }
 
 // tryMatch returns true if the message matches the regex pattern.

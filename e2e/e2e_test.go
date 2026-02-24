@@ -492,3 +492,392 @@ func TestE2E_HotfixBranch(t *testing.T) {
 	require.Equal(t, "1", vars["Patch"])
 	require.Equal(t, "beta", vars["PreReleaseLabel"])
 }
+
+// ---------------------------------------------------------------------------
+// Explain Mode
+// ---------------------------------------------------------------------------
+
+// runPipelineExplain executes the full pipeline with explain=true.
+func runPipelineExplain(t *testing.T, repoPath string) calculator.VersionResult {
+	t.Helper()
+
+	repo, err := git.Open(repoPath)
+	require.NoError(t, err)
+
+	cfg, err := config.NewBuilder().Build()
+	require.NoError(t, err)
+
+	store := git.NewRepositoryStore(repo)
+	ctx, err := configctx.NewContext(store, repo, cfg, configctx.Options{})
+	require.NoError(t, err)
+
+	ec, err := ctx.GetEffectiveConfiguration(ctx.CurrentBranch.FriendlyName())
+	require.NoError(t, err)
+
+	strategies := strategy.AllStrategies(store)
+	calc := calculator.NewNextVersionCalculator(store, strategies)
+	result, err := calc.Calculate(ctx, ec, true)
+	require.NoError(t, err)
+
+	return result
+}
+
+func TestE2E_Explain_FallbackStrategy(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	result := runPipelineExplain(t, repo.Path())
+
+	// AllCandidates should be populated with explanations.
+	require.NotEmpty(t, result.AllCandidates)
+	for _, c := range result.AllCandidates {
+		require.NotNil(t, c.Explanation, "candidate %s should have explanation", c.Source)
+		require.NotEmpty(t, c.Explanation.Strategy)
+	}
+
+	// At least Fallback should be present.
+	hasFallback := false
+	for _, c := range result.AllCandidates {
+		if c.Explanation.Strategy == "Fallback" {
+			hasFallback = true
+			require.NotEmpty(t, c.Explanation.Steps)
+		}
+	}
+	require.True(t, hasFallback, "should have Fallback candidate")
+
+	// IncrementExplanation should be populated.
+	require.NotNil(t, result.IncrementExplanation)
+	require.NotEmpty(t, result.IncrementExplanation.Steps)
+}
+
+func TestE2E_Explain_TaggedCommitWithFeat(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("feat: add user authentication")
+
+	result := runPipelineExplain(t, repo.Path())
+
+	// IncrementExplanation should reference the feat commit.
+	require.NotNil(t, result.IncrementExplanation)
+	foundFeat := false
+	for _, step := range result.IncrementExplanation.Steps {
+		if contains(step, "feat") || contains(step, "Minor") {
+			foundFeat = true
+		}
+	}
+	require.True(t, foundFeat, "increment explanation should mention feat or Minor: %v", result.IncrementExplanation.Steps)
+
+	// TaggedCommit should be among candidates.
+	hasTagged := false
+	for _, c := range result.AllCandidates {
+		if c.Explanation != nil && c.Explanation.Strategy == "TaggedCommit" {
+			hasTagged = true
+		}
+	}
+	require.True(t, hasTagged, "should have TaggedCommit candidate")
+}
+
+func TestE2E_Explain_FeatureBranch_PreRelease(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial on main")
+	repo.CreateTag("v1.0.0", sha)
+	repo.CreateBranch("feature/login", sha)
+	repo.Checkout("feature/login")
+	repo.AddCommit("feat: add login form")
+
+	result := runPipelineExplain(t, repo.Path())
+
+	// PreReleaseSteps should be populated for feature branches.
+	require.NotEmpty(t, result.PreReleaseSteps, "feature branch should have pre-release steps")
+
+	// Should mention the branch name.
+	foundBranch := false
+	for _, step := range result.PreReleaseSteps {
+		if contains(step, "login") {
+			foundBranch = true
+		}
+	}
+	require.True(t, foundBranch, "pre-release steps should mention branch: %v", result.PreReleaseSteps)
+}
+
+func TestE2E_Explain_FormattedOutput(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("fix: bug fix")
+
+	result := runPipelineExplain(t, repo.Path())
+
+	formatted := output.FormatExplanation(result)
+	require.Contains(t, formatted, "Strategies evaluated:")
+	require.Contains(t, formatted, "Selected:")
+	require.Contains(t, formatted, "Result:")
+}
+
+func TestE2E_Explain_NoExplain(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	// With explain=false, explanations should be nil.
+	rp, err := git.Open(repo.Path())
+	require.NoError(t, err)
+
+	cfg, err := config.NewBuilder().Build()
+	require.NoError(t, err)
+
+	store := git.NewRepositoryStore(rp)
+	ctx, err := configctx.NewContext(store, rp, cfg, configctx.Options{})
+	require.NoError(t, err)
+
+	ec, err := ctx.GetEffectiveConfiguration(ctx.CurrentBranch.FriendlyName())
+	require.NoError(t, err)
+
+	strategies := strategy.AllStrategies(store)
+	calc := calculator.NewNextVersionCalculator(store, strategies)
+	result, err := calc.Calculate(ctx, ec, false)
+	require.NoError(t, err)
+
+	require.Nil(t, result.IncrementExplanation)
+	require.Nil(t, result.PreReleaseSteps)
+	for _, c := range result.AllCandidates {
+		require.Nil(t, c.Explanation, "candidate %s should not have explanation when explain=false", c.Source)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && searchSubstring(s, substr)
+}
+
+func searchSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// ---------------------------------------------------------------------------
+// Mainline Mode E2E
+// ---------------------------------------------------------------------------
+
+func TestE2E_Mainline_Aggregate(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("fix: first fix")
+	repo.AddCommit("fix: second fix")
+	repo.AddCommit("feat: new feature")
+	repo.AddCommit("fix: third fix")
+
+	configYAML := `
+mode: Mainline
+`
+	vars := runPipelineWithConfig(t, repo.Path(), configYAML)
+
+	// Mainline aggregate: highest increment is Minor (from feat), applied once.
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "1", vars["Minor"])
+	require.Equal(t, "0", vars["Patch"])
+}
+
+func TestE2E_Mainline_EachCommit_ThreeCommits(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("fix: first fix")
+	repo.AddCommit("feat: new feature")
+	repo.AddCommit("fix: second fix")
+
+	configYAML := `
+mode: Mainline
+mainline-increment: EachCommit
+`
+	vars := runPipelineWithConfig(t, repo.Path(), configYAML)
+
+	// EachCommit: fix→1.0.1, feat→1.1.0, fix→1.1.1
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "1", vars["Minor"])
+	require.Equal(t, "1", vars["Patch"])
+}
+
+func TestE2E_Mainline_Explain(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("feat: add dashboard")
+
+	rp, err := git.Open(repo.Path())
+	require.NoError(t, err)
+
+	userCfg, err := config.LoadFromBytes([]byte("mode: Mainline\n"))
+	require.NoError(t, err)
+	cfg, err := config.NewBuilder().Add(userCfg).Build()
+	require.NoError(t, err)
+
+	store := git.NewRepositoryStore(rp)
+	ctx, err := configctx.NewContext(store, rp, cfg, configctx.Options{})
+	require.NoError(t, err)
+
+	ec, err := ctx.GetEffectiveConfiguration(ctx.CurrentBranch.FriendlyName())
+	require.NoError(t, err)
+
+	strategies := strategy.AllStrategies(store)
+	calc := calculator.NewNextVersionCalculator(store, strategies)
+	result, err := calc.Calculate(ctx, ec, true)
+	require.NoError(t, err)
+
+	require.NotNil(t, result.IncrementExplanation)
+	require.NotEmpty(t, result.IncrementExplanation.Steps)
+
+	formatted := output.FormatExplanation(result)
+	require.Contains(t, formatted, "Strategies evaluated:")
+}
+
+// ---------------------------------------------------------------------------
+// Continuous Deployment E2E
+// ---------------------------------------------------------------------------
+
+func TestE2E_ContinuousDeployment(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("fix: patch fix")
+	repo.AddCommit("second commit")
+
+	configYAML := `
+mode: ContinuousDeployment
+`
+	vars := runPipelineWithConfig(t, repo.Path(), configYAML)
+
+	// ContinuousDeployment promotes commits-since to pre-release.
+	require.Equal(t, "1", vars["Major"])
+	require.NotEmpty(t, vars["PreReleaseLabel"])
+}
+
+// ---------------------------------------------------------------------------
+// Additional branch type E2E
+// ---------------------------------------------------------------------------
+
+func TestE2E_DevelopBranch(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial on main")
+	repo.CreateTag("v1.0.0", sha)
+	repo.CreateBranch("develop", sha)
+	repo.Checkout("develop")
+	repo.AddCommit("feat: develop work")
+
+	vars := runPipeline(t, repo.Path())
+
+	// Develop branch: alpha pre-release tag.
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "alpha", vars["PreReleaseLabel"])
+}
+
+func TestE2E_ReleaseBranch(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial on main")
+	repo.CreateTag("v1.0.0", sha)
+	repo.CreateBranch("release/2.0.0", sha)
+	repo.Checkout("release/2.0.0")
+	repo.AddCommit("fix: release prep")
+
+	vars := runPipeline(t, repo.Path())
+
+	// Release branch gets version from branch name (2.0.0).
+	// IsReleaseBranch=true so no pre-release tag.
+	require.Equal(t, "2", vars["Major"])
+	require.Equal(t, "0", vars["Minor"])
+	require.Empty(t, vars["PreReleaseLabel"])
+}
+
+func TestE2E_SupportBranch(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial on main")
+	repo.CreateTag("v1.0.0", sha)
+	repo.CreateBranch("support/1.x", sha)
+	repo.Checkout("support/1.x")
+	repo.AddCommit("fix: backport fix")
+
+	vars := runPipeline(t, repo.Path())
+
+	require.Equal(t, "1", vars["Major"])
+}
+
+func TestE2E_MultipleConventionalCommits(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("fix: first fix")
+	repo.AddCommit("fix: second fix")
+	repo.AddCommit("feat: add feature")
+	repo.AddCommit("fix: third fix")
+
+	vars := runPipeline(t, repo.Path())
+
+	// Highest increment is Minor (feat), so 1.1.0.
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "1", vars["Minor"])
+}
+
+func TestE2E_BreakingChange(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("feat!: breaking API change")
+
+	vars := runPipeline(t, repo.Path())
+
+	// Breaking change → Major: 1.0.0 → 2.0.0.
+	require.Equal(t, "2", vars["Major"])
+	require.Equal(t, "0", vars["Minor"])
+	require.Equal(t, "0", vars["Patch"])
+}
+
+func TestE2E_BumpDirective(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("some change +semver: minor")
+
+	vars := runPipeline(t, repo.Path())
+
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "1", vars["Minor"])
+}
+
+func TestE2E_ConfigNextVersion_Override(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	vars := runPipelineWithConfig(t, repo.Path(), "next-version: 3.0.0\n")
+
+	require.Equal(t, "3", vars["Major"])
+	require.Equal(t, "0", vars["Minor"])
+	require.Equal(t, "0", vars["Patch"])
+}
+
+func TestE2E_OutputVariables_Extended(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial release")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("feat: add feature")
+
+	vars := runPipeline(t, repo.Path())
+
+	expectedKeys := []string{
+		"Major", "Minor", "Patch",
+		"SemVer", "FullSemVer", "MajorMinorPatch",
+		"Sha", "ShortSha", "BranchName",
+		"CommitsSinceVersionSource",
+		"PreReleaseTag", "PreReleaseNumber",
+		"NuGetVersionV2", "NuGetPreReleaseTagV2",
+		"AssemblySemVer", "AssemblySemFileVer",
+		"InformationalVersion",
+		"VersionSourceSha",
+	}
+	for _, key := range expectedKeys {
+		require.Contains(t, vars, key, "missing variable: %s", key)
+	}
+}

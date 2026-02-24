@@ -252,3 +252,101 @@ func TestFirstLine(t *testing.T) {
 	require.Equal(t, "only", firstLine("only"))
 	require.Equal(t, "", firstLine(""))
 }
+
+func TestMergeMessage_WithExplain(t *testing.T) {
+	mergeCommit := git.Commit{
+		Sha:     "aaa0000000000000000000000000000000000000",
+		Parents: []string{"p1", "p2"},
+		Message: "Merge branch 'release/1.2.0' into main",
+	}
+	tip := newTestCommit("bbb0000000000000000000000000000000000000", "head")
+	cfg := releaseBranchConfig(t)
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{tip, mergeCommit}, nil
+		},
+	}
+	store := git.NewRepositoryStore(mock)
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch:     git.Branch{Tip: &tip},
+		CurrentCommit:     tip,
+		FullConfiguration: cfg,
+	}
+	ec := config.EffectiveConfiguration{TagPrefix: "[vV]"}
+
+	s := NewMergeMessageStrategy(store)
+	versions, err := s.GetBaseVersions(ctx, ec, true)
+	require.NoError(t, err)
+	require.Len(t, versions, 1)
+	require.NotNil(t, versions[0].Explanation)
+	require.NotEmpty(t, versions[0].Explanation.Steps)
+	require.Equal(t, "MergeMessage", versions[0].Explanation.Strategy)
+}
+
+func TestMergeMessage_SquashMerge_WithExplain(t *testing.T) {
+	squashCommit := git.Commit{
+		Sha:     "aaa0000000000000000000000000000000000000",
+		Parents: []string{"p1"},
+		Message: "Merge branch 'release/1.2.0' into main",
+	}
+	tip := newTestCommit("bbb0000000000000000000000000000000000000", "head")
+	cfg := releaseBranchConfig(t)
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{tip, squashCommit}, nil
+		},
+	}
+	store := git.NewRepositoryStore(mock)
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch:     git.Branch{Tip: &tip},
+		CurrentCommit:     tip,
+		FullConfiguration: cfg,
+	}
+	ec := config.EffectiveConfiguration{TagPrefix: "[vV]"}
+
+	s := NewMergeMessageStrategy(store)
+	versions, err := s.GetBaseVersions(ctx, ec, true)
+	require.NoError(t, err)
+	require.Len(t, versions, 1)
+	require.NotNil(t, versions[0].Explanation)
+	require.Equal(t, "MergeMessage", versions[0].Explanation.Strategy)
+}
+
+func TestMergeMessage_RemotePrefix(t *testing.T) {
+	require.Equal(t, "release/1.0.0", trimRemotePrefix("refs/remotes/release/1.0.0"))
+	require.Equal(t, "release/1.0.0", trimRemotePrefix("origin/release/1.0.0"))
+	require.Equal(t, "release/1.0.0", trimRemotePrefix("release/1.0.0"))
+}
+
+func TestMergeMessage_NoVersionInBranch(t *testing.T) {
+	mergeCommit := git.Commit{
+		Sha:     "aaa0000000000000000000000000000000000000",
+		Parents: []string{"p1", "p2"},
+		Message: "Merge branch 'release/next' into main",
+	}
+	tip := newTestCommit("bbb0000000000000000000000000000000000000", "head")
+	cfg := releaseBranchConfig(t)
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{tip, mergeCommit}, nil
+		},
+	}
+	store := git.NewRepositoryStore(mock)
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch:     git.Branch{Tip: &tip},
+		CurrentCommit:     tip,
+		FullConfiguration: cfg,
+	}
+	ec := config.EffectiveConfiguration{TagPrefix: "[vV]"}
+
+	s := NewMergeMessageStrategy(store)
+	versions, err := s.GetBaseVersions(ctx, ec, false)
+	require.NoError(t, err)
+	require.Empty(t, versions, "branch without version should produce no results")
+}

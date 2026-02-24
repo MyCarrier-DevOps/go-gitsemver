@@ -47,6 +47,9 @@ type LocalOptions struct {
 	// ConfigPath is the path to a gitsemver/GitVersion YAML config file.
 	// If empty, auto-detects GitVersion.yml or gitsemver.yml in the repo root.
 	ConfigPath string
+
+	// Explain enables explain mode, populating ExplainResult on the returned Result.
+	Explain bool
 }
 
 // RemoteOptions configures version calculation via the GitHub API.
@@ -84,6 +87,9 @@ type RemoteOptions struct {
 
 	// ConfigPath is a local config file path that overrides remote config.
 	ConfigPath string
+
+	// Explain enables explain mode, populating ExplainResult on the returned Result.
+	Explain bool
 }
 
 // Result holds the calculated version and all output variables.
@@ -93,6 +99,51 @@ type Result struct {
 	// PreReleaseTag, PreReleaseNumber, CommitsSinceVersionSource, Sha, ShortSha,
 	// BranchName, etc.
 	Variables map[string]string
+
+	// ExplainResult contains the full explain output. Nil when Explain is false.
+	ExplainResult *ExplainResult
+}
+
+// ExplainResult holds structured explain data for programmatic consumption.
+type ExplainResult struct {
+	// Candidates lists all candidate base versions evaluated by strategies.
+	Candidates []ExplainCandidate
+
+	// SelectedSource is the human-readable name of the winning strategy.
+	SelectedSource string
+
+	// IncrementField is the increment applied (e.g. "Minor", "Patch", "None").
+	IncrementField string
+
+	// IncrementSteps records the reasoning for the increment decision.
+	IncrementSteps []string
+
+	// PreReleaseSteps records the reasoning for pre-release tag resolution.
+	PreReleaseSteps []string
+
+	// FinalVersion is the fully-qualified version string.
+	FinalVersion string
+
+	// FormattedOutput is the human-readable explain text (same as CLI --explain).
+	FormattedOutput string
+}
+
+// ExplainCandidate describes a single candidate base version from a strategy.
+type ExplainCandidate struct {
+	// Strategy is the name of the strategy that produced this candidate.
+	Strategy string
+
+	// Version is the semantic version string (e.g. "1.2.0").
+	Version string
+
+	// Source is the short SHA of the source commit, or "external".
+	Source string
+
+	// ShouldIncrement indicates whether this candidate would be incremented.
+	ShouldIncrement bool
+
+	// Steps records the reasoning chain for how the strategy derived this version.
+	Steps []string
 }
 
 // configFileNames lists the files searched for configuration in order.
@@ -121,7 +172,7 @@ func Calculate(opts LocalOptions) (*Result, error) {
 	}
 
 	// 3. Run the shared calculation pipeline.
-	return calculate(repo, cfg, opts.Branch, opts.Commit)
+	return calculate(repo, cfg, opts.Branch, opts.Commit, opts.Explain)
 }
 
 // CalculateRemote computes the next semantic version via the GitHub API.
@@ -164,11 +215,11 @@ func CalculateRemote(opts RemoteOptions) (*Result, error) {
 	}
 
 	// 4. Run the shared calculation pipeline.
-	return calculate(ghRepo, cfg, opts.Branch, opts.Commit)
+	return calculate(ghRepo, cfg, opts.Branch, opts.Commit, opts.Explain)
 }
 
 // calculate runs the shared version calculation pipeline.
-func calculate(repo git.Repository, cfg *config.Config, branch, commit string) (*Result, error) {
+func calculate(repo git.Repository, cfg *config.Config, branch, commit string, explain bool) (*Result, error) {
 	store := git.NewRepositoryStore(repo)
 
 	ctx, err := configctx.NewContext(store, repo, cfg, configctx.Options{
@@ -186,14 +237,61 @@ func calculate(repo git.Repository, cfg *config.Config, branch, commit string) (
 
 	strategies := strategy.AllStrategies(store)
 	calc := calculator.NewNextVersionCalculator(store, strategies)
-	result, err := calc.Calculate(ctx, ec, false)
+	result, err := calc.Calculate(ctx, ec, explain)
 	if err != nil {
 		return nil, fmt.Errorf("calculating version: %w", err)
 	}
 
 	vars := output.GetVariables(result.Version, ec)
 
-	return &Result{Variables: vars}, nil
+	r := &Result{Variables: vars}
+
+	if explain {
+		r.ExplainResult = buildExplainResult(result)
+	}
+
+	return r, nil
+}
+
+// buildExplainResult maps internal calculator.VersionResult to the public ExplainResult.
+func buildExplainResult(result calculator.VersionResult) *ExplainResult {
+	er := &ExplainResult{
+		SelectedSource:  result.BaseVersion.Source,
+		FinalVersion:    result.Version.FullSemVer(),
+		PreReleaseSteps: result.PreReleaseSteps,
+		FormattedOutput: output.FormatExplanation(result),
+	}
+
+	// Map increment explanation.
+	if result.IncrementExplanation != nil {
+		er.IncrementSteps = result.IncrementExplanation.Steps
+		// Extract the increment field from the steps (last "highest increment" step).
+		for _, step := range result.IncrementExplanation.Steps {
+			if len(step) > 0 {
+				er.IncrementField = step // will be overwritten; last step has the summary
+			}
+		}
+	}
+
+	// Map candidates.
+	for _, c := range result.AllCandidates {
+		ec := ExplainCandidate{
+			Version:         c.SemanticVersion.SemVer(),
+			ShouldIncrement: c.ShouldIncrement,
+		}
+		if c.BaseVersionSource != nil {
+			ec.Source = c.BaseVersionSource.ShortSha()
+		} else {
+			ec.Source = "external"
+		}
+		if c.Explanation != nil {
+			ec.Strategy = c.Explanation.Strategy
+			ec.Steps = c.Explanation.Steps
+		}
+		er.Candidates = append(er.Candidates, ec)
+	}
+
+	return er
 }
 
 // loadLocalConfig loads configuration from a file path or auto-detects it.
