@@ -26,7 +26,7 @@ BaseVersion {
 
 **Source:** `internal/strategy/confignextversion.go`
 
-Uses the `next-version` field from `gitsemver.yml` as the base version directly — no incrementing.
+Uses the `next-version` field from `go-gitsemver.yml` as the base version directly — no incrementing.
 
 **When it produces a result:**
 - `next-version` is set in config AND current commit is NOT tagged

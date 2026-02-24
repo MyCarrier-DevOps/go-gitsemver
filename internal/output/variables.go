@@ -1,8 +1,8 @@
 package output
 
 import (
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/semver"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 // GetVariables computes all output variables for a version, applying mode-specific

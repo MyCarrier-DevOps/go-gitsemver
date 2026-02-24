@@ -3,11 +3,12 @@ package github
 import (
 	"encoding/json"
 	"fmt"
-	"go-gitsemver/internal/git"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
 
 	gh "github.com/google/go-github/v68/github"
 	"github.com/stretchr/testify/require"
@@ -397,7 +398,7 @@ func TestCommitsPriorTo(t *testing.T) {
 func TestFetchFileContent(t *testing.T) {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/gitsemver.yml", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/go-gitsemver.yml", func(w http.ResponseWriter, r *http.Request) {
 		// GitHub Contents API returns base64-encoded content.
 		writeJSON(w, map[string]interface{}{
 			"type":     "file",
@@ -409,7 +410,7 @@ func TestFetchFileContent(t *testing.T) {
 	repo, cleanup := newTestRepo(t, mux)
 	defer cleanup()
 
-	content, err := repo.FetchFileContent("gitsemver.yml")
+	content, err := repo.FetchFileContent("go-gitsemver.yml")
 	require.NoError(t, err)
 	require.Equal(t, "mode: Mainline", content)
 }

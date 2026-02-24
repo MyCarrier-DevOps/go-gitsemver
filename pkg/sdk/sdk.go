@@ -1,36 +1,37 @@
-// Package gitsemver provides a public Go API for calculating semantic versions
+// Package sdk provides a public Go API for calculating semantic versions
 // from git history. It supports both local repositories (via go-git) and remote
 // GitHub repositories (via the GitHub API).
 //
 // Basic usage:
 //
-//	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+//	result, err := sdk.Calculate(sdk.LocalOptions{
 //	    Path: "/path/to/repo",
 //	})
 //	fmt.Println(result.Variables["SemVer"]) // "1.2.3"
 //
-//	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+//	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 //	    Owner: "myorg",
 //	    Repo:  "myrepo",
 //	    Token: os.Getenv("GITHUB_TOKEN"),
 //	})
 //	fmt.Println(result.Variables["FullSemVer"]) // "1.2.3+5"
-package gitsemver
+package sdk
 
 import (
 	"errors"
 	"fmt"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/output"
-	"go-gitsemver/internal/strategy"
 	"os"
 	"path/filepath"
 
-	configctx "go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/output"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 
-	ghprovider "go-gitsemver/internal/github"
+	configctx "github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+
+	ghprovider "github.com/MyCarrier-DevOps/go-gitsemver/internal/github"
 )
 
 // LocalOptions configures version calculation from a local git repository.
@@ -45,7 +46,7 @@ type LocalOptions struct {
 	Commit string
 
 	// ConfigPath is the path to a gitsemver/GitVersion YAML config file.
-	// If empty, auto-detects GitVersion.yml or gitsemver.yml in the repo root.
+	// If empty, auto-detects GitVersion.yml or go-gitsemver.yml in the repo root.
 	ConfigPath string
 
 	// Explain enables explain mode, populating ExplainResult on the returned Result.
@@ -149,7 +150,7 @@ type ExplainCandidate struct {
 // configFileNames lists the files searched for configuration in order.
 var configFileNames = []string{
 	"GitVersion.yml",
-	"gitsemver.yml",
+	"go-gitsemver.yml",
 }
 
 // Calculate computes the next semantic version from a local git repository.

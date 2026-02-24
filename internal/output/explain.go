@@ -2,10 +2,11 @@ package output
 
 import (
 	"fmt"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/strategy"
 	"io"
 	"strings"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 )
 
 // strategyOrder defines the display order for strategies.

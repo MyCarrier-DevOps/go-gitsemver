@@ -7,14 +7,15 @@
 package e2e
 
 import (
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/config"
-	configctx "go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/output"
-	"go-gitsemver/internal/strategy"
-	"go-gitsemver/internal/testutil"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	configctx "github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/output"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/testutil"
 
 	"github.com/stretchr/testify/require"
 )

@@ -1,6 +1,6 @@
 package config
 
-import "go-gitsemver/internal/semver"
+import "github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 // CreateDefaultConfiguration returns a Config with all default values
 // populated. This includes 8 branch configurations: main, develop,

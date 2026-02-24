@@ -3,14 +3,15 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/config"
-	configctx "go-gitsemver/internal/context"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/output"
-	"go-gitsemver/internal/strategy"
 	"os"
 	"path/filepath"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	configctx "github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/output"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ import (
 // configFileNames lists the files searched for configuration in order.
 var configFileNames = []string{
 	"GitVersion.yml",
-	"gitsemver.yml",
+	"go-gitsemver.yml",
 }
 
 func calculateRunE(_ *cobra.Command, _ []string) error {

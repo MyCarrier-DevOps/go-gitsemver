@@ -1,9 +1,10 @@
 package config
 
 import (
-	"go-gitsemver/internal/semver"
 	"testing"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 	"github.com/stretchr/testify/require"
 )

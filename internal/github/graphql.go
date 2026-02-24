@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"go-gitsemver/internal/git"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
 )
 
 // GraphQL query to fetch all branches with tip commit details.

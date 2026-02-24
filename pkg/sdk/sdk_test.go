@@ -1,15 +1,16 @@
-package gitsemver_test
+package sdk_test
 
 import (
 	"encoding/json"
-	"go-gitsemver/internal/testutil"
-	"go-gitsemver/pkg/gitsemver"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/testutil"
+	"github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
 
 	gh "github.com/google/go-github/v68/github"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ func TestCalculate_BasicRepo(t *testing.T) {
 	repo.AddCommit("initial commit")
 	repo.AddCommit("second commit")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -36,7 +37,7 @@ func TestCalculate_WithTag(t *testing.T) {
 	repo.CreateTag("v1.0.0", sha)
 	repo.AddCommit("feature work")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -51,7 +52,7 @@ func TestCalculate_TaggedCommitExact(t *testing.T) {
 	sha := repo.AddCommit("release commit")
 	repo.CreateTag("v2.0.0", sha)
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:   repo.Path(),
 		Commit: sha,
 	})
@@ -61,7 +62,7 @@ func TestCalculate_TaggedCommitExact(t *testing.T) {
 }
 
 func TestCalculate_InvalidPath(t *testing.T) {
-	_, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	_, err := sdk.Calculate(sdk.LocalOptions{
 		Path: "/nonexistent/path",
 	})
 	require.Error(t, err)
@@ -79,7 +80,7 @@ func TestCalculate_WithConfigFile(t *testing.T) {
 	configPath := filepath.Join(configDir, "config.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("next-version: 5.0.0\n"), 0o644))
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:       repo.Path(),
 		ConfigPath: configPath,
 	})
@@ -92,10 +93,10 @@ func TestCalculate_AutoDetectsConfig(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.AddCommit("initial commit")
 
-	// Write gitsemver.yml in the repo root.
+	// Write sdk.yml in the repo root.
 	repo.WriteConfig("next-version: 7.0.0\n")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -107,7 +108,7 @@ func TestCalculate_InvalidConfigPath(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.AddCommit("initial commit")
 
-	_, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	_, err := sdk.Calculate(sdk.LocalOptions{
 		Path:       repo.Path(),
 		ConfigPath: "/nonexistent/config.yml",
 	})
@@ -123,7 +124,7 @@ func TestCalculate_WithBranch(t *testing.T) {
 	repo.Checkout("feature/test")
 	repo.AddCommit("feature work")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:   repo.Path(),
 		Branch: "feature/test",
 	})
@@ -136,7 +137,7 @@ func TestCalculate_ResultHasAllKeyVariables(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.AddCommit("initial commit")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: repo.Path(),
 	})
 	require.NoError(t, err)
@@ -153,7 +154,7 @@ func TestCalculate_ResultHasAllKeyVariables(t *testing.T) {
 }
 
 func TestCalculateRemote_MissingOwner(t *testing.T) {
-	_, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	_, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Repo:  "myrepo",
 		Token: "ghp_test",
 	})
@@ -162,7 +163,7 @@ func TestCalculateRemote_MissingOwner(t *testing.T) {
 }
 
 func TestCalculateRemote_MissingRepo(t *testing.T) {
-	_, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	_, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner: "myorg",
 		Token: "ghp_test",
 	})
@@ -175,7 +176,7 @@ func TestCalculateRemote_NoAuth(t *testing.T) {
 	t.Setenv("GH_APP_ID", "")
 	t.Setenv("GH_APP_PRIVATE_KEY", "")
 
-	_, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	_, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner: "myorg",
 		Repo:  "myrepo",
 	})
@@ -299,7 +300,7 @@ func TestCalculateRemote_WithMockServer(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:   "testowner",
 		Repo:    "testrepo",
 		Token:   "ghp_test",
@@ -320,7 +321,7 @@ func TestCalculate_ExplainEnabled(t *testing.T) {
 	repo.CreateTag("v1.0.0", sha)
 	repo.AddCommit("feat: add dashboard")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:    repo.Path(),
 		Explain: true,
 	})
@@ -348,7 +349,7 @@ func TestCalculate_ExplainDisabled(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.AddCommit("initial commit")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:    repo.Path(),
 		Explain: false,
 	})
@@ -361,7 +362,7 @@ func TestCalculate_ExplainWithTag(t *testing.T) {
 	sha := repo.AddCommit("initial")
 	repo.CreateTag("v2.0.0", sha)
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:    repo.Path(),
 		Explain: true,
 	})
@@ -375,7 +376,7 @@ func TestCalculate_ExplainCandidateDetails(t *testing.T) {
 	repo.CreateTag("v1.0.0", sha)
 	repo.AddCommit("fix: patch fix")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:    repo.Path(),
 		Explain: true,
 	})
@@ -396,7 +397,7 @@ func TestCalculate_ExplainIncrementSteps(t *testing.T) {
 	repo.CreateTag("v1.0.0", sha)
 	repo.AddCommit("feat: new feature")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:    repo.Path(),
 		Explain: true,
 	})
@@ -413,7 +414,7 @@ func TestCalculate_ExplainFeatureBranch(t *testing.T) {
 	repo.Checkout("feature/search")
 	repo.AddCommit("feat: add search")
 
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:    repo.Path(),
 		Explain: true,
 	})
@@ -480,7 +481,7 @@ func TestCalculateRemote_ExplainEnabled(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:   "testowner",
 		Repo:    "testrepo",
 		Token:   "ghp_test",
@@ -553,7 +554,7 @@ func TestCalculateRemote_ExplainDisabled(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner:   "testowner",
 		Repo:    "testrepo",
 		Token:   "ghp_test",

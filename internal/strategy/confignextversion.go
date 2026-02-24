@@ -2,9 +2,10 @@ package strategy
 
 import (
 	"fmt"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/context"
-	"go-gitsemver/internal/semver"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 // ConfigNextVersionStrategy returns a version from the next-version config field.

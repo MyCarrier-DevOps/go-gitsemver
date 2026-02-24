@@ -1,4 +1,4 @@
-// Example program demonstrating the gitsemver library API.
+// Example program demonstrating the sdk library API.
 //
 // Run from the repo root:
 //
@@ -11,10 +11,11 @@ package main
 
 import (
 	"fmt"
-	"go-gitsemver/pkg/gitsemver"
 	"log"
 	"os"
 	"sort"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
 )
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 }
 
 func localVersion() {
-	result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: ".",
 	})
 	if err != nil {
@@ -37,7 +38,7 @@ func localVersion() {
 }
 
 func remoteVersion() {
-	result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner: "MyCarrier-DevOps",
 		Repo:  "go-gitsemver",
 		Token: os.Getenv("GITHUB_TOKEN"),
@@ -50,7 +51,7 @@ func remoteVersion() {
 	printVersion("Remote", result)
 }
 
-func printVersion(label string, result *gitsemver.Result) {
+func printVersion(label string, result *sdk.Result) {
 	fmt.Printf("=== %s Version ===\n", label)
 
 	keys := make([]string, 0, len(result.Variables))

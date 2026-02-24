@@ -2,7 +2,7 @@
 # Minimal Configuration
 #
 # All fields are optional. This file uses all defaults.
-# Equivalent to having no gitsemver.yml at all.
+# Equivalent to having no go-gitsemver.yml at all.
 #
 # Defaults applied:
 #   mode: ContinuousDelivery
@@ -15,6 +15,6 @@
 # Default branch configs (main, develop, release, feature, hotfix,
 # pull-request, support, unknown) are all applied automatically.
 #
-# You only need a gitsemver.yml when you want to override defaults.
+# You only need a go-gitsemver.yml when you want to override defaults.
 
 # Empty — all defaults apply

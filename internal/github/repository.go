@@ -3,10 +3,11 @@ package github
 import (
 	"context"
 	"fmt"
-	"go-gitsemver/internal/git"
 	"net/http"
 	"regexp"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
 
 	gh "github.com/google/go-github/v68/github"
 )

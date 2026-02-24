@@ -35,15 +35,15 @@ GITHUB_TOKEN=ghp_xxx gitsemver remote myorg/myrepo --show-variable SemVer
 
 ## Go Library API
 
-The `pkg/gitsemver` package exposes a public Go API for embedding version calculation into custom tooling, CI runners, or GitHub Actions written in Go — without shelling out to the CLI.
+The `pkg/sdk` package exposes a public Go API for embedding version calculation into custom tooling, CI runners, or GitHub Actions written in Go — without shelling out to the CLI.
 
 ```go
 // Local mode
-result, err := gitsemver.Calculate(gitsemver.LocalOptions{Path: "."})
+result, err := sdk.Calculate(sdk.LocalOptions{Path: "."})
 fmt.Println(result.Variables["SemVer"])
 
 // Remote mode (no clone needed)
-result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+result, err := sdk.CalculateRemote(sdk.RemoteOptions{
     Owner: "myorg", Repo: "myrepo",
     Token: os.Getenv("GITHUB_TOKEN"),
 })
@@ -52,7 +52,7 @@ result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
 **Key design decisions:**
 
 - **Minimal API surface** — two functions (`Calculate`, `CalculateRemote`), three types (`LocalOptions`, `RemoteOptions`, `Result`). All internal complexity stays behind the `internal/` boundary.
-- **Same module, full access** — `pkg/gitsemver/` lives in the same Go module as `internal/`, so it can import all internal packages. External consumers only see the public types.
+- **Same module, full access** — `pkg/sdk/` lives in the same Go module as `internal/`, so it can import all internal packages. External consumers only see the public types.
 - **Identical pipeline** — both functions run the same calculation pipeline as the CLI: open repo, load config, build context, run strategies, calculate version, compute output variables.
 
 ---

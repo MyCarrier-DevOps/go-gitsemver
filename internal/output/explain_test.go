@@ -2,11 +2,12 @@ package output
 
 import (
 	"bytes"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/semver"
-	"go-gitsemver/internal/strategy"
 	"testing"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 
 	"github.com/stretchr/testify/require"
 )

@@ -2,7 +2,7 @@
 // config merging, and effective configuration resolution for gitsemver.
 package config
 
-import "go-gitsemver/internal/semver"
+import "github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 // Config is the root configuration for gitsemver. All optional fields are
 // pointers to support merge semantics during configuration building.

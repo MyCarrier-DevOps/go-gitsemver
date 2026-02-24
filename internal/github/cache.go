@@ -1,10 +1,11 @@
 package github
 
 import (
-	"go-gitsemver/internal/git"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
 )
 
 // apiCache provides in-memory caching for GitHub API responses.

@@ -142,9 +142,9 @@ Available variables: `Major`, `Minor`, `Patch`, `PreReleaseLabel`, `PreReleaseNu
 Embed versioning directly in Go applications — no CLI subprocess needed:
 
 ```go
-import "github.com/MyCarrier-DevOps/go-gitsemver/pkg/gitsemver"
+import "github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
 
-result, err := gitsemver.CalculateLocal(gitsemver.LocalOptions{
+result, err := sdk.CalculateLocal(sdk.LocalOptions{
     RepoPath: "/path/to/repo",
     Explain:  true,
 })
@@ -156,7 +156,7 @@ fmt.Println(result.ExplainResult.FinalVersion) // "1.2.3-alpha.4+5"
 Also supports remote calculation via GitHub API:
 
 ```go
-result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+result, err := sdk.CalculateRemote(sdk.RemoteOptions{
     Owner:   "MyCarrier-DevOps",
     Repo:    "my-service",
     Token:   os.Getenv("GITHUB_TOKEN"),
@@ -182,7 +182,7 @@ Uses the GitHub API to fetch branches, tags, and commits. Ideal for CI pipelines
 
 ```
 cmd/                     CLI entry points (calculate, remote)
-pkg/gitsemver/           Public Go library API
+pkg/sdk/           Public Go library API
 internal/
   calculator/            Version calculation engine
     nextversion.go       Main pipeline: strategy → increment → pre-release → result

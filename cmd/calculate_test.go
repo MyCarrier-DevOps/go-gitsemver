@@ -10,7 +10,7 @@ import (
 
 func TestFindConfigFile_Found(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "gitsemver.yml")
+	path := filepath.Join(dir, "go-gitsemver.yml")
 	require.NoError(t, os.WriteFile(path, []byte("mode: ContinuousDelivery\n"), 0o644))
 
 	found := findConfigFile(dir)
@@ -35,7 +35,7 @@ func TestFindConfigFile_NotFound(t *testing.T) {
 func TestFindConfigFile_PrefersGitVersionYml(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "GitVersion.yml"), []byte(""), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "gitsemver.yml"), []byte(""), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go-gitsemver.yml"), []byte(""), 0o644))
 
 	found := findConfigFile(dir)
 	require.Equal(t, filepath.Join(dir, "GitVersion.yml"), found)
@@ -52,7 +52,7 @@ func TestLoadConfig_NoFile(t *testing.T) {
 
 func TestLoadConfig_WithFile(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "gitsemver.yml")
+	path := filepath.Join(dir, "go-gitsemver.yml")
 	require.NoError(t, os.WriteFile(path, []byte("next-version: 5.0.0\n"), 0o644))
 
 	flagConfig = path

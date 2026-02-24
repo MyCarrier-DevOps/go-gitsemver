@@ -39,14 +39,14 @@ Each candidate contains:
 
 ### 1. ConfigNextVersion
 
-Reads the `next-version` field from `gitsemver.yml` and uses it as the base version directly — no incrementing.
+Reads the `next-version` field from `go-gitsemver.yml` and uses it as the base version directly — no incrementing.
 
 **When it activates:** `next-version` is set in config AND the current commit is not already tagged.
 
 **Use case:** Force a version jump without tagging. Useful when starting a new major version or bootstrapping a project.
 
 ```yaml
-# gitsemver.yml
+# go-gitsemver.yml
 next-version: 2.0.0
 ```
 
@@ -80,7 +80,7 @@ Scans the current branch for git tags that match the configured `tag-prefix` pat
 **Use case:** This is the primary strategy for most workflows. Tags are the source of truth for released versions.
 
 ```yaml
-# gitsemver.yml
+# go-gitsemver.yml
 tag-prefix: '[vV]'   # default — matches v1.0.0 and V1.0.0
 ```
 
@@ -650,7 +650,7 @@ v1.0.0, 3 commits ago → 1.0.1+3 (incremented, on main with Patch default)
 
 ### next-version Config
 
-Set the floor for the next version in `gitsemver.yml`. Useful for initial development or planned version jumps.
+Set the floor for the next version in `go-gitsemver.yml`. Useful for initial development or planned version jumps.
 
 ```yaml
 next-version: 2.0.0

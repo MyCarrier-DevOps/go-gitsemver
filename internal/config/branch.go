@@ -1,6 +1,6 @@
 package config
 
-import "go-gitsemver/internal/semver"
+import "github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
 // BranchConfig holds per-branch configuration. All fields are pointers
 // to support merge semantics: nil means "not set, inherit from parent".

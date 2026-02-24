@@ -27,14 +27,14 @@ gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
 
 **What it understands:** Conventional Commits (`feat:`, `fix:`, `feat!:`), bump directives (`+semver: major`), 8 branch types (main, develop, release, feature, hotfix, pull-request, support, unknown), 3 versioning modes (ContinuousDelivery, ContinuousDeployment, Mainline), and squash merge formats from GitHub, GitLab, and Bitbucket.
 
-**Configuration:** Drop a `gitsemver.yml` or `GitVersion.yml` in your repo root, or use `--config`. Works with zero config out of the box.
+**Configuration:** Drop a `go-gitsemver.yml` or `GitVersion.yml` in your repo root, or use `--config`. Works with zero config out of the box.
 
 ## Why gitsemver
 
 - **Zero configuration required** — works out of the box with sensible defaults for GitFlow, trunk-based, and CD workflows
 - **Single static binary** — no runtime dependencies, runs on Linux, macOS, and Windows
 - **Two modes: local and remote** — run against a local clone, or version a GitHub repo via API without cloning
-- **Go library** — embed version calculation in your own Go applications via `pkg/gitsemver`
+- **Go library** — embed version calculation in your own Go applications via `pkg/sdk`
 - **Conventional Commits** — first-class support for `feat:`, `fix:`, `feat!:`, and `BREAKING CHANGE:` footers
 - **Branch-aware** — eight built-in branch types with configurable pre-release labels, increment strategies, and versioning modes
 - **30+ output variables** — `SemVer`, `FullSemVer`, `NuGetVersion`, `Sha`, `BranchName`, and more
@@ -105,7 +105,7 @@ gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key /path/to/ke
 gitsemver remote myorg/myrepo --token ghp_xxx --github-url https://ghe.example.com/api/v3
 ```
 
-**Requires:** A GitHub token or GitHub App credentials. No clone, no checkout, no `fetch-depth: 0`. Reads tags, commits, and branches via the GitHub REST and GraphQL APIs. Configuration is fetched from the repo root (`gitsemver.yml` or `GitVersion.yml`) automatically.
+**Requires:** A GitHub token or GitHub App credentials. No clone, no checkout, no `fetch-depth: 0`. Reads tags, commits, and branches via the GitHub REST and GraphQL APIs. Configuration is fetched from the repo root (`go-gitsemver.yml` or `GitVersion.yml`) automatically.
 
 ### Example output
 
@@ -198,10 +198,10 @@ Authentication is resolved in order: `--token`/`GITHUB_TOKEN` > `--github-app-id
 
 ## Configuration
 
-Place a `gitsemver.yml` (or `GitVersion.yml`) in your repository root. All fields are optional — defaults are applied automatically.
+Place a `go-gitsemver.yml` (or `GitVersion.yml`) in your repository root. All fields are optional — defaults are applied automatically.
 
 ```yaml
-# gitsemver.yml
+# go-gitsemver.yml
 mode: ContinuousDelivery          # ContinuousDelivery, ContinuousDeployment, or Mainline
 tag-prefix: '[vV]'                 # Regex to match version tag prefixes
 base-version: 0.1.0               # Starting version when no tags exist
@@ -396,19 +396,19 @@ gitsemver -o json > version.json
 
 ## Go library
 
-gitsemver can be embedded in Go applications via the `pkg/gitsemver` package. This lets you calculate versions programmatically without shelling out to the CLI.
+gitsemver can be embedded in Go applications via the `pkg/sdk` package. This lets you calculate versions programmatically without shelling out to the CLI.
 
 ```go
-import "go-gitsemver/pkg/gitsemver"
+import "go-gitsemver/pkg/sdk"
 
 // Local mode — calculate from a local git repository
-result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+result, err := sdk.Calculate(sdk.LocalOptions{
     Path: ".",
 })
 fmt.Println(result.Variables["SemVer"]) // "1.2.3"
 
 // Remote mode — calculate via GitHub API (no clone needed)
-result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+result, err := sdk.CalculateRemote(sdk.RemoteOptions{
     Owner: "myorg",
     Repo:  "myrepo",
     Token: os.Getenv("GITHUB_TOKEN"),
@@ -481,7 +481,7 @@ make ci              # Full CI pipeline (fmt + lint + test-all + coverage + buil
 | [Version Strategies](docs/VERSION_STRATEGIES.md) | How the 6 version discovery strategies work |
 | [Architecture](docs/ARCHITECTURE.md) | Package structure and design principles |
 | [Features](docs/FEATURES.md) | Key features and design highlights |
-| [Go Library Example](example/main.go) | Runnable example of the `pkg/gitsemver` library API |
+| [Go Library Example](example/main.go) | Runnable example of the `pkg/sdk` library API |
 
 ## Acknowledgements
 

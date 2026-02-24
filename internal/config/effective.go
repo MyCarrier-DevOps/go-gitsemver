@@ -1,8 +1,9 @@
 package config
 
 import (
-	"go-gitsemver/internal/semver"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 )
 
 // EffectiveConfiguration is a fully resolved configuration with all fields

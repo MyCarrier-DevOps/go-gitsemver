@@ -2,17 +2,18 @@ package cmd
 
 import (
 	"fmt"
-	"go-gitsemver/internal/calculator"
-	"go-gitsemver/internal/config"
-	"go-gitsemver/internal/git"
-	"go-gitsemver/internal/output"
-	"go-gitsemver/internal/strategy"
 	"os"
 	"strings"
 
-	configctx "go-gitsemver/internal/context"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/calculator"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/output"
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/strategy"
 
-	ghprovider "go-gitsemver/internal/github"
+	configctx "github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
+
+	ghprovider "github.com/MyCarrier-DevOps/go-gitsemver/internal/github"
 
 	"github.com/spf13/cobra"
 )
