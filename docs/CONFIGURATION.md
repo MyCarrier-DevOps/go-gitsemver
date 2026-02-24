@@ -1,6 +1,6 @@
 # Configuration Reference
 
-gitsemver is configured via a `go-gitsemver.yml` or `GitVersion.yml` file in the repository root. All fields are optional — sensible defaults are applied.
+go-gitsemver is configured via a `go-gitsemver.yml` or `GitVersion.yml` file in the repository root. All fields are optional — sensible defaults are applied.
 
 ---
 
@@ -8,7 +8,7 @@ gitsemver is configured via a `go-gitsemver.yml` or `GitVersion.yml` file in the
 
 ### Local mode
 
-gitsemver searches for configuration in this order:
+go-gitsemver searches for configuration in this order:
 
 1. `.github/GitVersion.yml`
 2. `.github/go-gitsemver.yml`
@@ -18,7 +18,7 @@ gitsemver searches for configuration in this order:
 
 The first file found is used. If no file is found, built-in defaults are used.
 
-### Remote mode (`gitsemver remote`)
+### Remote mode (`go-gitsemver remote`)
 
 When using the `remote` subcommand, configuration is fetched from the GitHub repository via API:
 
@@ -229,7 +229,7 @@ merge-message-formats:
 
 ## Branch configuration
 
-Each branch type is configured under the `branches:` key. gitsemver includes 8 built-in branch configs that can be customized.
+Each branch type is configured under the `branches:` key. go-gitsemver includes 8 built-in branch configs that can be customized.
 
 ### Branch options
 
@@ -412,7 +412,7 @@ When a branch config property is unset (`null`), it inherits from the global con
 
 ### Increment "Inherit" resolution
 
-When `increment = Inherit`, gitsemver walks up the source-branch hierarchy:
+When `increment = Inherit`, go-gitsemver walks up the source-branch hierarchy:
 
 1. Find the source branch for the current branch
 2. Check its `increment` setting

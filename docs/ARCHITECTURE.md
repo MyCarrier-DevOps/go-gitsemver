@@ -1,6 +1,6 @@
-# gitsemver Architecture
+# go-gitsemver Architecture
 
-This document describes the architecture of gitsemver, a semantic versioning tool that automatically calculates versions from git history.
+This document describes the architecture of go-gitsemver, a semantic versioning tool that automatically calculates versions from git history.
 
 ---
 
@@ -55,9 +55,9 @@ go-gitsemver/
 │   ├── remote.go               # Remote subcommand: version via GitHub API
 │   └── version.go              # Version subcommand
 ├── pkg/
-│   └── gitsemver/              # Public Go library API
-│       ├── gitsemver.go        # Calculate() and CalculateRemote() functions
-│       └── gitsemver_test.go   # Unit tests with httptest mocks
+│   └── sdk/                       # Public Go library API
+│       ├── sdk.go                 # Calculate() and CalculateRemote() functions
+│       └── sdk_test.go            # Unit tests with httptest mocks
 ├── example/
 │   └── main.go                 # Runnable example showing library usage
 ├── internal/

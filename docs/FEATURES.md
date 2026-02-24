@@ -1,14 +1,14 @@
 # Key Features
 
-gitsemver is a semantic versioning tool that automatically calculates versions from git history. It is inspired by [GitVersion](https://gitversion.net/) and implements its core versioning model in Go as a single static binary with zero runtime dependencies.
+go-gitsemver is a semantic versioning tool that automatically calculates versions from git history. It is inspired by [GitVersion](https://gitversion.net/) and implements its core versioning model in Go as a single static binary with zero runtime dependencies.
 
-This document highlights gitsemver's key capabilities and design decisions.
+This document highlights go-gitsemver's key capabilities and design decisions.
 
 ---
 
 ## Single Binary, Zero Dependencies
 
-gitsemver is a single static binary (~10-15MB). Download it and run — no runtime, no SDK, no package manager required. Works with any language and any build system.
+go-gitsemver is a single static binary (~10-15MB). Download it and run — no runtime, no SDK, no package manager required. Works with any language and any build system.
 
 Cross-platform builds are provided for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64).
 
@@ -16,10 +16,10 @@ Cross-platform builds are provided for Linux (amd64/arm64), macOS (amd64/arm64),
 
 ## GitHub API Remote Mode
 
-The `gitsemver remote owner/repo` subcommand calculates versions via the GitHub API — no local clone required. This eliminates the biggest CI/CD pain point: cloning a large repo with full history (`fetch-depth: 0`) just to read tags and commit history.
+The `go-gitsemver remote owner/repo` subcommand calculates versions via the GitHub API — no local clone required. This eliminates the biggest CI/CD pain point: cloning a large repo with full history (`fetch-depth: 0`) just to read tags and commit history.
 
 ```bash
-GITHUB_TOKEN=ghp_xxx gitsemver remote myorg/myrepo --show-variable SemVer
+GITHUB_TOKEN=ghp_xxx go-gitsemver remote myorg/myrepo --show-variable SemVer
 ```
 
 **Key design decisions:**
@@ -99,7 +99,7 @@ Configurable via `commit-message-convention: conventional-commits | bump-directi
 
 ## Squash Merge Awareness
 
-gitsemver parses squash merge formats out of the box, which is critical since squash merges are the default on GitHub and GitLab:
+go-gitsemver parses squash merge formats out of the box, which is critical since squash merges are the default on GitHub and GitLab:
 
 | Source | Pattern Example |
 |--------|----------------|
@@ -138,7 +138,7 @@ Result: 1.3.0-feature-login.1+3
 
 ## Aggregate Mainline Calculation
 
-In Mainline mode, gitsemver scans all commits since the last tag and applies the **single highest** increment once:
+In Mainline mode, go-gitsemver scans all commits since the last tag and applies the **single highest** increment once:
 
 ```
 v1.0.0 → fix → fix → feat → fix → fix
@@ -193,9 +193,9 @@ base-version: 1.0.0
 
 ## Shallow Clone Protection
 
-gitsemver detects shallow clones and exits with a clear error by default. The `--allow-shallow` flag explicitly opts into running with potentially incomplete history. The error message suggests `git fetch --unshallow`.
+go-gitsemver detects shallow clones and exits with a clear error by default. The `--allow-shallow` flag explicitly opts into running with potentially incomplete history. The error message suggests `git fetch --unshallow`.
 
-Alternatively, use `gitsemver remote owner/repo` to skip cloning entirely and calculate the version via the GitHub API.
+Alternatively, use `go-gitsemver remote owner/repo` to skip cloning entirely and calculate the version via the GitHub API.
 
 ---
 
@@ -205,13 +205,13 @@ Output computation is handled by pure functions with no side effects:
 - `ComputeFormatValues(ver, config) → map[string]string` generates all 25+ output variables
 - `PromoteCommitsToPreRelease(ver, mode, fallbackTag) → ver` handles ContinuousDeployment mode
 
-gitsemver outputs version information — it does not write to files. CI/CD scripts consume the output variables.
+go-gitsemver outputs version information — it does not write to files. CI/CD scripts consume the output variables.
 
 ---
 
 ## 25+ Output Variables
 
-gitsemver generates a comprehensive set of output variables compatible with various ecosystems:
+go-gitsemver generates a comprehensive set of output variables compatible with various ecosystems:
 
 - **SemVer formats:** `SemVer`, `FullSemVer`, `LegacySemVer`, `InformationalVersion`
 - **Components:** `Major`, `Minor`, `Patch`, `MajorMinorPatch`

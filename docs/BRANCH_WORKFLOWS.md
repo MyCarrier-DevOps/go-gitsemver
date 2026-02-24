@@ -1,12 +1,12 @@
 # Branch Workflows and Default Configuration
 
-gitsemver supports different branching strategies through per-branch configuration. This document details the default configuration for each branch type and how the versioning modes differ.
+go-gitsemver supports different branching strategies through per-branch configuration. This document details the default configuration for each branch type and how the versioning modes differ.
 
 ---
 
 ## Default Branch Configurations
 
-gitsemver ships with 8 default branch configurations, ordered by priority. When a branch name matches multiple regexes, the highest priority wins.
+go-gitsemver ships with 8 default branch configurations, ordered by priority. When a branch name matches multiple regexes, the highest priority wins.
 
 ### main (Priority: 100)
 

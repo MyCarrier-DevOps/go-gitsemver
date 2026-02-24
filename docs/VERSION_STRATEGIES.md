@@ -1,6 +1,6 @@
 # Version Strategies
 
-gitsemver uses 6 pluggable strategies to discover candidate base versions. Each strategy proposes zero or more `BaseVersion` candidates. The highest candidate (after computing an effective version) wins.
+go-gitsemver uses 6 pluggable strategies to discover candidate base versions. Each strategy proposes zero or more `BaseVersion` candidates. The highest candidate (after computing an effective version) wins.
 
 All strategies implement the `VersionStrategy` interface in `internal/strategy/`.
 
@@ -79,7 +79,7 @@ Extracts version information from merge commit messages and squash merge message
 
 Custom formats can be added via `merge-message-formats` in config.
 
-**Squash merge support:** Unlike tools that only detect two-parent merge commits, gitsemver also parses squash merge messages (single-parent commits), which are common on GitHub and GitLab.
+**Squash merge support:** Unlike tools that only detect two-parent merge commits, go-gitsemver also parses squash merge messages (single-parent commits), which are common on GitHub and GitLab.
 
 ---
 

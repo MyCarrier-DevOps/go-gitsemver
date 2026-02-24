@@ -1,6 +1,6 @@
 # Strategies, Modes & Manual Overrides
 
-This document explains how gitsemver calculates versions — the strategies that discover base versions, the modes that control versioning behavior, and the manual overrides available.
+This document explains how go-gitsemver calculates versions — the strategies that discover base versions, the modes that control versioning behavior, and the manual overrides available.
 
 ---
 
@@ -29,7 +29,7 @@ This document explains how gitsemver calculates versions — the strategies that
 
 ## Version Strategies
 
-When gitsemver runs, it evaluates **all 6 strategies** in parallel. Each strategy returns zero or more candidate base versions. After all candidates are collected, the best one is selected and used to compute the final version.
+When go-gitsemver runs, it evaluates **all 6 strategies** in parallel. Each strategy returns zero or more candidate base versions. After all candidates are collected, the best one is selected and used to compute the final version.
 
 Each candidate contains:
 - **SemanticVersion** — the raw version discovered (e.g., `1.2.0`)
@@ -522,11 +522,11 @@ branches:
 
 ## Manual Overrides
 
-gitsemver provides several ways to manually control version bumps.
+go-gitsemver provides several ways to manually control version bumps.
 
 ### Conventional Commits
 
-First-class support for the [Conventional Commits](https://www.conventionalcommits.org/) specification. gitsemver scans commit messages for structured prefixes.
+First-class support for the [Conventional Commits](https://www.conventionalcommits.org/) specification. go-gitsemver scans commit messages for structured prefixes.
 
 **Increment rules:**
 
@@ -600,7 +600,7 @@ bump none"
 
 ### Using Both (Default)
 
-By default, gitsemver recognizes **both** Conventional Commits and bump directives. If both are present in the same commit, the highest increment wins.
+By default, go-gitsemver recognizes **both** Conventional Commits and bump directives. If both are present in the same commit, the highest increment wins.
 
 ```bash
 git commit -m "feat: add new endpoint
@@ -626,7 +626,7 @@ commit-message-convention: both
 
 ### Manual Tags
 
-The most direct way to set a version. Tag any commit and gitsemver picks it up via the TaggedCommit strategy.
+The most direct way to set a version. Tag any commit and go-gitsemver picks it up via the TaggedCommit strategy.
 
 ```bash
 # Release a specific version
@@ -639,7 +639,7 @@ git tag release-1.0.0   # requires tag-prefix: 'release-'
 
 **When to use:** Releasing stable versions in ContinuousDelivery mode, forcing a version jump, or bootstrapping versioning on an existing repo.
 
-**Important:** When you tag the current commit, gitsemver returns that exact version (no increment). When the tag is in the past, gitsemver increments from it.
+**Important:** When you tag the current commit, go-gitsemver returns that exact version (no increment). When the tag is in the past, go-gitsemver increments from it.
 
 ```
 v1.0.0 on HEAD     → 1.0.0 (exact)

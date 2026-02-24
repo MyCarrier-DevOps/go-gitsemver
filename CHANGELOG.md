@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - CLI Rename & Documentation Overhaul
+
+### Changed
+
+- **CLI binary renamed from `gitsemver` to `go-gitsemver`** — all commands are now invoked as `go-gitsemver` (e.g. `go-gitsemver --show-variable SemVer`, `go-gitsemver remote owner/repo`)
+- **All documentation updated** to use `go-gitsemver` consistently across README, CHANGELOG, FEATURES, CONFIGURATION, ARCHITECTURE, STRATEGIES_AND_MODES, VERSION_STRATEGIES, BRANCH_WORKFLOWS, and HIGHLIGHTS
+- **`docs/ARCHITECTURE.md`** package tree updated to reflect `pkg/sdk/` (was still showing old `pkg/gitsemver/` paths)
+
+
 ## [1.3.0] - Explain Mode, Package Rename, Config Search Paths & Remote Config Path
 
 ### Added
@@ -47,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`gitsemver remote owner/repo` subcommand** — calculate semantic versions via the GitHub REST and GraphQL APIs without requiring a local clone. Eliminates the need for `fetch-depth: 0` in CI pipelines.
+- **`go-gitsemver remote owner/repo` subcommand** — calculate semantic versions via the GitHub REST and GraphQL APIs without requiring a local clone. Eliminates the need for `fetch-depth: 0` in CI pipelines.
   - Token auth (`--token` / `GITHUB_TOKEN`) and GitHub App auth (`--github-app-id` + `--github-app-key`)
   - GitHub Enterprise support via `--github-url` / `GITHUB_API_URL`
   - GraphQL batch fetching for branches and tags (avoids N+1 REST calls)
@@ -57,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Remote config file fetching (`go-gitsemver.yml` / `GitVersion.yml` from repo root via API)
 - `CommitTag` output variable — `YY.WW.ShortSha` format derived from the commit date
 - Date format translation between Go and .NET/Python/strftime conventions
-- JSON schema for gitsemver configuration
+- JSON schema for go-gitsemver configuration
 
 ### Changed
 

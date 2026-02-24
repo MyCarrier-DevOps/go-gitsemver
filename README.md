@@ -1,4 +1,4 @@
-# gitsemver
+# go-gitsemver
 
 A Go application inspired by [GitVersion](https://github.com/GitTools/GitVersion) (v5.12.0). Automatic [Semantic Versioning](https://semver.org/) from your git history — no version files to maintain.
 
@@ -6,22 +6,22 @@ A Go application inspired by [GitVersion](https://github.com/GitTools/GitVersion
 
 ## TL;DR
 
-gitsemver calculates the next semantic version based on git history, tags, and branch conventions. Single static binary, zero runtime dependencies.
+go-gitsemver calculates the next semantic version based on git history, tags, and branch conventions. Single static binary, zero runtime dependencies.
 
 ```bash
 # Local mode — works with any git provider (GitHub, GitLab, Bitbucket, etc.)
 # Requires a full clone (fetch-depth: 0 in CI)
-gitsemver                                 # all version variables (key=value)
-gitsemver --show-variable SemVer          # just the version string
-gitsemver -o json                         # JSON output for CI
-gitsemver --explain                       # show how the version was calculated
+go-gitsemver                                 # all version variables (key=value)
+go-gitsemver --show-variable SemVer          # just the version string
+go-gitsemver -o json                         # JSON output for CI
+go-gitsemver --explain                       # show how the version was calculated
 
 # Remote mode — GitHub and GitHub Enterprise only, no clone needed
 # Requires a token (GITHUB_TOKEN) or GitHub App credentials
-GITHUB_TOKEN=ghp_xxx gitsemver remote owner/repo
-gitsemver remote owner/repo --token ghp_xxx --ref main
-gitsemver remote owner/repo --remote-config-path .github/GitVersion.yml
-gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
+GITHUB_TOKEN=ghp_xxx go-gitsemver remote owner/repo
+go-gitsemver remote owner/repo --token ghp_xxx --ref main
+go-gitsemver remote owner/repo --remote-config-path .github/GitVersion.yml
+go-gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
 ```
 
 **What it gives you:** `SemVer`, `FullSemVer`, `Major`, `Minor`, `Patch`, `BranchName`, `Sha`, `CommitDate`, `NuGetVersionV2`, and 20+ more output variables.
@@ -30,7 +30,7 @@ gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
 
 **Configuration:** Drop a `go-gitsemver.yml` or `GitVersion.yml` in `.github/` or repo root, or use `--config`. Works with zero config out of the box.
 
-## Why gitsemver
+## Why go-gitsemver
 
 - **Zero configuration required** — works out of the box with sensible defaults for GitFlow, trunk-based, and CD workflows
 - **Single static binary** — no runtime dependencies, runs on Linux, macOS, and Windows
@@ -62,28 +62,28 @@ go install go-gitsemver@latest
 ### Verify
 
 ```bash
-gitsemver version
+go-gitsemver version
 ```
 
 ## Quick start
 
 ### Local mode (default)
 
-Run `gitsemver` inside a git repository with full history:
+Run `go-gitsemver` inside a git repository with full history:
 
 ```bash
 # Show all version variables
-gitsemver
+go-gitsemver
 
 # Get just the semver string
-gitsemver --show-variable SemVer
+go-gitsemver --show-variable SemVer
 # Output: 1.2.3-beta.4
 
 # JSON output for CI pipelines
-gitsemver -o json
+go-gitsemver -o json
 
 # See the effective configuration
-gitsemver --show-config
+go-gitsemver --show-config
 ```
 
 **Requires:** A local git clone with full history (`git clone` or `fetch-depth: 0` in CI). Reads tags, commits, and branches directly from the `.git` directory using go-git.
@@ -94,19 +94,19 @@ Version a GitHub repository without cloning it:
 
 ```bash
 # Token auth (PAT, fine-grained token, or GitHub Actions GITHUB_TOKEN)
-GITHUB_TOKEN=ghp_xxx gitsemver remote myorg/myrepo
+GITHUB_TOKEN=ghp_xxx go-gitsemver remote myorg/myrepo
 
 # Specific branch
-gitsemver remote myorg/myrepo --token ghp_xxx --ref main --show-variable SemVer
+go-gitsemver remote myorg/myrepo --token ghp_xxx --ref main --show-variable SemVer
 
 # Point to a specific config file in the remote repo
-gitsemver remote myorg/myrepo --token ghp_xxx --remote-config-path .github/GitVersion.yml
+go-gitsemver remote myorg/myrepo --token ghp_xxx --remote-config-path .github/GitVersion.yml
 
 # GitHub App auth
-gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key /path/to/key.pem
+go-gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key /path/to/key.pem
 
 # GitHub Enterprise
-gitsemver remote myorg/myrepo --token ghp_xxx --github-url https://ghe.example.com/api/v3
+go-gitsemver remote myorg/myrepo --token ghp_xxx --github-url https://ghe.example.com/api/v3
 ```
 
 **Requires:** A GitHub token or GitHub App credentials. No clone, no checkout, no `fetch-depth: 0`. Reads tags, commits, and branches via the GitHub REST and GraphQL APIs. Configuration is auto-detected from `.github/` and repo root (`go-gitsemver.yml` or `GitVersion.yml`), or specify an explicit path with `--remote-config-path`.
@@ -133,7 +133,7 @@ CommitsSinceVersionSource=5
 
 | | Local mode | Remote mode |
 |---|---|---|
-| **Command** | `gitsemver` | `gitsemver remote owner/repo` |
+| **Command** | `go-gitsemver` | `go-gitsemver remote owner/repo` |
 | **Requires** | Local git clone with full history | GitHub token or App credentials |
 | **Best for** | Developer machines, CI with full checkout | CI without clone, fast pipelines, large repos |
 | **Git providers** | Any (GitHub, GitLab, Bitbucket, etc.) | GitHub and GitHub Enterprise only |
@@ -143,7 +143,7 @@ CommitsSinceVersionSource=5
 
 ## How it works
 
-gitsemver analyzes your git repository in four steps:
+go-gitsemver analyzes your git repository in four steps:
 
 1. **Find the base version** — scans tags, merge messages, branch names, and configuration for the latest version
 2. **Determine the increment** — reads commit messages (Conventional Commits and/or bump directives) and branch config to decide major, minor, or patch
@@ -164,9 +164,9 @@ hotfix:     1.0.2-beta.1
 
 | Command | Mode | Description |
 |---------|------|-------------|
-| `gitsemver [flags]` | Local | Calculate version from a local git repository (default) |
-| `gitsemver remote owner/repo [flags]` | Remote | Calculate version from a GitHub repository via API |
-| `gitsemver version` | — | Print the gitsemver binary version |
+| `go-gitsemver [flags]` | Local | Calculate version from a local git repository (default) |
+| `go-gitsemver remote owner/repo [flags]` | Remote | Calculate version from a GitHub repository via API |
+| `go-gitsemver version` | — | Print the go-gitsemver binary version |
 
 ### Global flags (both local and remote)
 
@@ -356,7 +356,7 @@ jobs:
 
       - name: Calculate version
         id: version
-        run: echo "semver=$(gitsemver --show-variable SemVer)" >> "$GITHUB_OUTPUT"
+        run: echo "semver=$(go-gitsemver --show-variable SemVer)" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: docker build -t myapp:${{ steps.version.outputs.semver }} .
@@ -373,7 +373,7 @@ jobs:
         id: version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "semver=$(gitsemver remote ${{ github.repository }} --ref ${{ github.ref_name }} --show-variable SemVer)" >> "$GITHUB_OUTPUT"
+        run: echo "semver=$(go-gitsemver remote ${{ github.repository }} --ref ${{ github.ref_name }} --show-variable SemVer)" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: docker build -t myapp:${{ steps.version.outputs.semver }} .
@@ -384,7 +384,7 @@ jobs:
 ```yaml
 build:
   script:
-    - VERSION=$(gitsemver --show-variable SemVer)
+    - VERSION=$(go-gitsemver --show-variable SemVer)
     - echo "Building version $VERSION"
     - docker build -t myapp:$VERSION .
 ```
@@ -392,16 +392,16 @@ build:
 ### Generic
 
 ```bash
-VERSION=$(gitsemver --show-variable SemVer)
+VERSION=$(go-gitsemver --show-variable SemVer)
 echo "Version: $VERSION"
 
 # JSON output
-gitsemver -o json > version.json
+go-gitsemver -o json > version.json
 ```
 
 ## Go library
 
-gitsemver can be embedded in Go applications via the `pkg/sdk` package. This lets you calculate versions programmatically without shelling out to the CLI.
+go-gitsemver can be embedded in Go applications via the `pkg/sdk` package. This lets you calculate versions programmatically without shelling out to the CLI.
 
 ```go
 import "github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
@@ -490,7 +490,7 @@ make ci              # Full CI pipeline (fmt + lint + test-all + coverage + buil
 
 ## Acknowledgements
 
-gitsemver is inspired by [GitVersion](https://github.com/GitTools/GitVersion) v5.12.0. It preserves the core versioning model — branch-aware strategies, three versioning modes, and `GitVersion.yml` configuration compatibility — while introducing improvements including immutable types, a single-increment pipeline, Conventional Commits support, squash merge awareness, and a simplified mainline calculator. See [Features](docs/FEATURES.md) for details.
+go-gitsemver is inspired by [GitVersion](https://github.com/GitTools/GitVersion) v5.12.0. It preserves the core versioning model — branch-aware strategies, three versioning modes, and `GitVersion.yml` configuration compatibility — while introducing improvements including immutable types, a single-increment pipeline, Conventional Commits support, squash merge awareness, and a simplified mainline calculator. See [Features](docs/FEATURES.md) for details.
 
 ## License
 
