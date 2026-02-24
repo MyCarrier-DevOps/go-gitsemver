@@ -116,6 +116,37 @@ func TestCalculate_InvalidConfigPath(t *testing.T) {
 	require.Contains(t, err.Error(), "loading configuration")
 }
 
+func TestCalculate_AutoDetectsConfigInGitHubDir(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	// Write config in .github/ directory (should be found before repo root).
+	repo.WriteConfigAt(".github/GitVersion.yml", "next-version: 9.0.0\n")
+
+	result, err := sdk.Calculate(sdk.LocalOptions{
+		Path: repo.Path(),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "9.0.0", result.Variables["MajorMinorPatch"])
+}
+
+func TestCalculate_GitHubDirTakesPrecedenceOverRoot(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	// Write config in both locations — .github/ should win.
+	repo.WriteConfigAt(".github/GitVersion.yml", "next-version: 8.0.0\n")
+	repo.WriteConfig("next-version: 3.0.0\n")
+
+	result, err := sdk.Calculate(sdk.LocalOptions{
+		Path: repo.Path(),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "8.0.0", result.Variables["MajorMinorPatch"])
+}
+
 func TestCalculate_WithBranch(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	sha := repo.AddCommit("initial commit")
@@ -309,6 +340,85 @@ func TestCalculateRemote_WithMockServer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotEmpty(t, result.Variables["SemVer"])
+}
+
+func TestCalculateRemote_WithRemoteConfigPath(t *testing.T) {
+	mux := http.NewServeMux()
+	tipSha := "abc123def456abc123def456abc123def456abc1"
+
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{"default_branch": "main"})
+	})
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/branches/main", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{
+			"name": "main",
+			"commit": map[string]interface{}{
+				"sha":     tipSha,
+				"commit":  map[string]interface{}{"message": "initial commit", "committer": map[string]interface{}{"date": "2025-01-15T12:00:00Z"}},
+				"parents": []interface{}{},
+			},
+		})
+	})
+	mux.HandleFunc("/api/graphql", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{
+			"data": map[string]interface{}{
+				"repository": map[string]interface{}{
+					"refs": map[string]interface{}{
+						"nodes": []map[string]interface{}{
+							{
+								"name": "main",
+								"target": map[string]interface{}{
+									"oid": tipSha, "message": "initial commit",
+									"committedDate": "2025-01-15T12:00:00Z",
+									"parents":       map[string]interface{}{"nodes": []interface{}{}},
+								},
+							},
+						},
+						"pageInfo": map[string]interface{}{"hasNextPage": false, "endCursor": ""},
+					},
+				},
+			},
+		})
+	})
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/commits", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, []map[string]interface{}{
+			{
+				"sha":     tipSha,
+				"commit":  map[string]interface{}{"message": "initial commit", "committer": map[string]interface{}{"date": "2025-01-15T12:00:00Z"}},
+				"parents": []interface{}{},
+			},
+		})
+	})
+
+	// Mock: Return config at custom path, 404 for everything else.
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/custom/config.yml") {
+			// Return base64-encoded YAML content.
+			content := "bmV4dC12ZXJzaW9uOiAxMi4wLjAK" // base64("next-version: 12.0.0\n")
+			writeTestJSON(w, map[string]interface{}{
+				"type":     "file",
+				"encoding": "base64",
+				"content":  content,
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		writeTestJSON(w, &gh.ErrorResponse{Response: &http.Response{StatusCode: http.StatusNotFound}, Message: "Not Found"})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
+		Owner:            "testowner",
+		Repo:             "testrepo",
+		Token:            "ghp_test",
+		BaseURL:          server.URL + "/api/v3",
+		RemoteConfigPath: "custom/config.yml",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "12.0.0", result.Variables["MajorMinorPatch"])
 }
 
 // ---------------------------------------------------------------------------

@@ -17,7 +17,10 @@ import (
 )
 
 // configFileNames lists the files searched for configuration in order.
+// Checks .github/ first, then repo root directory.
 var configFileNames = []string{
+	".github/GitVersion.yml",
+	".github/go-gitsemver.yml",
 	"GitVersion.yml",
 	"go-gitsemver.yml",
 }

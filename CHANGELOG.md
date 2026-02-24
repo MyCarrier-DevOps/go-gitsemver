@@ -5,10 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - Explain Mode & Package Rename
+## [1.3.0] - Explain Mode, Package Rename, Config Search Paths & Remote Config Path
 
 ### Added
 
+- **`.github/` config auto-detection** — config file search now checks `.github/GitVersion.yml` and `.github/go-gitsemver.yml` before repo root, for both local and remote modes
+- **`--remote-config-path` flag** — specify a config file path in the remote repo (e.g. `--remote-config-path .github/GitVersion.yml`) instead of relying on auto-detection
+- **`RemoteConfigPath` SDK field** — `RemoteOptions.RemoteConfigPath` for programmatic control of remote config file location
 - **`--explain` flag** — full transparency into version calculation, output to stderr
   - Shows all strategies evaluated with their candidates
   - Displays which strategy was selected and why

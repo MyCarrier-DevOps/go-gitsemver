@@ -20,6 +20,7 @@ gitsemver --explain                       # show how the version was calculated
 # Requires a token (GITHUB_TOKEN) or GitHub App credentials
 GITHUB_TOKEN=ghp_xxx gitsemver remote owner/repo
 gitsemver remote owner/repo --token ghp_xxx --ref main
+gitsemver remote owner/repo --remote-config-path .github/GitVersion.yml
 gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
 ```
 
@@ -27,7 +28,7 @@ gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
 
 **What it understands:** Conventional Commits (`feat:`, `fix:`, `feat!:`), bump directives (`+semver: major`), 8 branch types (main, develop, release, feature, hotfix, pull-request, support, unknown), 3 versioning modes (ContinuousDelivery, ContinuousDeployment, Mainline), and squash merge formats from GitHub, GitLab, and Bitbucket.
 
-**Configuration:** Drop a `go-gitsemver.yml` or `GitVersion.yml` in your repo root, or use `--config`. Works with zero config out of the box.
+**Configuration:** Drop a `go-gitsemver.yml` or `GitVersion.yml` in `.github/` or repo root, or use `--config`. Works with zero config out of the box.
 
 ## Why gitsemver
 
@@ -98,6 +99,9 @@ GITHUB_TOKEN=ghp_xxx gitsemver remote myorg/myrepo
 # Specific branch
 gitsemver remote myorg/myrepo --token ghp_xxx --ref main --show-variable SemVer
 
+# Point to a specific config file in the remote repo
+gitsemver remote myorg/myrepo --token ghp_xxx --remote-config-path .github/GitVersion.yml
+
 # GitHub App auth
 gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key /path/to/key.pem
 
@@ -105,7 +109,7 @@ gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key /path/to/ke
 gitsemver remote myorg/myrepo --token ghp_xxx --github-url https://ghe.example.com/api/v3
 ```
 
-**Requires:** A GitHub token or GitHub App credentials. No clone, no checkout, no `fetch-depth: 0`. Reads tags, commits, and branches via the GitHub REST and GraphQL APIs. Configuration is fetched from the repo root (`go-gitsemver.yml` or `GitVersion.yml`) automatically.
+**Requires:** A GitHub token or GitHub App credentials. No clone, no checkout, no `fetch-depth: 0`. Reads tags, commits, and branches via the GitHub REST and GraphQL APIs. Configuration is auto-detected from `.github/` and repo root (`go-gitsemver.yml` or `GitVersion.yml`), or specify an explicit path with `--remote-config-path`.
 
 ### Example output
 
@@ -135,7 +139,7 @@ CommitsSinceVersionSource=5
 | **Git providers** | Any (GitHub, GitLab, Bitbucket, etc.) | GitHub and GitHub Enterprise only |
 | **Working dir** | Detects uncommitted changes | N/A (no working directory) |
 | **Speed** | Instant (reads local `.git`) | ~2-5 API calls for typical repos |
-| **Config source** | Local filesystem | Fetched from repo via API (or `--config` local override) |
+| **Config source** | Local filesystem | Fetched from repo via API (`--remote-config-path` or auto-detect, `--config` for local override) |
 
 ## How it works
 
@@ -193,12 +197,13 @@ hotfix:     1.0.2-beta.1
 | `--github-url` | `GITHUB_API_URL` | | GitHub Enterprise API base URL |
 | `--ref` | | *(default branch)* | Branch, tag, or SHA to version |
 | `--max-commits` | | `1000` | Maximum commit depth to walk via API |
+| `--remote-config-path` | | *(auto-detect)* | Path to config file in the remote repo (e.g. `.github/GitVersion.yml`) |
 
 Authentication is resolved in order: `--token`/`GITHUB_TOKEN` > `--github-app-id` + `--github-app-key` > error.
 
 ## Configuration
 
-Place a `go-gitsemver.yml` (or `GitVersion.yml`) in your repository root. All fields are optional — defaults are applied automatically.
+Place a `go-gitsemver.yml` (or `GitVersion.yml`) in `.github/` or the repository root. Config files in `.github/` take precedence over repo root. All fields are optional — defaults are applied automatically.
 
 ```yaml
 # go-gitsemver.yml
@@ -399,7 +404,7 @@ gitsemver -o json > version.json
 gitsemver can be embedded in Go applications via the `pkg/sdk` package. This lets you calculate versions programmatically without shelling out to the CLI.
 
 ```go
-import "go-gitsemver/pkg/sdk"
+import "github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
 
 // Local mode — calculate from a local git repository
 result, err := sdk.Calculate(sdk.LocalOptions{

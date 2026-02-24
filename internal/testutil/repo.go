@@ -201,6 +201,19 @@ func (r *TestRepo) WriteConfig(content string) {
 	}
 }
 
+// WriteConfigAt writes a config file at a custom path relative to the repo root.
+func (r *TestRepo) WriteConfigAt(relPath, content string) {
+	r.t.Helper()
+	absPath := filepath.Join(r.path, relPath)
+	dir := filepath.Dir(absPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		r.t.Fatalf("creating directory %s: %v", dir, err)
+	}
+	if err := os.WriteFile(absPath, []byte(content), 0o644); err != nil {
+		r.t.Fatalf("writing config at %s: %v", relPath, err)
+	}
+}
+
 // HeadSha returns the current HEAD commit SHA.
 func (r *TestRepo) HeadSha() string {
 	r.t.Helper()

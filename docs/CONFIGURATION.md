@@ -10,21 +10,26 @@ gitsemver is configured via a `go-gitsemver.yml` or `GitVersion.yml` file in the
 
 gitsemver searches for configuration in this order:
 
-1. `GitVersion.yml` in the repository root
-2. `go-gitsemver.yml` in the repository root
-3. Path specified by `--config` flag (highest priority)
+1. `.github/GitVersion.yml`
+2. `.github/go-gitsemver.yml`
+3. `GitVersion.yml` in the repository root
+4. `go-gitsemver.yml` in the repository root
+5. Path specified by `--config` flag (highest priority)
 
-If no file is found, built-in defaults are used.
+The first file found is used. If no file is found, built-in defaults are used.
 
 ### Remote mode (`gitsemver remote`)
 
 When using the `remote` subcommand, configuration is fetched from the GitHub repository via API:
 
-1. `GitVersion.yml` in the repo root (fetched via `GET /repos/{owner}/{repo}/contents/`)
-2. `go-gitsemver.yml` in the repo root (fallback)
-3. Path specified by `--config` flag (local file override, highest priority)
+1. `.github/GitVersion.yml` (fetched via `GET /repos/{owner}/{repo}/contents/`)
+2. `.github/go-gitsemver.yml`
+3. `GitVersion.yml` in the repo root
+4. `go-gitsemver.yml` in the repo root
+5. Path specified by `--remote-config-path` flag (fetches a specific file from the remote repo)
+6. Path specified by `--config` flag (local file override, highest priority)
 
-If no remote config file exists and no `--config` is provided, built-in defaults are used.
+If no remote config file exists and no override flags are provided, built-in defaults are used.
 
 ```yaml
 # go-gitsemver.yml — minimal example

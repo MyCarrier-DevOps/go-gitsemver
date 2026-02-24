@@ -23,7 +23,8 @@ Tracks completed features, current work, and planned changes for go-gitsemver.
 - Smart early termination: stops paginated commit walks once a semver tag is found
 - GraphQL batch queries for branches and tags (avoids N+1 REST calls)
 - In-memory request-scoped caching layer
-- Remote config fetching from `GitVersion.yml` / `go-gitsemver.yml` in the repo
+- Remote config fetching from `GitVersion.yml` / `go-gitsemver.yml` in the repo (and `.github/` directory)
+- `--remote-config-path` flag for explicit remote config file targeting
 - Files: `internal/github/{client,repository,cache,graphql}.go`, `cmd/remote.go`
 
 ### Bug Fixes (Copilot Review)
@@ -62,6 +63,13 @@ Tracks completed features, current work, and planned changes for go-gitsemver.
 - Module path updated to `github.com/MyCarrier-DevOps/go-gitsemver` for valid pkg.go.dev resolution
 - Public package renamed from `pkg/gitsemver` to `pkg/sdk` — import: `github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk`
 - Config file renamed from `gitsemver.yml` to `go-gitsemver.yml` (`GitVersion.yml` still supported)
+
+### Config Search Paths & Remote Config Path (Phase 5)
+- Config auto-detection expanded to search `.github/` directory before repo root
+- Search order: `.github/GitVersion.yml`, `.github/go-gitsemver.yml`, `GitVersion.yml`, `go-gitsemver.yml`
+- `--remote-config-path` CLI flag for remote mode — fetch a specific config file from the remote repo
+- `RemoteOptions.RemoteConfigPath` SDK field for programmatic remote config path control
+- `testutil.WriteConfigAt()` helper for testing config files at custom paths
 
 ## Test Coverage
 - 589 tests across unit, integration, and end-to-end suites

@@ -19,12 +19,13 @@ import (
 )
 
 var (
-	flagToken      string
-	flagAppID      int64
-	flagAppKeyPath string
-	flagGitHubURL  string
-	flagRef        string
-	flagMaxCommits int
+	flagToken            string
+	flagAppID            int64
+	flagAppKeyPath       string
+	flagGitHubURL        string
+	flagRef              string
+	flagMaxCommits       int
+	flagRemoteConfigPath string
 )
 
 var remoteCmd = &cobra.Command{
@@ -52,6 +53,7 @@ func init() {
 	remoteCmd.Flags().StringVar(&flagGitHubURL, "github-url", "", "GitHub API base URL for GitHub Enterprise (or set GITHUB_API_URL env var)")
 	remoteCmd.Flags().StringVar(&flagRef, "ref", "", "git ref to version: branch, tag, or SHA (default: repo default branch)")
 	remoteCmd.Flags().IntVar(&flagMaxCommits, "max-commits", 1000, "maximum commit depth to walk via API")
+	remoteCmd.Flags().StringVar(&flagRemoteConfigPath, "remote-config-path", "", "path to config file in the remote repo (e.g. .github/GitVersion.yml)")
 
 	rootCmd.AddCommand(remoteCmd)
 }
@@ -159,8 +161,19 @@ func loadRemoteConfig(ghRepo *ghprovider.GitHubRepository) (*config.Config, erro
 			return nil, err
 		}
 		builder.Add(userCfg)
+	} else if flagRemoteConfigPath != "" {
+		// Fetch a specific config file from the remote repo.
+		content, err := ghRepo.FetchFileContent(flagRemoteConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("fetching remote config %s: %w", flagRemoteConfigPath, err)
+		}
+		userCfg, err := config.LoadFromBytes([]byte(content))
+		if err != nil {
+			return nil, fmt.Errorf("parsing remote config %s: %w", flagRemoteConfigPath, err)
+		}
+		builder.Add(userCfg)
 	} else {
-		// Try to fetch config from the remote repo root.
+		// Auto-detect: try known config file names in the remote repo.
 		for _, name := range configFileNames {
 			content, err := ghRepo.FetchFileContent(name)
 			if err != nil {

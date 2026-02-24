@@ -65,7 +65,7 @@ Supports teams that ship from `main` without release branches.
 
 ## Configuration
 
-YAML-based configuration (`GitVersion.yml`) with sensible defaults:
+YAML-based configuration (`GitVersion.yml` or `go-gitsemver.yml`) with sensible defaults:
 
 ```yaml
 mode: ContinuousDelivery          # or ContinuousDeployment, Mainline
@@ -94,7 +94,7 @@ branches:
     increment: None
 ```
 
-Branches are matched by regex. Unmatched branches inherit defaults. The `{BranchName}` placeholder dynamically inserts a sanitized branch name as the pre-release label.
+Config file auto-detection searches `.github/` first, then the repo root. Branches are matched by regex. Unmatched branches inherit defaults. The `{BranchName}` placeholder dynamically inserts a sanitized branch name as the pre-release label.
 
 ---
 
@@ -171,10 +171,13 @@ result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 Calculate versions without cloning the repository:
 
 ```bash
-go-gitsemver remote --owner MyCarrier-DevOps --repo my-service --token $GITHUB_TOKEN
+go-gitsemver remote MyCarrier-DevOps/my-service --token $GITHUB_TOKEN
+
+# Point to a specific config file in the remote repo
+go-gitsemver remote MyCarrier-DevOps/my-service --remote-config-path .github/GitVersion.yml
 ```
 
-Uses the GitHub API to fetch branches, tags, and commits. Ideal for CI pipelines where a full clone is expensive.
+Uses the GitHub API to fetch branches, tags, and commits. Supports `--remote-config-path` to fetch a specific config file from the remote repo, or auto-detects from `.github/` and repo root. Ideal for CI pipelines where a full clone is expensive.
 
 ---
 

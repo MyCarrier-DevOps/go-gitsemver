@@ -89,6 +89,11 @@ type RemoteOptions struct {
 	// ConfigPath is a local config file path that overrides remote config.
 	ConfigPath string
 
+	// RemoteConfigPath is a path to a config file in the remote repo (e.g.
+	// ".github/GitVersion.yml"). When set, this specific file is fetched instead
+	// of auto-detecting from known config file names. Ignored when ConfigPath is set.
+	RemoteConfigPath string
+
 	// Explain enables explain mode, populating ExplainResult on the returned Result.
 	Explain bool
 }
@@ -148,7 +153,10 @@ type ExplainCandidate struct {
 }
 
 // configFileNames lists the files searched for configuration in order.
+// Checks .github/ first, then repo root directory.
 var configFileNames = []string{
+	".github/GitVersion.yml",
+	".github/go-gitsemver.yml",
 	"GitVersion.yml",
 	"go-gitsemver.yml",
 }
@@ -210,7 +218,7 @@ func CalculateRemote(opts RemoteOptions) (*Result, error) {
 	ghRepo := ghprovider.NewGitHubRepository(client, opts.Owner, opts.Repo, ghOpts...)
 
 	// 3. Load configuration.
-	cfg, err := loadRemoteConfig(opts.ConfigPath, ghRepo)
+	cfg, err := loadRemoteConfig(opts.ConfigPath, opts.RemoteConfigPath, ghRepo)
 	if err != nil {
 		return nil, fmt.Errorf("loading configuration: %w", err)
 	}
@@ -326,16 +334,31 @@ func findConfigFile(dir string) string {
 }
 
 // loadRemoteConfig loads configuration from a local override or the remote repo.
-func loadRemoteConfig(configPath string, ghRepo *ghprovider.GitHubRepository) (*config.Config, error) {
+// When remoteConfigPath is set, that specific file is fetched from the remote repo
+// instead of auto-detecting from known config file names.
+func loadRemoteConfig(configPath, remoteConfigPath string, ghRepo *ghprovider.GitHubRepository) (*config.Config, error) {
 	builder := config.NewBuilder()
 
 	if configPath != "" {
+		// Use explicit local config file.
 		userCfg, err := config.LoadFromFile(configPath)
 		if err != nil {
 			return nil, err
 		}
 		builder.Add(userCfg)
+	} else if remoteConfigPath != "" {
+		// Fetch a specific config file from the remote repo.
+		content, err := ghRepo.FetchFileContent(remoteConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("fetching remote config %s: %w", remoteConfigPath, err)
+		}
+		userCfg, err := config.LoadFromBytes([]byte(content))
+		if err != nil {
+			return nil, fmt.Errorf("parsing remote config %s: %w", remoteConfigPath, err)
+		}
+		builder.Add(userCfg)
 	} else {
+		// Auto-detect: try known config file names in the remote repo.
 		for _, name := range configFileNames {
 			content, err := ghRepo.FetchFileContent(name)
 			if err != nil {
