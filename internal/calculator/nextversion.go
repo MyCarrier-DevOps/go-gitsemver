@@ -81,12 +81,12 @@ func (c *NextVersionCalculator) Calculate(
 		}
 	}
 
-	// Step 4: Update pre-release tag for non-release branches.
+	// Step 4: Count commits since base version source.
 	branchName := effectiveBranchName(ctx, bv, ec)
-	ver, preReleaseSteps := c.updatePreReleaseTag(ver, ctx, ec, branchName, explain)
-
-	// Step 5: Count commits since base version source.
 	commitsSince := c.countCommitsSince(ctx, bv, ec)
+
+	// Step 5: Update pre-release tag for non-release branches.
+	ver, preReleaseSteps := c.updatePreReleaseTag(ver, ctx, ec, branchName, commitsSince, explain)
 
 	// Step 6: Build metadata.
 	ver = c.applyBuildMetadata(ver, ctx, bv, branchName, commitsSince)
@@ -130,6 +130,7 @@ func (c *NextVersionCalculator) updatePreReleaseTag(
 	ctx *context.GitVersionContext,
 	ec config.EffectiveConfiguration,
 	branchName string,
+	commitsSince int64,
 	explain bool,
 ) (semver.SemanticVersion, []string) {
 	// Release branches and main branches don't get pre-release tags.
@@ -147,28 +148,40 @@ func (c *NextVersionCalculator) updatePreReleaseTag(
 		steps = append(steps, fmt.Sprintf("branch config tag=%q -> %q", ec.Tag, tagName))
 	}
 
-	// Find the next pre-release number by looking at existing tags.
-	number := int64(1)
-	existingTags, err := c.store.GetValidVersionTags(ec.TagPrefix, nil)
-	if err == nil {
-		for _, vt := range existingTags {
-			if vt.Version.Major == ver.Major &&
-				vt.Version.Minor == ver.Minor &&
-				vt.Version.Patch == ver.Patch &&
-				vt.Version.PreReleaseTag.Name == tagName &&
-				vt.Version.PreReleaseTag.Number != nil {
-				if *vt.Version.PreReleaseTag.Number >= number {
-					number = *vt.Version.PreReleaseTag.Number + 1
+	var number int64
+
+	if ec.BranchMode == semver.VersioningModeMainline {
+		// Mainline mode: pre-release number is the commit count.
+		number = commitsSince
+		if number < 1 {
+			number = 1
+		}
+		if explain {
+			steps = append(steps, fmt.Sprintf("mainline mode: pre-release number = commits since version source = %d", number))
+		}
+	} else {
+		// ContinuousDelivery/ContinuousDeployment: tag-based incrementing.
+		number = 1
+		existingTags, err := c.store.GetValidVersionTags(ec.TagPrefix, nil)
+		if err == nil {
+			for _, vt := range existingTags {
+				if vt.Version.Major == ver.Major &&
+					vt.Version.Minor == ver.Minor &&
+					vt.Version.Patch == ver.Patch &&
+					vt.Version.PreReleaseTag.Name == tagName &&
+					vt.Version.PreReleaseTag.Number != nil {
+					if *vt.Version.PreReleaseTag.Number >= number {
+						number = *vt.Version.PreReleaseTag.Number + 1
+					}
 				}
 			}
 		}
-	}
-
-	if explain {
-		if number == 1 {
-			steps = append(steps, fmt.Sprintf("no existing tag for %d.%d.%d-%s -> number = 1", ver.Major, ver.Minor, ver.Patch, tagName))
-		} else {
-			steps = append(steps, fmt.Sprintf("existing tag for %d.%d.%d-%s -> number = %d", ver.Major, ver.Minor, ver.Patch, tagName, number))
+		if explain {
+			if number == 1 {
+				steps = append(steps, fmt.Sprintf("no existing tag for %d.%d.%d-%s -> number = 1", ver.Major, ver.Minor, ver.Patch, tagName))
+			} else {
+				steps = append(steps, fmt.Sprintf("existing tag for %d.%d.%d-%s -> number = %d", ver.Major, ver.Minor, ver.Patch, tagName, number))
+			}
 		}
 	}
 
