@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../go-gitsemver-schema.json
+# Mainline Mode — EachCommit Strategy
+#
+# Per-commit incrementing for teams that want every merge to bump the version.
+# Compatible with GitVersion's per-commit mainline behavior.
+#
+# How EachCommit works:
+#   1. Find the latest semver tag on the branch
+#   2. Walk each commit since that tag in order
+#   3. For each commit, determine its increment (conventional commits / bump directives)
+#   4. Apply that increment to the running version
+#   5. Commit count since tag → build metadata for uniqueness
+#
+# Version examples (main, after v1.0.0):
+#   fix → fix → feat → fix → fix:
+#     1.0.1 → 1.0.2 → 1.1.0 → 1.1.1 → 1.1.2   (result: 1.1.2+5)
+#
+#   fix → fix → "feat!: breaking" → fix:
+#     1.0.1 → 1.0.2 → 2.0.0 → 2.0.1             (result: 2.0.1+4)
+#
+# Compare with Aggregate (default Mainline):
+#   fix → fix → feat → fix → fix:
+#     Aggregate  → 1.1.0+5  (single highest increment applied once)
+#     EachCommit → 1.1.2+5  (each commit bumps individually)
+#
+# Use case: Teams that want version numbers to reflect every merged change,
+# e.g., for continuous deployment pipelines where each merge triggers a release.
+
+mode: Mainline
+mainline-increment: EachCommit
+tag-prefix: '[vV]'
+commit-message-convention: both
+
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+    tag: ''
+    is-mainline: true
+    source-branches: [release, hotfix]
+
+  develop:
+    regex: ^dev(elop)?(ment)?$
+    increment: Minor
+    tag: alpha
+    mode: ContinuousDelivery
+    tracks-release-branches: true
+    source-branches: [main, release, hotfix, support]
+
+  release:
+    regex: ^releases?[/-]
+    increment: None
+    tag: beta
+    mode: ContinuousDelivery
+    is-release-branch: true
+    source-branches: [develop, main, support, release]
+
+  feature:
+    regex: ^features?[/-]
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, hotfix, support]
+
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    increment: Patch
+    tag: beta
+    source-branches: [main, support]
+
+  # Catch-all: any branch not matching above is treated like a feature branch
+  unknown:
+    regex: .*
+    increment: Inherit
+    tag: '{BranchName}'
+    source-branches: [develop, main, release, feature, hotfix, support]

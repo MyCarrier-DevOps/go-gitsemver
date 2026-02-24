@@ -34,6 +34,7 @@ gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
 - **Zero configuration required** — works out of the box with sensible defaults for GitFlow, trunk-based, and CD workflows
 - **Single static binary** — no runtime dependencies, runs on Linux, macOS, and Windows
 - **Two modes: local and remote** — run against a local clone, or version a GitHub repo via API without cloning
+- **Go library** — embed version calculation in your own Go applications via `pkg/gitsemver`
 - **Conventional Commits** — first-class support for `feat:`, `fix:`, `feat!:`, and `BREAKING CHANGE:` footers
 - **Branch-aware** — eight built-in branch types with configurable pre-release labels, increment strategies, and versioning modes
 - **30+ output variables** — `SemVer`, `FullSemVer`, `NuGetVersion`, `Sha`, `BranchName`, and more
@@ -393,6 +394,33 @@ echo "Version: $VERSION"
 gitsemver -o json > version.json
 ```
 
+## Go library
+
+gitsemver can be embedded in Go applications via the `pkg/gitsemver` package. This lets you calculate versions programmatically without shelling out to the CLI.
+
+```go
+import "go-gitsemver/pkg/gitsemver"
+
+// Local mode — calculate from a local git repository
+result, err := gitsemver.Calculate(gitsemver.LocalOptions{
+    Path: ".",
+})
+fmt.Println(result.Variables["SemVer"]) // "1.2.3"
+
+// Remote mode — calculate via GitHub API (no clone needed)
+result, err := gitsemver.CalculateRemote(gitsemver.RemoteOptions{
+    Owner: "myorg",
+    Repo:  "myrepo",
+    Token: os.Getenv("GITHUB_TOKEN"),
+    Ref:   "main",
+})
+fmt.Println(result.Variables["FullSemVer"]) // "1.2.3+5"
+```
+
+`result.Variables` is a `map[string]string` containing all 30+ output variables (`SemVer`, `FullSemVer`, `Major`, `Minor`, `Patch`, `BranchName`, `Sha`, etc.).
+
+See [example/main.go](example/main.go) for a runnable example.
+
 ## Workflow examples
 
 ### GitFlow
@@ -453,6 +481,7 @@ make ci              # Full CI pipeline (fmt + lint + test-all + coverage + buil
 | [Version Strategies](docs/VERSION_STRATEGIES.md) | How the 6 version discovery strategies work |
 | [Architecture](docs/ARCHITECTURE.md) | Package structure and design principles |
 | [Features](docs/FEATURES.md) | Key features and design highlights |
+| [Go Library Example](example/main.go) | Runnable example of the `pkg/gitsemver` library API |
 
 ## Acknowledgements
 

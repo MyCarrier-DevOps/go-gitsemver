@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../gitsemver-schema.json
+# yaml-language-server: $schema=../../go-gitsemver-schema.json
 # Conventional Commits Only
 #
 # Uses ONLY Conventional Commits for determining version increments.

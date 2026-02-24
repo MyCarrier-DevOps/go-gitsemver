@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../gitsemver-schema.json
+# yaml-language-server: $schema=../../go-gitsemver-schema.json
 # Mainline Mode
 #
 # Aggregate-increment versioning for trunk-based and hybrid workflows.
@@ -27,6 +27,7 @@
 # where main uses Mainline but develop uses ContinuousDelivery.
 
 mode: Mainline
+mainline-increment: Aggregate
 tag-prefix: '[vV]'
 commit-message-convention: both
 
