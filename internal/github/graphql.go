@@ -7,6 +7,7 @@ import (
 	"go-gitsemver/internal/git"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -147,7 +148,7 @@ func (r *GitHubRepository) executeGraphQL(query string, variables map[string]int
 
 	graphqlURL := "https://api.github.com/graphql"
 	if r.baseURL != "" {
-		graphqlURL = r.baseURL + "/graphql"
+		graphqlURL = deriveGraphQLURL(r.baseURL)
 	}
 
 	httpReq, err := http.NewRequestWithContext(r.ctx, http.MethodPost, graphqlURL, bytes.NewReader(bodyBytes))
@@ -208,6 +209,11 @@ func (r *GitHubRepository) fetchAllBranchesGraphQL() ([]git.Branch, error) {
 		}
 
 		for _, node := range resp.Repository.Refs.Nodes {
+			// Skip branches with empty OID (e.g., unborn branches).
+			if node.Target.OID == "" {
+				continue
+			}
+
 			commit := commitFromRefTarget(node.Target)
 			r.cache.putCommit(commit)
 
@@ -289,6 +295,20 @@ func (r *GitHubRepository) fetchAllTagsGraphQL() ([]git.Tag, error) {
 	}
 
 	return tags, nil
+}
+
+// deriveGraphQLURL converts a GitHub REST API base URL to the corresponding
+// GraphQL endpoint. For GitHub Enterprise, the REST base URL is typically
+// "https://ghe.example.com/api/v3" and the GraphQL endpoint is
+// "https://ghe.example.com/api/graphql" (not "/api/v3/graphql").
+func deriveGraphQLURL(baseURL string) string {
+	if strings.HasSuffix(baseURL, "/api/v3") {
+		return baseURL[:len(baseURL)-len("/api/v3")] + "/api/graphql"
+	}
+	if strings.HasSuffix(baseURL, "/api/v3/") {
+		return baseURL[:len(baseURL)-len("/api/v3/")] + "/api/graphql"
+	}
+	return strings.TrimRight(baseURL, "/") + "/graphql"
 }
 
 // commitFromRefTarget converts a GraphQL ref target to a git.Commit.

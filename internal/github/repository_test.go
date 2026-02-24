@@ -1207,9 +1207,49 @@ func TestHead_BranchAPIError(t *testing.T) {
 	repo, cleanup := newTestRepo(t, mux, WithRef("broken"))
 	defer cleanup()
 
+	// Branch returns 404, tag resolution also fails → final error from "getting ref"
 	_, err := repo.Head()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "getting branch")
+	require.Contains(t, err.Error(), "getting ref")
+}
+
+func TestHead_TagRef(t *testing.T) {
+	commitSha := "abcdef1234567890abcdef1234567890abcdef12"
+	mux := http.NewServeMux()
+
+	// Branch lookup returns 404 (it's a tag, not a branch).
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/branches/v1.0.0", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+	})
+
+	// Tag ref resolves to a commit.
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/git/ref/tags/v1.0.0", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]interface{}{
+			"ref": "refs/tags/v1.0.0",
+			"object": map[string]interface{}{
+				"sha":  commitSha,
+				"type": "commit",
+			},
+		})
+	})
+
+	// Commit lookup for the resolved SHA.
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/commits/"+commitSha, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]interface{}{
+			"sha":     commitSha,
+			"commit":  map[string]interface{}{"message": "release v1", "committer": map[string]interface{}{"date": "2025-06-01T00:00:00Z"}},
+			"parents": []map[string]interface{}{},
+		})
+	})
+
+	repo, cleanup := newTestRepo(t, mux, WithRef("v1.0.0"))
+	defer cleanup()
+
+	head, err := repo.Head()
+	require.NoError(t, err)
+	require.True(t, head.IsDetachedHead)
+	require.Equal(t, commitSha, head.Tip.Sha)
+	require.Equal(t, "v1.0.0", head.Name.Friendly)
 }
 
 func TestHead_DetachedSHA_CommitError(t *testing.T) {
@@ -1303,4 +1343,131 @@ func TestBranchesContainingCommit_NilTipSkipped(t *testing.T) {
 	result, err := repo.BranchesContainingCommit("some_sha")
 	require.NoError(t, err)
 	require.Empty(t, result)
+}
+
+func TestDeriveGraphQLURL(t *testing.T) {
+	tests := []struct {
+		baseURL  string
+		expected string
+	}{
+		{"https://ghe.example.com/api/v3", "https://ghe.example.com/api/graphql"},
+		{"https://ghe.example.com/api/v3/", "https://ghe.example.com/api/graphql"},
+		{"https://custom.github.com/v4", "https://custom.github.com/v4/graphql"},
+		{"https://example.com", "https://example.com/graphql"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.baseURL, func(t *testing.T) {
+			require.Equal(t, tt.expected, deriveGraphQLURL(tt.baseURL))
+		})
+	}
+}
+
+func TestVersionTagSHAs_OnlySemverTags(t *testing.T) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
+		tags := []map[string]interface{}{
+			{
+				"name": "v1.0.0",
+				"target": map[string]interface{}{
+					"__typename":    "Commit",
+					"oid":           "semver_commit",
+					"message":       "release",
+					"committedDate": "2025-01-01T00:00:00Z",
+					"parents":       map[string]interface{}{"nodes": []interface{}{}},
+				},
+			},
+			{
+				"name": "deploy-2025-01-15",
+				"target": map[string]interface{}{
+					"__typename":    "Commit",
+					"oid":           "deploy_commit",
+					"message":       "deploy",
+					"committedDate": "2025-01-15T00:00:00Z",
+					"parents":       map[string]interface{}{"nodes": []interface{}{}},
+				},
+			},
+			{
+				"name": "nightly",
+				"target": map[string]interface{}{
+					"__typename":    "Commit",
+					"oid":           "nightly_commit",
+					"message":       "nightly",
+					"committedDate": "2025-01-20T00:00:00Z",
+					"parents":       map[string]interface{}{"nodes": []interface{}{}},
+				},
+			},
+		}
+		writeJSON(w, graphQLTagsResponse(tags, false, ""))
+	})
+
+	repo, _, cleanup := newTestRepoWithGraphQL(t, mux)
+	defer cleanup()
+
+	_, err := repo.Tags()
+	require.NoError(t, err)
+
+	// Only the semver tag commit should be in versionTagSHAs.
+	require.True(t, repo.versionTagSHAs["semver_commit"])
+	require.False(t, repo.versionTagSHAs["deploy_commit"])
+	require.False(t, repo.versionTagSHAs["nightly_commit"])
+}
+
+func TestBranches_GraphQL_SkipsEmptyOID(t *testing.T) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
+		branches := []map[string]interface{}{
+			{
+				"name": "main",
+				"target": map[string]interface{}{
+					"oid":           "aaa1111111111111111111111111111111111111",
+					"message":       "init",
+					"committedDate": "2025-01-01T00:00:00Z",
+					"parents":       map[string]interface{}{"nodes": []interface{}{}},
+				},
+			},
+			{
+				// Branch with empty OID (unborn branch).
+				"name":   "empty-branch",
+				"target": map[string]interface{}{"oid": ""},
+			},
+			{
+				// Branch with missing OID entirely.
+				"name":   "no-oid-branch",
+				"target": map[string]interface{}{},
+			},
+		}
+		writeJSON(w, graphQLBranchesResponse(branches, false, ""))
+	})
+
+	repo, _, cleanup := newTestRepoWithGraphQL(t, mux)
+	defer cleanup()
+
+	result, err := repo.Branches()
+	require.NoError(t, err)
+	// Only "main" should be included; empty/missing OID branches are skipped.
+	require.Len(t, result, 1)
+	require.Equal(t, "main", result[0].FriendlyName())
+}
+
+func TestSemverTagPattern(t *testing.T) {
+	tests := []struct {
+		tag   string
+		match bool
+	}{
+		{"v1.0.0", true},
+		{"1.0.0", true},
+		{"v2.3.4-beta.1", true},
+		{"v10.20.30", true},
+		{"deploy-2025-01-15", false},
+		{"nightly", false},
+		{"release-candidate", false},
+		{"latest", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.tag, func(t *testing.T) {
+			require.Equal(t, tt.match, semverTagPattern.MatchString(tt.tag))
+		})
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go-gitsemver/internal/git"
+	"net/http"
 	"regexp"
 	"time"
 
@@ -74,6 +75,11 @@ func (r *GitHubRepository) WorkingDirectory() string {
 
 var hexPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
+// semverTagPattern matches tag names that look like semantic versions (e.g., "v1.0.0", "1.2.3-beta.1").
+// Used to filter versionTagSHAs so early termination only triggers on actual version tags,
+// not deploy markers or other non-version tags.
+var semverTagPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+`)
+
 func (r *GitHubRepository) IsHeadDetached() bool {
 	return hexPattern.MatchString(r.ref)
 }
@@ -110,22 +116,49 @@ func (r *GitHubRepository) Head() (git.Branch, error) {
 		return branch, nil
 	}
 
-	// Fetch the branch tip.
-	ghBranch, _, err := r.client.Repositories.GetBranch(r.ctx, r.owner, r.repo, ref, 0)
-	if err != nil {
-		return git.Branch{}, fmt.Errorf("getting branch %s: %w", ref, err)
+	// Try resolving as a branch first.
+	ghBranch, resp, err := r.client.Repositories.GetBranch(r.ctx, r.owner, r.repo, ref, 0)
+	if err == nil {
+		tipCommit := convertGitHubCommit(ghBranch.GetCommit())
+		r.cache.putCommit(tipCommit)
+
+		branch := git.Branch{
+			Name:     git.NewBranchReferenceName(ref),
+			Tip:      &tipCommit,
+			IsRemote: false,
+		}
+		r.cache.putHead(branch)
+		return branch, nil
 	}
 
-	tipCommit := convertGitHubCommit(ghBranch.GetCommit())
-	r.cache.putCommit(tipCommit)
-
-	branch := git.Branch{
-		Name:     git.NewBranchReferenceName(ref),
-		Tip:      &tipCommit,
-		IsRemote: false,
+	// If branch lookup returned 404, try resolving as a tag.
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		ghRef, _, tagErr := r.client.Git.GetRef(r.ctx, r.owner, r.repo, "tags/"+ref)
+		if tagErr == nil && ghRef.GetObject() != nil {
+			commitSha := ghRef.GetObject().GetSHA()
+			// If the ref points to a tag object, peel to the commit.
+			if ghRef.GetObject().GetType() == "tag" {
+				tagObj, _, peelErr := r.client.Git.GetTag(r.ctx, r.owner, r.repo, commitSha)
+				if peelErr == nil && tagObj.GetObject() != nil {
+					commitSha = tagObj.GetObject().GetSHA()
+				}
+			}
+			commit, commitErr := r.CommitFromSha(commitSha)
+			if commitErr != nil {
+				return git.Branch{}, fmt.Errorf("getting tag commit for %s: %w", ref, commitErr)
+			}
+			branch := git.Branch{
+				Name:           git.NewReferenceName("refs/tags/" + ref),
+				Tip:            &commit,
+				IsRemote:       false,
+				IsDetachedHead: true,
+			}
+			r.cache.putHead(branch)
+			return branch, nil
+		}
 	}
-	r.cache.putHead(branch)
-	return branch, nil
+
+	return git.Branch{}, fmt.Errorf("getting ref %s: %w", ref, err)
 }
 
 func (r *GitHubRepository) Branches(_ ...git.PathFilter) ([]git.Branch, error) {
@@ -153,8 +186,12 @@ func (r *GitHubRepository) Tags(_ ...git.PathFilter) ([]git.Tag, error) {
 	}
 
 	// Build the versionTagSHAs set for early termination in CommitLog.
-	// Every commit SHA that a tag resolves to is a potential stop point.
+	// Only include tags that look like semantic versions to avoid premature
+	// termination on non-version tags (e.g., deploy markers).
 	for _, tag := range tags {
+		if !semverTagPattern.MatchString(tag.Name.Friendly) {
+			continue
+		}
 		if commitSha, ok := r.cache.getTagPeel(tag.TargetSha); ok {
 			r.versionTagSHAs[commitSha] = true
 		}

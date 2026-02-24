@@ -140,10 +140,30 @@ func findInstallation(client *gh.Client, owner string) (int64, error) {
 	return 0, fmt.Errorf("no GitHub App installation found for owner %q", owner)
 }
 
+// IsNotFoundError returns true if the error represents an HTTP 404 response
+// from the GitHub API. Used to distinguish "file not found" from auth failures,
+// rate limits, and other errors that should not be silently ignored.
+func IsNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var ghErr *gh.ErrorResponse
+	if errors.As(err, &ghErr) {
+		return ghErr.Response != nil && ghErr.Response.StatusCode == 404
+	}
+	return false
+}
+
 // resolveString returns the flag value if non-empty, otherwise the env var value.
 func resolveString(flag, envKey string) string {
 	if flag != "" {
 		return flag
 	}
 	return os.Getenv(envKey)
+}
+
+// ResolveBaseURL resolves the GitHub API base URL from the flag value or
+// the GITHUB_API_URL environment variable. Returns empty string for github.com.
+func ResolveBaseURL(flagValue string) string {
+	return resolveString(flagValue, "GITHUB_API_URL")
 }

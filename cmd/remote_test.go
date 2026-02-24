@@ -22,12 +22,11 @@ func TestParseOwnerRepo_Valid(t *testing.T) {
 	require.Equal(t, "myrepo", repo)
 }
 
-func TestParseOwnerRepo_NestedPath(t *testing.T) {
-	// "owner/repo/extra" should only split on first "/".
-	owner, repo, err := parseOwnerRepo("myorg/myrepo/extra")
-	require.NoError(t, err)
-	require.Equal(t, "myorg", owner)
-	require.Equal(t, "myrepo/extra", repo)
+func TestParseOwnerRepo_ExtraSlash(t *testing.T) {
+	// GitHub repo names can't contain "/", so "owner/repo/extra" is invalid.
+	_, _, err := parseOwnerRepo("myorg/myrepo/extra")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected owner/repo")
 }
 
 func TestParseOwnerRepo_NoSlash(t *testing.T) {
@@ -199,4 +198,46 @@ func TestLoadRemoteConfig_LocalConfigInvalid(t *testing.T) {
 
 	_, err := loadRemoteConfig(ghRepo)
 	require.Error(t, err)
+}
+
+func TestLoadRemoteConfig_FailsOnAuthError(t *testing.T) {
+	mux := http.NewServeMux()
+	// Return 401 Unauthorized for all config file fetches.
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"message":"Bad credentials"}`, http.StatusUnauthorized)
+	})
+
+	ghRepo, cleanup := newTestGHRepo(t, mux)
+	defer cleanup()
+
+	flagConfig = ""
+	defer func() { flagConfig = "" }()
+
+	_, err := loadRemoteConfig(ghRepo)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "fetching remote config")
+}
+
+func TestLoadRemoteConfig_FailsOnInvalidYAML(t *testing.T) {
+	invalidYAML := "{{{{not valid yaml"
+	encoded := base64.StdEncoding.EncodeToString([]byte(invalidYAML))
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/contents/GitVersion.yml", func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(w, map[string]interface{}{
+			"type":     "file",
+			"encoding": "base64",
+			"content":  encoded,
+		})
+	})
+
+	ghRepo, cleanup := newTestGHRepo(t, mux)
+	defer cleanup()
+
+	flagConfig = ""
+	defer func() { flagConfig = "" }()
+
+	_, err := loadRemoteConfig(ghRepo)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "parsing remote config")
 }

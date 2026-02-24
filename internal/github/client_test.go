@@ -1,6 +1,7 @@
 package github
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -178,4 +179,39 @@ func TestNewClient_InvalidAppIDEnv(t *testing.T) {
 	_, err := NewClient(ClientConfig{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no GitHub authentication provided")
+}
+
+func TestIsNotFoundError(t *testing.T) {
+	// 404 error should be detected.
+	resp := &http.Response{StatusCode: 404}
+	notFoundErr := &gh.ErrorResponse{Response: resp}
+	require.True(t, IsNotFoundError(notFoundErr))
+
+	// Wrapped 404 should still be detected.
+	wrappedErr := fmt.Errorf("fetching file: %w", notFoundErr)
+	require.True(t, IsNotFoundError(wrappedErr))
+
+	// 401 error should not be detected as "not found".
+	resp401 := &http.Response{StatusCode: 401}
+	authErr := &gh.ErrorResponse{Response: resp401}
+	require.False(t, IsNotFoundError(authErr))
+
+	// Non-GitHub error should not match.
+	require.False(t, IsNotFoundError(fmt.Errorf("some other error")))
+
+	// Nil error should return false.
+	require.False(t, IsNotFoundError(nil))
+}
+
+func TestResolveBaseURL(t *testing.T) {
+	// Flag takes precedence.
+	require.Equal(t, "https://ghe.example.com/api/v3", ResolveBaseURL("https://ghe.example.com/api/v3"))
+
+	// Falls back to env.
+	t.Setenv("GITHUB_API_URL", "https://ghe-env.example.com/api/v3")
+	require.Equal(t, "https://ghe-env.example.com/api/v3", ResolveBaseURL(""))
+
+	// Empty when both empty.
+	t.Setenv("GITHUB_API_URL", "")
+	require.Equal(t, "", ResolveBaseURL(""))
 }

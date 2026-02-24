@@ -61,19 +61,22 @@ func remoteRunE(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	// 2. Create GitHub client.
+	// 2. Resolve base URL from flag or env var so both client and repository use it.
+	baseURL := ghprovider.ResolveBaseURL(flagGitHubURL)
+
+	// 3. Create GitHub client.
 	client, err := ghprovider.NewClient(ghprovider.ClientConfig{
 		Token:      flagToken,
 		AppID:      flagAppID,
 		AppKeyPath: flagAppKeyPath,
-		BaseURL:    flagGitHubURL,
+		BaseURL:    baseURL,
 		Owner:      owner,
 	})
 	if err != nil {
 		return fmt.Errorf("creating GitHub client: %w", err)
 	}
 
-	// 3. Create GitHubRepository.
+	// 4. Create GitHubRepository.
 	var opts []ghprovider.Option
 	if flagRef != "" {
 		opts = append(opts, ghprovider.WithRef(flagRef))
@@ -81,23 +84,23 @@ func remoteRunE(_ *cobra.Command, args []string) error {
 	if flagMaxCommits > 0 {
 		opts = append(opts, ghprovider.WithMaxCommits(flagMaxCommits))
 	}
-	if flagGitHubURL != "" {
-		opts = append(opts, ghprovider.WithBaseURL(flagGitHubURL))
+	if baseURL != "" {
+		opts = append(opts, ghprovider.WithBaseURL(baseURL))
 	}
 	ghRepo := ghprovider.NewGitHubRepository(client, owner, repo, opts...)
 
-	// 4. Load configuration.
+	// 5. Load configuration.
 	cfg, err := loadRemoteConfig(ghRepo)
 	if err != nil {
 		return fmt.Errorf("loading configuration: %w", err)
 	}
 
-	// 5. Show config mode.
+	// 6. Show config mode.
 	if flagShowConfig {
 		return showConfig(cfg)
 	}
 
-	// 6. Build context.
+	// 7. Build context.
 	store := git.NewRepositoryStore(ghRepo)
 	ctx, err := configctx.NewContext(store, ghRepo, cfg, configctx.Options{
 		TargetBranch: flagBranch,
@@ -107,13 +110,13 @@ func remoteRunE(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("building context: %w", err)
 	}
 
-	// 7. Resolve effective configuration for current branch.
+	// 8. Resolve effective configuration for current branch.
 	ec, err := ctx.GetEffectiveConfiguration(ctx.CurrentBranch.FriendlyName())
 	if err != nil {
 		return fmt.Errorf("resolving branch configuration: %w", err)
 	}
 
-	// 8. Calculate version.
+	// 9. Calculate version.
 	strategies := strategy.AllStrategies(store)
 	calc := calculator.NewNextVersionCalculator(store, strategies)
 	result, err := calc.Calculate(ctx, ec, flagExplain)
@@ -121,15 +124,15 @@ func remoteRunE(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("calculating version: %w", err)
 	}
 
-	// 9. Compute output variables.
+	// 10. Compute output variables.
 	vars := output.GetVariables(result.Version, ec)
 
-	// 10. Write output.
+	// 11. Write output.
 	return writeOutput(vars)
 }
 
 func parseOwnerRepo(s string) (string, string, error) {
-	parts := strings.SplitN(s, "/", 2)
+	parts := strings.SplitN(s, "/", 3)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", "", fmt.Errorf("invalid repository format %q, expected owner/repo", s)
 	}
@@ -152,11 +155,16 @@ func loadRemoteConfig(ghRepo *ghprovider.GitHubRepository) (*config.Config, erro
 		for _, name := range configFileNames {
 			content, err := ghRepo.FetchFileContent(name)
 			if err != nil {
-				continue
+				// 404 means the file doesn't exist — try the next name.
+				if ghprovider.IsNotFoundError(err) {
+					continue
+				}
+				// Other errors (auth failure, rate limit, network) should not be silently ignored.
+				return nil, fmt.Errorf("fetching remote config %s: %w", name, err)
 			}
 			userCfg, err := config.LoadFromBytes([]byte(content))
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("parsing remote config %s: %w", name, err)
 			}
 			builder.Add(userCfg)
 			break
