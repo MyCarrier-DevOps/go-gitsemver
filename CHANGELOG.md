@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - GitHub App Key Content Split
+
+### Changed
+
+- **`--github-app-key` now accepts PEM key content directly** instead of a file path — ideal for CI secrets where the key is stored as an environment variable or secret
+- **New `--github-app-key-path` flag** accepts a file path to a PEM file (previous behavior of `--github-app-key`)
+- **New `GH_APP_PRIVATE_KEY_PATH` env var** for file-path-based key configuration; `GH_APP_PRIVATE_KEY` now expects PEM content
+- Auth resolution: content (`--github-app-key`/`GH_APP_PRIVATE_KEY`) takes precedence over file path (`--github-app-key-path`/`GH_APP_PRIVATE_KEY_PATH`)
+- SDK `RemoteOptions` now has both `AppKey` (content) and `AppKeyPath` (file path) fields
+
+## [1.5.0] - GitHub Action, Checksum Verification & CI Workflow
+
+### Added
+
+- **GitHub Action** (`.github/actions/setup-go-gitsemver/action.yml`) — composite action that installs go-gitsemver from GitHub Releases with cross-platform support (Linux, macOS, Windows)
+- **`verify-checksum` input** on the GitHub Action — SHA-256 checksum verification against `checksums.txt` (enabled by default); disable with `verify-checksum: 'false'`
+- **`token` input** on the GitHub Action — authenticated downloads to avoid rate limits on private repos
+- **`docs/GITHUB_ACTION.md`** — full documentation for the GitHub Action with usage examples (local mode, remote mode, explain mode), supported platforms, and token usage
+- **`make release-build` target** — cross-compiles for all supported platforms and generates `checksums.txt`
+- **CI workflow updated** — release artifacts and checksums now use `go-gitsemver-*` binary naming
+
 ## [1.4.0] - CLI Rename & Documentation Overhaul
 
 ### Changed

@@ -16,7 +16,7 @@ Tracks completed features, current work, and planned changes for go-gitsemver.
 
 ### GitHub API Remote Provider (Phase 1)
 - `go-gitsemver remote owner/repo` subcommand — calculate versions via GitHub API, no clone required
-- Token auth (`--token` / `GITHUB_TOKEN`) and GitHub App auth (`--github-app-id` / `--github-app-key`)
+- Token auth (`--token` / `GITHUB_TOKEN`) and GitHub App auth (`--github-app-id` + `--github-app-key` for PEM content / `--github-app-key-path` for PEM file)
 - GitHub Enterprise support (`--github-url` / `GITHUB_API_URL`)
 - `--ref` flag for branch, tag, or SHA targeting
 - `--max-commits` safety cap on commit walk depth (default 1000)
@@ -71,6 +71,23 @@ Tracks completed features, current work, and planned changes for go-gitsemver.
 - `RemoteOptions.RemoteConfigPath` SDK field for programmatic remote config path control
 - `testutil.WriteConfigAt()` helper for testing config files at custom paths
 
+### CLI Rename & Documentation Overhaul (Phase 6)
+- CLI binary renamed from `gitsemver` to `go-gitsemver` — all commands, makefile, CI workflow updated
+- All documentation updated to use `go-gitsemver` consistently
+- `docs/ARCHITECTURE.md` package tree updated to reflect `pkg/sdk/`
+
+### GitHub App Key Split, Checksum Verification & CI (Phase 7)
+- `--github-app-key` now accepts PEM key content directly (ideal for CI secrets)
+- New `--github-app-key-path` flag for file path to PEM file (previous behavior)
+- New env vars: `GH_APP_PRIVATE_KEY` (content), `GH_APP_PRIVATE_KEY_PATH` (file path)
+- Auth resolution: content takes precedence over file path
+- SDK `RemoteOptions` has both `AppKey` (content) and `AppKeyPath` (file path) fields
+- GitHub Action: SHA-256 checksum verification via `checksums.txt` (enabled by default)
+- GitHub Action: `verify-checksum` input to disable verification
+- `make release-build` target: cross-compiles all platforms and generates `checksums.txt`
+- CI workflow updated: release artifacts use `go-gitsemver-*` naming
+- Files: `internal/github/client.go`, `cmd/remote.go`, `pkg/sdk/sdk.go`, `.github/actions/setup-go-gitsemver/action.yml`, `.github/workflows/ci.yaml`, `makefile`
+
 ## Test Coverage
 - 589 tests across unit, integration, and end-to-end suites
 - 85% overall coverage
@@ -87,3 +104,4 @@ Tracks completed features, current work, and planned changes for go-gitsemver.
 - `docs/VERSION_STRATEGIES.md` — 6 version discovery strategies
 - `docs/FEATURES.md` — key features and design highlights
 - `docs/examples/` — example configuration files
+- `docs/GITHUB_ACTION.md` — GitHub Action setup, usage examples, checksum verification

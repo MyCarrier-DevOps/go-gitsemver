@@ -21,7 +21,8 @@ go-gitsemver --explain                       # show how the version was calculat
 GITHUB_TOKEN=ghp_xxx go-gitsemver remote owner/repo
 go-gitsemver remote owner/repo --token ghp_xxx --ref main
 go-gitsemver remote owner/repo --remote-config-path .github/GitVersion.yml
-go-gitsemver remote owner/repo --github-app-id 12345 --github-app-key key.pem
+go-gitsemver remote owner/repo --github-app-id 12345 --github-app-key "$APP_PRIVATE_KEY"
+go-gitsemver remote owner/repo --github-app-id 12345 --github-app-key-path /path/to/key.pem
 ```
 
 **What it gives you:** `SemVer`, `FullSemVer`, `Major`, `Minor`, `Patch`, `BranchName`, `Sha`, `CommitDate`, `NuGetVersionV2`, and 20+ more output variables.
@@ -115,8 +116,9 @@ go-gitsemver remote myorg/myrepo --token ghp_xxx --ref main --show-variable SemV
 # Point to a specific config file in the remote repo
 go-gitsemver remote myorg/myrepo --token ghp_xxx --remote-config-path .github/GitVersion.yml
 
-# GitHub App auth
-go-gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key /path/to/key.pem
+# GitHub App auth (PEM content or file path)
+go-gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key "$APP_PRIVATE_KEY"
+go-gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key-path /path/to/key.pem
 
 # GitHub Enterprise
 go-gitsemver remote myorg/myrepo --token ghp_xxx --github-url https://ghe.example.com/api/v3
@@ -206,13 +208,14 @@ hotfix:     1.0.2-beta.1
 |------|---------|---------|-------------|
 | `--token` | `GITHUB_TOKEN` | | GitHub personal access token or Actions token |
 | `--github-app-id` | `GH_APP_ID` | | GitHub App ID |
-| `--github-app-key` | `GH_APP_PRIVATE_KEY` | | Path to GitHub App private key PEM file |
+| `--github-app-key` | `GH_APP_PRIVATE_KEY` | | GitHub App private key PEM content |
+| `--github-app-key-path` | `GH_APP_PRIVATE_KEY_PATH` | | Path to GitHub App private key PEM file |
 | `--github-url` | `GITHUB_API_URL` | | GitHub Enterprise API base URL |
 | `--ref` | | *(default branch)* | Branch, tag, or SHA to version |
 | `--max-commits` | | `1000` | Maximum commit depth to walk via API |
 | `--remote-config-path` | | *(auto-detect)* | Path to config file in the remote repo (e.g. `.github/GitVersion.yml`) |
 
-Authentication is resolved in order: `--token`/`GITHUB_TOKEN` > `--github-app-id` + `--github-app-key` > error.
+Authentication is resolved in order: `--token`/`GITHUB_TOKEN` > `--github-app-id` + `--github-app-key` (content) > `--github-app-id` + `--github-app-key-path` (file) > error.
 
 ## Configuration
 

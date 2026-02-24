@@ -28,7 +28,7 @@ GITHUB_TOKEN=ghp_xxx go-gitsemver remote myorg/myrepo --show-variable SemVer
 - **GraphQL batch fetching** — Branches and tags are fetched in a single GraphQL query each, avoiding N+1 REST calls. Tag peel info is pre-resolved, so `PeelTagToCommit` returns instantly from cache.
 - **Smart early termination** — The `Tags()` GraphQL query gives us the set of commit SHAs that have version tags. During the paginated commit walk, once a tagged commit is found, one more buffer page is fetched and the walk stops. The common case is 1-3 API calls, not hundreds.
 - **In-memory caching** — Branches, tags, commits, merge bases, and commit logs are cached for the duration of the run. `RepositoryStore` calls the same methods repeatedly (e.g., `Tags()` called by 3 strategies), so caching eliminates redundant API calls.
-- **Dual auth** — Token auth (`--token` / `GITHUB_TOKEN`) and GitHub App auth (`--github-app-id` + `--github-app-key`) with automatic installation detection. Works with GitHub Enterprise via `--github-url`.
+- **Dual auth** — Token auth (`--token` / `GITHUB_TOKEN`) and GitHub App auth (`--github-app-id` + `--github-app-key` for PEM content or `--github-app-key-path` for PEM file) with automatic installation detection. Works with GitHub Enterprise via `--github-url`.
 - **Safety cap** — `--max-commits` (default 1000) prevents runaway API usage on repos with no version tags.
 
 ---

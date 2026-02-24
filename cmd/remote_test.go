@@ -56,6 +56,7 @@ func TestRemoteCmd_HasExpectedFlags(t *testing.T) {
 	require.NotNil(t, flags.Lookup("token"))
 	require.NotNil(t, flags.Lookup("github-app-id"))
 	require.NotNil(t, flags.Lookup("github-app-key"))
+	require.NotNil(t, flags.Lookup("github-app-key-path"))
 	require.NotNil(t, flags.Lookup("github-url"))
 	require.NotNil(t, flags.Lookup("ref"))
 	require.NotNil(t, flags.Lookup("max-commits"))

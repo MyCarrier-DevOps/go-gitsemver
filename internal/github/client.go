@@ -23,8 +23,12 @@ type ClientConfig struct {
 	// Falls back to GH_APP_ID env var if zero.
 	AppID int64
 
-	// AppKeyPath is the path to a GitHub App private key PEM file.
+	// AppKey is the PEM-encoded GitHub App private key content.
 	// Falls back to GH_APP_PRIVATE_KEY env var if empty.
+	AppKey string
+
+	// AppKeyPath is the path to a GitHub App private key PEM file.
+	// Falls back to GH_APP_PRIVATE_KEY_PATH env var if empty.
 	AppKeyPath string
 
 	// BaseURL is a custom GitHub API base URL for GitHub Enterprise.
@@ -36,7 +40,7 @@ type ClientConfig struct {
 }
 
 // NewClient creates an authenticated GitHub API client.
-// Auth resolution order: Token flag → GITHUB_TOKEN env → App credentials → error.
+// Auth resolution order: Token → App key content → App key file → error.
 func NewClient(cfg ClientConfig) (*gh.Client, error) {
 	baseURL := resolveString(cfg.BaseURL, "GITHUB_API_URL")
 
@@ -55,13 +59,20 @@ func NewClient(cfg ClientConfig) (*gh.Client, error) {
 			}
 		}
 	}
-	appKey := resolveString(cfg.AppKeyPath, "GH_APP_PRIVATE_KEY")
 
+	// Try key content first (--github-app-key / GH_APP_PRIVATE_KEY).
+	appKey := resolveString(cfg.AppKey, "GH_APP_PRIVATE_KEY")
 	if appID != 0 && appKey != "" {
-		return newAppClient(appID, appKey, cfg.Owner, baseURL)
+		return newAppClientFromKey(appID, []byte(appKey), cfg.Owner, baseURL)
 	}
 
-	return nil, errors.New("no GitHub authentication provided: set GITHUB_TOKEN, use --token, or provide --github-app-id and --github-app-key")
+	// Try key file path (--github-app-key-path / GH_APP_PRIVATE_KEY_PATH).
+	appKeyPath := resolveString(cfg.AppKeyPath, "GH_APP_PRIVATE_KEY_PATH")
+	if appID != 0 && appKeyPath != "" {
+		return newAppClientFromFile(appID, appKeyPath, cfg.Owner, baseURL)
+	}
+
+	return nil, errors.New("no GitHub authentication provided: set GITHUB_TOKEN, use --token, or provide --github-app-id with --github-app-key or --github-app-key-path")
 }
 
 func newTokenClient(token, baseURL string) (*gh.Client, error) {
@@ -74,7 +85,7 @@ func newTokenClient(token, baseURL string) (*gh.Client, error) {
 	return gh.NewClient(httpClient), nil
 }
 
-func newAppClient(appID int64, keyPath, owner, baseURL string) (*gh.Client, error) {
+func newAppClientFromFile(appID int64, keyPath, owner, baseURL string) (*gh.Client, error) {
 	// Create an app-level transport to discover the installation ID.
 	appTransport, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appID, keyPath)
 	if err != nil {
@@ -100,6 +111,46 @@ func newAppClient(appID int64, keyPath, owner, baseURL string) (*gh.Client, erro
 
 	// Create an installation-level transport with the discovered ID.
 	installTransport, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appID, installationID, keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("creating installation transport: %w", err)
+	}
+	if baseURL != "" {
+		installTransport.BaseURL = baseURL
+	}
+
+	client := gh.NewClient(&http.Client{Transport: installTransport})
+	if baseURL != "" {
+		return client.WithEnterpriseURLs(baseURL, baseURL)
+	}
+	return client, nil
+}
+
+func newAppClientFromKey(appID int64, key []byte, owner, baseURL string) (*gh.Client, error) {
+	// Create an app-level transport from key bytes.
+	appTransport, err := ghinstallation.NewAppsTransport(http.DefaultTransport, appID, key)
+	if err != nil {
+		return nil, fmt.Errorf("creating GitHub App transport: %w", err)
+	}
+	if baseURL != "" {
+		appTransport.BaseURL = baseURL
+	}
+
+	// Find the installation for the target owner.
+	appClient := gh.NewClient(&http.Client{Transport: appTransport})
+	if baseURL != "" {
+		appClient, err = appClient.WithEnterpriseURLs(baseURL, baseURL)
+		if err != nil {
+			return nil, fmt.Errorf("setting enterprise URL: %w", err)
+		}
+	}
+
+	installationID, err := findInstallation(appClient, owner)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create an installation-level transport from key bytes.
+	installTransport, err := ghinstallation.New(http.DefaultTransport, appID, installationID, key)
 	if err != nil {
 		return nil, fmt.Errorf("creating installation transport: %w", err)
 	}

@@ -67,6 +67,9 @@ type RemoteOptions struct {
 	// AppID is the GitHub App ID for app authentication.
 	AppID int64
 
+	// AppKey is the PEM-encoded GitHub App private key content.
+	AppKey string
+
 	// AppKeyPath is the path to a GitHub App private key PEM file.
 	AppKeyPath string
 
@@ -194,6 +197,7 @@ func CalculateRemote(opts RemoteOptions) (*Result, error) {
 	client, err := ghprovider.NewClient(ghprovider.ClientConfig{
 		Token:      opts.Token,
 		AppID:      opts.AppID,
+		AppKey:     opts.AppKey,
 		AppKeyPath: opts.AppKeyPath,
 		BaseURL:    opts.BaseURL,
 		Owner:      opts.Owner,

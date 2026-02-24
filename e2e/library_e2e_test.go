@@ -652,6 +652,7 @@ func TestLibrary_CalculateRemote_ValidationErrors(t *testing.T) {
 		t.Setenv("GITHUB_TOKEN", "")
 		t.Setenv("GH_APP_ID", "")
 		t.Setenv("GH_APP_PRIVATE_KEY", "")
+		t.Setenv("GH_APP_PRIVATE_KEY_PATH", "")
 
 		_, err := sdk.CalculateRemote(sdk.RemoteOptions{
 			Owner: "myorg",

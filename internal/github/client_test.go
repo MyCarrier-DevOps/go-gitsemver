@@ -35,6 +35,7 @@ func TestNewClient_NoAuth(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("GH_APP_ID", "")
 	t.Setenv("GH_APP_PRIVATE_KEY", "")
+	t.Setenv("GH_APP_PRIVATE_KEY_PATH", "")
 
 	_, err := NewClient(ClientConfig{})
 	require.Error(t, err)
@@ -64,9 +65,10 @@ func TestNewClient_TokenWithBaseURL(t *testing.T) {
 }
 
 func TestNewClient_AppAuthMissingKey(t *testing.T) {
-	// AppID set but no key path — should fall through to "no auth" error.
+	// AppID set but no key — should fall through to "no auth" error.
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("GH_APP_PRIVATE_KEY", "")
+	t.Setenv("GH_APP_PRIVATE_KEY_PATH", "")
 
 	_, err := NewClient(ClientConfig{AppID: 12345})
 	require.Error(t, err)
@@ -89,7 +91,8 @@ func TestNewClient_AppAuthBadKeyFile(t *testing.T) {
 func TestNewClient_AppIDFromEnv(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("GH_APP_ID", "99999")
-	t.Setenv("GH_APP_PRIVATE_KEY", "/nonexistent/key.pem")
+	t.Setenv("GH_APP_PRIVATE_KEY", "")
+	t.Setenv("GH_APP_PRIVATE_KEY_PATH", "/nonexistent/key.pem")
 
 	_, err := NewClient(ClientConfig{Owner: "testorg"})
 	require.Error(t, err)
@@ -176,6 +179,7 @@ func TestNewClient_InvalidAppIDEnv(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("GH_APP_ID", "not-a-number")
 	t.Setenv("GH_APP_PRIVATE_KEY", "")
+	t.Setenv("GH_APP_PRIVATE_KEY_PATH", "")
 
 	_, err := NewClient(ClientConfig{})
 	require.Error(t, err)
@@ -202,6 +206,57 @@ func TestIsNotFoundError(t *testing.T) {
 
 	// Nil error should return false.
 	require.False(t, IsNotFoundError(nil))
+}
+
+func TestNewClient_AppAuthWithKeyContent(t *testing.T) {
+	// AppID and key content set, but key content is invalid PEM — should fail
+	// at transport creation, not at "no auth".
+	t.Setenv("GITHUB_TOKEN", "")
+
+	_, err := NewClient(ClientConfig{
+		AppID:  12345,
+		AppKey: "not-a-valid-pem-key",
+		Owner:  "testorg",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "creating GitHub App transport")
+}
+
+func TestNewClient_AppKeyContentPrecedence(t *testing.T) {
+	// When both AppKey (content) and AppKeyPath are set, content is tried first.
+	t.Setenv("GITHUB_TOKEN", "")
+
+	_, err := NewClient(ClientConfig{
+		AppID:      12345,
+		AppKey:     "invalid-pem-content",
+		AppKeyPath: "/this/should/not/be/read.pem",
+		Owner:      "testorg",
+	})
+	require.Error(t, err)
+	// Should fail on key content parsing, NOT on file-not-found.
+	require.Contains(t, err.Error(), "creating GitHub App transport")
+}
+
+func TestNewClient_AppKeyPathEnvFallback(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_APP_ID", "99999")
+	t.Setenv("GH_APP_PRIVATE_KEY", "")
+	t.Setenv("GH_APP_PRIVATE_KEY_PATH", "/nonexistent/key.pem")
+
+	_, err := NewClient(ClientConfig{Owner: "testorg"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "creating GitHub App transport")
+}
+
+func TestNewClient_AppKeyContentEnvFallback(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_APP_ID", "99999")
+	t.Setenv("GH_APP_PRIVATE_KEY", "invalid-pem-from-env")
+	t.Setenv("GH_APP_PRIVATE_KEY_PATH", "")
+
+	_, err := NewClient(ClientConfig{Owner: "testorg"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "creating GitHub App transport")
 }
 
 func TestResolveBaseURL(t *testing.T) {

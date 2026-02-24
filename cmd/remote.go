@@ -21,6 +21,7 @@ import (
 var (
 	flagToken            string
 	flagAppID            int64
+	flagAppKey           string
 	flagAppKeyPath       string
 	flagGitHubURL        string
 	flagRef              string
@@ -36,12 +37,14 @@ GitHub API. No local clone is required.
 
 Authentication (checked in order):
   1. --token flag or GITHUB_TOKEN env var
-  2. --github-app-id + --github-app-key flags or GH_APP_ID + GH_APP_PRIVATE_KEY env vars
+  2. --github-app-id + --github-app-key (PEM content) or GH_APP_ID + GH_APP_PRIVATE_KEY env vars
+  3. --github-app-id + --github-app-key-path (PEM file) or GH_APP_ID + GH_APP_PRIVATE_KEY_PATH env vars
 
 Examples:
-  GITHUB_TOKEN=ghp_xxx gitsemver remote myorg/myrepo
-  gitsemver remote myorg/myrepo --token ghp_xxx --ref main
-  gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key /path/to/key.pem`,
+  GITHUB_TOKEN=ghp_xxx go-gitsemver remote myorg/myrepo
+  go-gitsemver remote myorg/myrepo --token ghp_xxx --ref main
+  go-gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key "$APP_PRIVATE_KEY"
+  go-gitsemver remote myorg/myrepo --github-app-id 12345 --github-app-key-path /path/to/key.pem`,
 	Args: cobra.ExactArgs(1),
 	RunE: remoteRunE,
 }
@@ -49,7 +52,8 @@ Examples:
 func init() {
 	remoteCmd.Flags().StringVar(&flagToken, "token", "", "GitHub token (or set GITHUB_TOKEN env var)")
 	remoteCmd.Flags().Int64Var(&flagAppID, "github-app-id", 0, "GitHub App ID (or set GH_APP_ID env var)")
-	remoteCmd.Flags().StringVar(&flagAppKeyPath, "github-app-key", "", "path to GitHub App private key PEM file (or set GH_APP_PRIVATE_KEY env var)")
+	remoteCmd.Flags().StringVar(&flagAppKey, "github-app-key", "", "GitHub App private key PEM content (or set GH_APP_PRIVATE_KEY env var)")
+	remoteCmd.Flags().StringVar(&flagAppKeyPath, "github-app-key-path", "", "path to GitHub App private key PEM file (or set GH_APP_PRIVATE_KEY_PATH env var)")
 	remoteCmd.Flags().StringVar(&flagGitHubURL, "github-url", "", "GitHub API base URL for GitHub Enterprise (or set GITHUB_API_URL env var)")
 	remoteCmd.Flags().StringVar(&flagRef, "ref", "", "git ref to version: branch, tag, or SHA (default: repo default branch)")
 	remoteCmd.Flags().IntVar(&flagMaxCommits, "max-commits", 1000, "maximum commit depth to walk via API")
@@ -72,6 +76,7 @@ func remoteRunE(_ *cobra.Command, args []string) error {
 	client, err := ghprovider.NewClient(ghprovider.ClientConfig{
 		Token:      flagToken,
 		AppID:      flagAppID,
+		AppKey:     flagAppKey,
 		AppKeyPath: flagAppKeyPath,
 		BaseURL:    baseURL,
 		Owner:      owner,
