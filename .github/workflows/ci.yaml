@@ -140,7 +140,7 @@ jobs:
           EXT=""
           if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
           OUTFILE="go-gitsemver-${GOOS}-${GOARCH}${EXT}"
-          go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o "dist/${OUTFILE}" .
+          CGO_ENABLED=0 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o "dist/${OUTFILE}" .
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
