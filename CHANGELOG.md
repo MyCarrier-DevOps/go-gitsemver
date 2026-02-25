@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - GitHub Action: Setup + Run
+
+### Changed
+
+- **GitHub Action now installs and runs go-gitsemver in a single step** — previously it only installed the binary; consumers had to add their own run step to calculate the version
+- **All 30+ version variables exported as `GO_GITSEMVER_*` step outputs** — uses `-o json` and `jq` to parse and export each variable (e.g., `GO_GITSEMVER_SemVer`, `GO_GITSEMVER_MajorMinorPatch`, `GO_GITSEMVER_Sha`)
+- **`GO_GITSEMVER_JSON` output** — full JSON object of all variables available as a single output
+- **Collapsible JSON log and notice** — the Calculate step prints the full JSON in a `::group::` and a `::notice::` summary with version, branch, SHA, and commit count
+- **Action renamed** from "Setup go-gitsemver" to "go-gitsemver"
+
+### Removed
+
+- **Remote mode inputs removed from the action** (`mode`, `repository`, `ref`, `github-token`, `max-commits`, `remote-config-path`) — the action now targets local mode only; users checkout code with `fetch-depth: 0`
+- **Versioning flag inputs removed from the action** (`branch`, `commit`, `config`, `explain`, `verbosity`) — the tool auto-detects everything from the checked-out repo; zero-config by design
+
+## [1.8.0] - Mainline Pre-release Tag Refactor
+
+### Changed
+
+- **Pre-release tag logic in Mainline mode uses commit count** — refactored `nextversion.go` to use commit count instead of previous pre-release number for Mainline mode pre-release tags
+
 ## [1.7.0] - Bug Fixes & Static Binaries
 
 ### Fixed

@@ -1,16 +1,17 @@
-name: 'Setup go-gitsemver'
-description: 'Install the go-gitsemver CLI from GitHub Releases'
+name: 'go-gitsemver'
+description: 'Install and run go-gitsemver to calculate semantic versions from git history'
 branding:
-  icon: 'download'
+  icon: 'tag'
   color: 'blue'
 
 inputs:
+  # ── Setup ──────────────────────────────────────────────────────────────
   version:
-    description: 'Version to install (e.g., v1.5.0). Use "latest" for the most recent release.'
+    description: 'Version of go-gitsemver to install (e.g., v1.5.0). Use "latest" for the most recent release.'
     required: false
     default: 'latest'
   token:
-    description: 'GitHub token for authenticated downloads (avoids rate limits).'
+    description: 'GitHub token for authenticated binary downloads (avoids rate limits).'
     required: false
     default: ''
   verify-checksum:
@@ -18,9 +19,138 @@ inputs:
     required: false
     default: 'true'
 
+  # ── Repository ──────────────────────────────────────────────────────────
+  path:
+    description: 'Path to the local git repository.'
+    required: false
+    default: '.'
+
+
+outputs:
+  # ── Primary ────────────────────────────────────────────────────────────
+  GO_GITSEMVER_SemVer:
+    description: 'Semantic version (e.g., 1.2.3-beta.4)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_SemVer }}
+  GO_GITSEMVER_FullSemVer:
+    description: 'Full semantic version with build metadata (e.g., 1.2.3-beta.4+5)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_FullSemVer }}
+  GO_GITSEMVER_Major:
+    description: 'Major version number'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_Major }}
+  GO_GITSEMVER_Minor:
+    description: 'Minor version number'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_Minor }}
+  GO_GITSEMVER_Patch:
+    description: 'Patch version number'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_Patch }}
+  GO_GITSEMVER_MajorMinorPatch:
+    description: 'Major.Minor.Patch (e.g., 1.2.3)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_MajorMinorPatch }}
+  GO_GITSEMVER_InformationalVersion:
+    description: 'Full informational version string'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_InformationalVersion }}
+
+  # ── Pre-release ────────────────────────────────────────────────────────
+  GO_GITSEMVER_PreReleaseTag:
+    description: 'Pre-release tag (e.g., beta.4)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_PreReleaseTag }}
+  GO_GITSEMVER_PreReleaseTagWithDash:
+    description: 'Pre-release tag prefixed with dash (e.g., -beta.4)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_PreReleaseTagWithDash }}
+  GO_GITSEMVER_PreReleaseLabel:
+    description: 'Pre-release label name (e.g., beta)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_PreReleaseLabel }}
+  GO_GITSEMVER_PreReleaseLabelWithDash:
+    description: 'Pre-release label prefixed with dash (e.g., -beta)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_PreReleaseLabelWithDash }}
+  GO_GITSEMVER_PreReleaseNumber:
+    description: 'Pre-release counter (e.g., 4)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_PreReleaseNumber }}
+  GO_GITSEMVER_WeightedPreReleaseNumber:
+    description: 'Pre-release number with tag weight applied'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_WeightedPreReleaseNumber }}
+
+  # ── Build metadata ────────────────────────────────────────────────────
+  GO_GITSEMVER_BuildMetaData:
+    description: 'Build metadata (commits since version source)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_BuildMetaData }}
+  GO_GITSEMVER_BuildMetaDataPadded:
+    description: 'Build metadata zero-padded'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_BuildMetaDataPadded }}
+  GO_GITSEMVER_FullBuildMetaData:
+    description: 'Full build metadata string'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_FullBuildMetaData }}
+
+  # ── Git info ───────────────────────────────────────────────────────────
+  GO_GITSEMVER_BranchName:
+    description: 'Branch used for version calculation'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_BranchName }}
+  GO_GITSEMVER_EscapedBranchName:
+    description: 'Branch name safe for use in identifiers'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_EscapedBranchName }}
+  GO_GITSEMVER_Sha:
+    description: 'Full commit SHA'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_Sha }}
+  GO_GITSEMVER_ShortSha:
+    description: 'Short commit SHA'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_ShortSha }}
+  GO_GITSEMVER_VersionSourceSha:
+    description: 'SHA of the version source (tag or merge base)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_VersionSourceSha }}
+  GO_GITSEMVER_CommitsSinceVersionSource:
+    description: 'Number of commits since the version source'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_CommitsSinceVersionSource }}
+  GO_GITSEMVER_CommitsSinceVersionSourcePadded:
+    description: 'Commits since version source, zero-padded'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_CommitsSinceVersionSourcePadded }}
+  GO_GITSEMVER_UncommittedChanges:
+    description: 'Number of uncommitted changes'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_UncommittedChanges }}
+  GO_GITSEMVER_CommitDate:
+    description: 'Commit date formatted per configuration'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_CommitDate }}
+  GO_GITSEMVER_CommitTag:
+    description: 'Commit tag (YY.WW.ShortSha)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_CommitTag }}
+
+  # ── Legacy / Assembly / NuGet ──────────────────────────────────────────
+  GO_GITSEMVER_LegacySemVer:
+    description: 'Legacy SemVer format'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_LegacySemVer }}
+  GO_GITSEMVER_LegacySemVerPadded:
+    description: 'Legacy SemVer format, zero-padded'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_LegacySemVerPadded }}
+  GO_GITSEMVER_AssemblySemVer:
+    description: 'Assembly semantic version (Major.Minor.0.0)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_AssemblySemVer }}
+  GO_GITSEMVER_AssemblySemFileVer:
+    description: 'Assembly file version (Major.Minor.Patch.0)'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_AssemblySemFileVer }}
+  GO_GITSEMVER_AssemblyInformationalVersion:
+    description: 'Assembly informational version'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_AssemblyInformationalVersion }}
+  GO_GITSEMVER_NuGetVersionV2:
+    description: 'NuGet v2 compatible version'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_NuGetVersionV2 }}
+  GO_GITSEMVER_NuGetVersion:
+    description: 'NuGet version'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_NuGetVersion }}
+  GO_GITSEMVER_NuGetPreReleaseTagV2:
+    description: 'NuGet v2 pre-release tag'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_NuGetPreReleaseTagV2 }}
+  GO_GITSEMVER_NuGetPreReleaseTag:
+    description: 'NuGet pre-release tag'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_NuGetPreReleaseTag }}
+
+  # ── Full JSON ──────────────────────────────────────────────────────────
+  GO_GITSEMVER_JSON:
+    description: 'All version variables as a JSON object'
+    value: ${{ steps.run.outputs.GO_GITSEMVER_JSON }}
+
 runs:
   using: 'composite'
   steps:
+    # ── 1. Detect runner platform ────────────────────────────────────────
     - name: Determine platform
       id: platform
       shell: bash
@@ -29,7 +159,6 @@ runs:
         RUNNER_OS="${{ runner.os }}"
         RUNNER_ARCH="${{ runner.arch }}"
 
-        # Map runner.os to release asset names
         case "$RUNNER_OS" in
           Linux)   OS="linux" ;;
           macOS)   OS="darwin" ;;
@@ -37,14 +166,12 @@ runs:
           *)       echo "::error::Unsupported OS: $RUNNER_OS"; exit 1 ;;
         esac
 
-        # Map runner.arch to release asset names
         case "$RUNNER_ARCH" in
           X64)   ARCH="amd64" ;;
           ARM64) ARCH="arm64" ;;
           *)     echo "::error::Unsupported architecture: $RUNNER_ARCH"; exit 1 ;;
         esac
 
-        # Build binary name
         if [ "$OS" = "windows" ]; then
           BINARY="go-gitsemver-${OS}-${ARCH}.exe"
         else
@@ -55,6 +182,7 @@ runs:
         echo "arch=$ARCH" >> "$GITHUB_OUTPUT"
         echo "binary=$BINARY" >> "$GITHUB_OUTPUT"
 
+    # ── 2. Download binary ───────────────────────────────────────────────
     - name: Download go-gitsemver
       shell: bash
       run: |
@@ -105,10 +233,9 @@ runs:
         fi
 
         chmod +x "${DOWNLOAD_DIR}/go-gitsemver"
-        echo "download_dir=$DOWNLOAD_DIR" >> "$GITHUB_OUTPUT"
 
+    # ── 3. Install binary ────────────────────────────────────────────────
     - name: Install go-gitsemver
-      id: download
       shell: bash
       run: |
         DOWNLOAD_DIR="${RUNNER_TEMP:-/tmp}/go-gitsemver-download"
@@ -121,6 +248,49 @@ runs:
         fi
         rm -rf "$DOWNLOAD_DIR"
 
+    # ── 4. Verify installation ───────────────────────────────────────────
     - name: Verify installation
       shell: bash
       run: go-gitsemver version
+
+    # ── 5. Calculate version and export outputs ──────────────────────────
+    - name: Calculate version
+      id: run
+      shell: bash
+      run: |
+        set -eo pipefail
+
+        # ── Build command arguments ──
+        ARGS=()
+
+        if [ "${{ inputs.path }}" != "." ]; then
+          ARGS+=("--path" "${{ inputs.path }}")
+        fi
+
+        ARGS+=("-o" "json")
+
+        echo "Running: go-gitsemver ${ARGS[*]}"
+        JSON=$(go-gitsemver "${ARGS[@]}")
+
+        # ── Export full JSON as output ──
+        {
+          echo "GO_GITSEMVER_JSON<<GITSEMVER_EOF"
+          echo "$JSON"
+          echo "GITSEMVER_EOF"
+        } >> "$GITHUB_OUTPUT"
+
+        # ── Export each variable as GO_GITSEMVER_<Key> ──
+        echo "$JSON" | jq -r 'to_entries[] | "GO_GITSEMVER_\(.key)=\(.value)"' >> "$GITHUB_OUTPUT"
+
+        # ── Print results ──
+        echo "::group::go-gitsemver output"
+        echo "$JSON" | jq .
+        echo "::endgroup::"
+
+        SEMVER=$(echo "$JSON" | jq -r '.SemVer')
+        FULL=$(echo "$JSON" | jq -r '.FullSemVer')
+        BRANCH=$(echo "$JSON" | jq -r '.BranchName')
+        SHA=$(echo "$JSON" | jq -r '.ShortSha')
+        COMMITS=$(echo "$JSON" | jq -r '.CommitsSinceVersionSource')
+
+        echo "::notice::go-gitsemver: ${SEMVER} (${FULL}) on ${BRANCH}@${SHA}, ${COMMITS} commits since last tag"

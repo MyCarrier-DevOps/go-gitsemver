@@ -56,16 +56,22 @@ Download the latest release from [GitHub Releases](../../releases):
 
 ### GitHub Action
 
-Use the setup action to install go-gitsemver in your workflow:
+The action installs and runs go-gitsemver, exporting all version variables as `GO_GITSEMVER_*` step outputs:
 
 ```yaml
-- uses: MyCarrier-DevOps/go-gitsemver/.github/actions/setup-go-gitsemver@main
+- uses: actions/checkout@v4
   with:
-    version: latest
+    fetch-depth: 0
+
+- uses: MyCarrier-DevOps/go-gitsemver/.github/actions/setup-go-gitsemver@main
+  id: version
+  with:
     token: ${{ secrets.GITHUB_TOKEN }}
+
+- run: echo "${{ steps.version.outputs.GO_GITSEMVER_SemVer }}"
 ```
 
-See the full [GitHub Action documentation](docs/GITHUB_ACTION.md) for all usage patterns.
+See the full [GitHub Action documentation](docs/GITHUB_ACTION.md) for all inputs, outputs, and usage patterns.
 
 ### From source
 
@@ -359,7 +365,7 @@ some change +semver: skip           → No bump
 
 ## CI/CD integration
 
-### GitHub Actions (local mode)
+### GitHub Actions (action)
 
 ```yaml
 jobs:
@@ -368,28 +374,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history required for local mode
+          fetch-depth: 0  # Full history required
 
-      - name: Calculate version
+      - uses: MyCarrier-DevOps/go-gitsemver/.github/actions/setup-go-gitsemver@main
         id: version
-        run: echo "semver=$(go-gitsemver --show-variable SemVer)" >> "$GITHUB_OUTPUT"
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
-        run: docker build -t myapp:${{ steps.version.outputs.semver }} .
+        run: docker build -t myapp:${{ steps.version.outputs.GO_GITSEMVER_MajorMinorPatch }} .
 ```
 
-### GitHub Actions (remote mode — no clone needed)
+### GitHub Actions (manual)
 
 ```yaml
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Calculate version
         id: version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "semver=$(go-gitsemver remote ${{ github.repository }} --ref ${{ github.ref_name }} --show-variable SemVer)" >> "$GITHUB_OUTPUT"
+        run: echo "semver=$(go-gitsemver --show-variable SemVer)" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: docker build -t myapp:${{ steps.version.outputs.semver }} .
@@ -502,7 +511,7 @@ make ci              # Full CI pipeline (fmt + lint + test-all + coverage + buil
 | [Version Strategies](docs/VERSION_STRATEGIES.md) | How the 6 version discovery strategies work |
 | [Architecture](docs/ARCHITECTURE.md) | Package structure and design principles |
 | [Features](docs/FEATURES.md) | Key features and design highlights |
-| [GitHub Action](docs/GITHUB_ACTION.md) | Setup action for installing go-gitsemver in CI |
+| [GitHub Action](docs/GITHUB_ACTION.md) | Action that installs and runs go-gitsemver, exporting `GO_GITSEMVER_*` outputs |
 | [Go Library Example](example/main.go) | Runnable example of the `pkg/sdk` library API |
 
 ## Acknowledgements
