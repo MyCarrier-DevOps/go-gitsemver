@@ -16,7 +16,7 @@
 # Version examples (main, after v1.0.0):
 #   5 fix commits:                      → 1.0.1+5
 #   3 fix + 1 feat + 1 fix:             → 1.1.0+5
-#   2 fix + "bump major" + 1 fix:       → 2.0.0+4
+#   2 fix + "bump major:" + 1 fix:      → 2.0.0+4
 #   "feat!: breaking" + 2 fix:          → 2.0.0+3
 #
 # Feature branches still get pre-release labels:

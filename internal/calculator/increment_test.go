@@ -23,10 +23,10 @@ func defaultEC() config.EffectiveConfiguration {
 		BranchIncrement:           semver.IncrementStrategyPatch,
 		CommitMessageIncrementing: semver.CommitMessageIncrementEnabled,
 		CommitMessageConvention:   semver.CommitMessageConventionBoth,
-		MajorVersionBumpMessage:   `\+semver:\s?(breaking|major)`,
-		MinorVersionBumpMessage:   `\+semver:\s?(feature|minor)`,
-		PatchVersionBumpMessage:   `\+semver:\s?(fix|patch)`,
-		NoBumpMessage:             `\+semver:\s?(none|skip)`,
+		MajorVersionBumpMessage:   `(\+semver:\s?(breaking|major)|bump major:)`,
+		MinorVersionBumpMessage:   `(\+semver:\s?(feature|minor)|bump minor:)`,
+		PatchVersionBumpMessage:   `(\+semver:\s?(fix|patch)|bump patch:)`,
+		NoBumpMessage:             `(\+semver:\s?(none|skip)|bump (none|skip):)`,
 	}
 }
 
@@ -574,4 +574,19 @@ func TestBumpDirective_MinorAlias(t *testing.T) {
 func TestBumpDirective_PatchAlias(t *testing.T) {
 	ec := defaultEC()
 	require.Equal(t, semver.VersionFieldPatch, analyzeBumpDirective("fix +semver: patch", ec))
+}
+
+func TestBumpDirective_BumpMajorColon(t *testing.T) {
+	ec := defaultEC()
+	require.Equal(t, semver.VersionFieldMajor, analyzeBumpDirective("bump major: redesign API", ec))
+}
+
+func TestBumpDirective_BumpMinorColon(t *testing.T) {
+	ec := defaultEC()
+	require.Equal(t, semver.VersionFieldMinor, analyzeBumpDirective("bump minor: add new report type", ec))
+}
+
+func TestBumpDirective_BumpPatchColon(t *testing.T) {
+	ec := defaultEC()
+	require.Equal(t, semver.VersionFieldPatch, analyzeBumpDirective("bump patch: fix typo in output", ec))
 }

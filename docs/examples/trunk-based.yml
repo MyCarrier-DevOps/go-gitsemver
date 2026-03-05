@@ -25,7 +25,7 @@
 #
 # To force a version jump:
 #   - Tag manually: git tag v2.0.0
-#   - Use bump directive: "bump major" in a commit message
+#   - Use bump directive: "bump major: redesign API" in a commit message
 #   - Use conventional commit: "feat!: breaking change"
 
 mode: Mainline

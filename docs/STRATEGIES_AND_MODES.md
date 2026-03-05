@@ -476,10 +476,10 @@ Version: 1.1.0-auth.1+3
 **Forcing a version jump:**
 
 ```
-main:    v1.0.0 ── "bump major" ── fix ── fix
+main:    v1.0.0 ── "bump major:" ── fix ── fix
                                            ^ HEAD
 
-Highest increment: Major (from "bump major")
+Highest increment: Major (from "bump major:")
 Result: 2.0.0+3
 ```
 
@@ -566,32 +566,32 @@ BREAKING CHANGE: JWT tokens now use RS256 instead of HS256"
 
 ### Bump Directives
 
-Simple keywords placed anywhere in a commit or merge message. Alternative to Conventional Commits for teams that prefer explicit control.
+Use `bump major:`, `bump minor:`, or `bump patch:` as the commit message prefix. The `+semver:` style is also supported anywhere in the message. Alternative to Conventional Commits for teams that prefer explicit control.
 
 | Directive | Increment |
 |-----------|-----------|
-| `bump major` | Major |
-| `bump minor` | Minor |
-| `bump patch` | Patch |
-| `bump none` or `bump skip` | None (suppress increment) |
+| `bump major:` | Major |
+| `bump minor:` | Minor |
+| `bump patch:` | Patch |
+| `bump none:` or `bump skip:` | None (suppress increment) |
+| `+semver: major` / `breaking` | Major |
+| `+semver: minor` / `feature` | Minor |
+| `+semver: patch` / `fix` | Patch |
+| `+semver: skip` / `none` | None (suppress increment) |
 
 **Examples:**
 
 ```bash
-# In a commit message
-git commit -m "redesign the API
+# As a commit message prefix
+git commit -m "bump major: redesign the API"
 
-bump major"
-
-# In a merge commit (squash or regular)
-git merge feature/new-api -m "Merge feature/new-api
-
-bump minor"
+git commit -m "bump minor: add new report type"
 
 # Suppress increment entirely
-git commit -m "update formatting only
+git commit -m "bump none: update formatting only"
 
-bump none"
+# +semver: style (anywhere in the message)
+git commit -m "redesign the API +semver: major"
 ```
 
 **Config:** [examples/bump-directives.yml](examples/bump-directives.yml)
@@ -603,10 +603,8 @@ bump none"
 By default, go-gitsemver recognizes **both** Conventional Commits and bump directives. If both are present in the same commit, the highest increment wins.
 
 ```bash
-git commit -m "feat: add new endpoint
-
-bump major"
-# feat: would be Minor, but "bump major" overrides → Major
+git commit -m "bump major: add new endpoint"
+# "bump major:" overrides conventional commit analysis → Major
 ```
 
 Configure which conventions are active:

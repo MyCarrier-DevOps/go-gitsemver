@@ -181,17 +181,17 @@ Controls whether commit messages are scanned for version bump information.
 Which commit message conventions to recognize.
 
 - **ConventionalCommits** — `feat:`, `fix:`, `feat!:`, `BREAKING CHANGE:` footers
-- **BumpDirective** — `+semver: major`, `+semver: minor`, `+semver: fix`, `+semver: skip`
+- **BumpDirective** — `bump major:`, `bump minor:`, `bump patch:`, or `+semver: major`, `+semver: minor`, `+semver: fix`, `+semver: skip`
 - **Both** — Recognizes both conventions, highest bump wins
 
 ### Bump message patterns
 
 | Option | Default | Triggers |
 |--------|---------|----------|
-| `major-version-bump-message` | `\+semver:\s?(breaking\|major)` | Major bump |
-| `minor-version-bump-message` | `\+semver:\s?(feature\|minor)` | Minor bump |
-| `patch-version-bump-message` | `\+semver:\s?(fix\|patch)` | Patch bump |
-| `no-bump-message` | `\+semver:\s?(none\|skip)` | No bump |
+| `major-version-bump-message` | `(\+semver:\s?(breaking\|major)\|bump major:)` | Major bump |
+| `minor-version-bump-message` | `(\+semver:\s?(feature\|minor)\|bump minor:)` | Minor bump |
+| `patch-version-bump-message` | `(\+semver:\s?(fix\|patch)\|bump patch:)` | Patch bump |
+| `no-bump-message` | `(\+semver:\s?(none\|skip)\|bump (none\|skip):)` | No bump |
 
 These are regex patterns matched against commit messages. Override them to use your own conventions:
 

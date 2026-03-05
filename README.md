@@ -315,10 +315,14 @@ BREAKING CHANGE: token format changed  → Major
 #### Bump directives
 
 ```
-some change +semver: major          → Major
-some change +semver: feature        → Minor
-some change +semver: fix            → Patch
-some change +semver: skip           → No bump
+bump major: redesign API             → Major
+bump minor: add new report type      → Minor
+bump patch: fix typo in output       → Patch
+
+some change +semver: major           → Major
+some change +semver: feature         → Minor
+some change +semver: fix             → Patch
+some change +semver: skip            → No bump
 ```
 
 ### Branch defaults

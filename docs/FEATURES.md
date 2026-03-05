@@ -90,8 +90,9 @@ First-class support for the [Conventional Commits](https://www.conventionalcommi
 | `feat!:` or `fix!:` (any type with `!`) | Major |
 | `BREAKING CHANGE:` in commit footer | Major |
 
-Also supports simple bump directives:
-- `bump major` / `bump minor` / `bump patch` / `bump none`
+Also supports bump directives as commit message prefixes:
+- `bump major:` / `bump minor:` / `bump patch:` / `bump none:`
+- `+semver: major` / `+semver: minor` / `+semver: patch` / `+semver: skip`
 
 Configurable via `commit-message-convention: conventional-commits | bump-directive | both`
 
