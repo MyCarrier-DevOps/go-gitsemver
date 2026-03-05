@@ -32,7 +32,7 @@ Go to the [GitHub Releases page](https://github.com/MyCarrier-DevOps/go-gitsemve
 3. Expand the **Assets** section
 4. Click the binary that matches your OS and architecture to download it
 
-#### Download from the command line
+#### Download from the command line (macOS / Linux)
 
 Replace `VERSION` with the desired release tag (e.g., `v1.2.0`) and `BINARY` with your platform binary name:
 
@@ -48,25 +48,61 @@ curl -Lo go-gitsemver "https://github.com/MyCarrier-DevOps/go-gitsemver/releases
 wget -O go-gitsemver "https://github.com/MyCarrier-DevOps/go-gitsemver/releases/download/${VERSION}/${BINARY}"
 ```
 
+#### Download from the command line (Windows PowerShell)
+
+```powershell
+$VERSION = "v1.2.0"   # replace with the latest release tag
+$BINARY = "go-gitsemver-windows-amd64.exe"
+
+Invoke-WebRequest -Uri "https://github.com/MyCarrier-DevOps/go-gitsemver/releases/download/$VERSION/$BINARY" -OutFile "go-gitsemver.exe"
+```
+
 #### Verify the checksum (optional)
 
-Each release includes a `checksums.txt` file. You can verify your download:
+Each release includes a `checksums.txt` file. You can verify your download.
+
+**macOS / Linux:**
 
 ```bash
 curl -Lo checksums.txt "https://github.com/MyCarrier-DevOps/go-gitsemver/releases/download/${VERSION}/checksums.txt"
 shasum -a 256 --check --ignore-missing checksums.txt
 ```
 
+**Windows PowerShell:**
+
+```powershell
+Invoke-WebRequest -Uri "https://github.com/MyCarrier-DevOps/go-gitsemver/releases/download/$VERSION/checksums.txt" -OutFile checksums.txt
+$expected = (Get-Content checksums.txt | Select-String $BINARY).ToString().Split(" ")[0]
+$actual = (Get-FileHash go-gitsemver.exe -Algorithm SHA256).Hash.ToLower()
+if ($actual -eq $expected) { Write-Host "Checksum verified" } else { Write-Error "Checksum mismatch: expected $expected, got $actual" }
+```
+
 #### Install the binary
 
-Make it executable and move it to your PATH:
+**macOS / Linux:**
 
 ```bash
 chmod +x go-gitsemver
 sudo mv go-gitsemver /usr/local/bin/go-gitsemver
 ```
 
-On **Windows**, move the `.exe` to a directory that is in your `PATH`, or add its location to your `PATH` environment variable.
+**Windows PowerShell (run as Administrator):**
+
+```powershell
+# Create a directory for the binary (if it doesn't exist)
+New-Item -ItemType Directory -Force -Path "$env:LOCALAPPDATA\go-gitsemver"
+
+# Move the binary
+Move-Item go-gitsemver.exe "$env:LOCALAPPDATA\go-gitsemver\go-gitsemver.exe"
+
+# Add to PATH (persistent, current user)
+$path = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($path -notlike "*go-gitsemver*") {
+    [Environment]::SetEnvironmentVariable("Path", "$path;$env:LOCALAPPDATA\go-gitsemver", "User")
+}
+```
+
+Restart your terminal after updating PATH.
 
 ### Option 2: Install with `go install`
 
@@ -75,20 +111,6 @@ go install github.com/MyCarrier-DevOps/go-gitsemver@latest
 ```
 
 This places the binary in `$(go env GOPATH)/bin`. Make sure that directory is in your `PATH`.
-
-### Option 3: Build from source
-
-```bash
-git clone https://github.com/MyCarrier-DevOps/go-gitsemver.git
-cd go-gitsemver
-make build
-```
-
-The binary is written to `bin/go-gitsemver`. You can move it to your PATH or run it directly:
-
-```bash
-./bin/go-gitsemver version
-```
 
 ### Verify the installation
 
@@ -134,15 +156,34 @@ git fetch --tags
 
 ### Get the version for scripting
 
+**macOS / Linux:**
+
 ```bash
 VERSION=$(go-gitsemver --show-variable SemVer)
 echo "Current version: $VERSION"
 ```
 
+**Windows PowerShell:**
+
+```powershell
+$VERSION = go-gitsemver --show-variable SemVer
+Write-Host "Current version: $VERSION"
+```
+
 ### Tag a release
+
+**macOS / Linux:**
 
 ```bash
 VERSION=$(go-gitsemver --show-variable MajorMinorPatch)
+git tag "v$VERSION"
+git push origin "v$VERSION"
+```
+
+**Windows PowerShell:**
+
+```powershell
+$VERSION = go-gitsemver --show-variable MajorMinorPatch
 git tag "v$VERSION"
 git push origin "v$VERSION"
 ```
@@ -165,6 +206,15 @@ go-gitsemver --branch release/2.0.0
 ```bash
 go-gitsemver --path /path/to/other/repo
 ```
+
+### Use a specific config file
+
+```bash
+go-gitsemver --config .github/go-gitsemver.yml
+go-gitsemver --config /path/to/custom-config.yml
+```
+
+This is useful when you have multiple config files (e.g., per-service in a monorepo) or want to test a config change before committing it.
 
 ---
 
