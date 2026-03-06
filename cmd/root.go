@@ -9,15 +9,16 @@ import (
 
 // Global flags shared across commands.
 var (
-	flagPath         string
-	flagBranch       string
-	flagCommit       string
-	flagConfig       string
-	flagOutput       string
-	flagShowVariable string
-	flagShowConfig   bool
-	flagExplain      bool
-	flagVerbosity    string
+	flagPath                   string
+	flagBranch                 string
+	flagCommit                 string
+	flagConfig                 string
+	flagOutput                 string
+	flagShowVariable           string
+	flagShowConfig             bool
+	flagExplain                bool
+	flagVerbosity              string
+	flagNoRepairWorktreeConfig bool
 )
 
 // rootCmd is the top-level command for go-gitsemver.
@@ -39,6 +40,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagShowConfig, "show-config", false, "display the effective configuration and exit")
 	rootCmd.PersistentFlags().BoolVar(&flagExplain, "explain", false, "show how the version was calculated")
 	rootCmd.PersistentFlags().StringVarP(&flagVerbosity, "verbosity", "v", "info", "log verbosity: quiet, info, debug")
+	rootCmd.PersistentFlags().BoolVar(&flagNoRepairWorktreeConfig, "no-repair-worktree-config", false, "disable automatic removal of extensions.worktreeConfig from .git/config (suppresses on-disk mutation)")
 }
 
 // Execute runs the root command.
