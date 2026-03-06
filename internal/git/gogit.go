@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +36,7 @@ func Open(path string) (*GoGitRepository, error) {
 
 		// Work around go-git rejecting extensions.worktreeConfig on format v0 repos.
 		if unsetErr := unsetLocalWorktreeConfig(path); unsetErr != nil {
-			return nil, fmt.Errorf("opening git repository at %s: %w", path, err)
+			return nil, fmt.Errorf("opening git repository at %s: %w", path, errors.Join(err, unsetErr))
 		}
 
 		r, err = openRepository(path)
@@ -75,15 +76,16 @@ func isUnsupportedWorktreeConfigError(err error) bool {
 
 func unsetLocalWorktreeConfig(path string) error {
 	cmd := exec.Command("git", "-C", path, "config", "--local", "--unset-all", "extensions.worktreeConfig")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		// Exit code 5 means key not found. Treat as success.
-		if strings.Contains(strings.ToLower(string(out)), "no such section or key") {
-			return nil
-		}
-		return fmt.Errorf("unsetting local extensions.worktreeConfig: %w", err)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
 	}
-
-	return nil
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 5 {
+		// Exit code 5 means the key was not found; treat as success.
+		return nil
+	}
+	return fmt.Errorf("unsetting local extensions.worktreeConfig: %s: %w", strings.TrimSpace(string(out)), err)
 }
 
 func (r *GoGitRepository) Path() string {
