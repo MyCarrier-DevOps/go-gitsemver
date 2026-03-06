@@ -2,9 +2,12 @@ package git
 
 import (
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,6 +15,32 @@ func TestOpen_InvalidPath(t *testing.T) {
 	_, err := Open("/nonexistent/path")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "opening git repository")
+}
+
+func TestOpen_WorktreeConfigExtensionEnabled(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable not found")
+	}
+
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	setCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "extensions.worktreeConfig", "true")
+	require.NoError(t, setCmd.Run())
+
+	opened, err := Open(repo.Path())
+	require.NoError(t, err)
+	require.NotNil(t, opened)
+
+	getCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "--get-all", "extensions.worktreeConfig")
+	output, err := getCmd.CombinedOutput()
+	if err != nil {
+		// Exit code 1 when key does not exist. That's expected after recovery.
+		require.Equal(t, 0, len(strings.TrimSpace(string(output))))
+		return
+	}
+
+	require.Empty(t, strings.TrimSpace(string(output)))
 }
 
 func TestOpen_ValidRepository(t *testing.T) {

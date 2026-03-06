@@ -96,6 +96,12 @@ Tracks completed features, current work, and planned changes for go-gitsemver.
 - Static binaries: `CGO_ENABLED=0` added to makefile `release-build` and CI workflow
 - Files: `internal/git/gogit.go`, `internal/calculator/mainline.go`, `internal/calculator/nextversion.go`, `internal/semver/formatvalues.go`, `makefile`, `.github/workflows/ci.yaml`
 
+### Repository Extension Compatibility Fix (Phase 9)
+- Added local-repo open recovery for `extensions.worktreeConfig=true` repositories that fail in `go-git` with `core.repositoryformatversion does not support extension: worktreeconfig`
+- `git.Open` now retries repository open once after unsetting local `extensions.worktreeConfig` when this specific error is detected
+- Added regression test coverage for this scenario with a temporary repository configured with `extensions.worktreeConfig`
+- Files: `internal/git/gogit.go`, `internal/git/gogit_test.go`
+
 ## Test Coverage
 - 589 tests across unit, integration, and end-to-end suites
 - 85% overall coverage
