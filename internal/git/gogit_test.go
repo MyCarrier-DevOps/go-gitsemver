@@ -35,8 +35,10 @@ func TestOpen_WorktreeConfigExtensionEnabled(t *testing.T) {
 	getCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "--get-all", "extensions.worktreeConfig")
 	output, err := getCmd.CombinedOutput()
 	if err != nil {
-		// Exit code 1 when key does not exist. That's expected after recovery.
-		require.Equal(t, 0, len(strings.TrimSpace(string(output))))
+		// Exit code 1 means the key does not exist — expected after recovery.
+		var exitErr *exec.ExitError
+		require.ErrorAs(t, err, &exitErr, "expected an exit error from git config --get-all")
+		require.Equal(t, 1, exitErr.ExitCode(), "expected exit code 1 (key not found) from git config --get-all")
 		return
 	}
 
