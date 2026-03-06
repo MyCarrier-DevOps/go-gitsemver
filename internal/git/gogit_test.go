@@ -28,16 +28,24 @@ func TestOpen_WorktreeConfigExtensionEnabled(t *testing.T) {
 	setCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "extensions.worktreeConfig", "true")
 	require.NoError(t, setCmd.Run())
 
+	// First, confirm that go-git itself rejects the repo when repair is disabled.
+	// This ensures the recovery path is actually needed and exercised below.
+	_, err := OpenWithOptions(repo.Path(), OpenOptions{RepairWorktreeConfig: false})
+	require.Error(t, err, "expected open to fail when RepairWorktreeConfig is false")
+	require.Contains(t, err.Error(), "worktreeconfig", "expected the unsupported-extension error")
+
+	// Now open with repair enabled (the default) and assert it succeeds.
 	opened, err := Open(repo.Path())
 	require.NoError(t, err)
 	require.NotNil(t, opened)
 
+	// Assert the config key was actually removed from disk.
 	getCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "--get-all", "extensions.worktreeConfig")
-	output, err := getCmd.CombinedOutput()
-	if err != nil {
+	output, getErr := getCmd.CombinedOutput()
+	if getErr != nil {
 		// Exit code 1 means the key does not exist — expected after recovery.
 		var exitErr *exec.ExitError
-		require.ErrorAs(t, err, &exitErr, "expected an exit error from git config --get-all")
+		require.ErrorAs(t, getErr, &exitErr, "expected an exit error from git config --get-all")
 		require.Equal(t, 1, exitErr.ExitCode(), "expected exit code 1 (key not found) from git config --get-all")
 		return
 	}

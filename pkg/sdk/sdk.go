@@ -51,6 +51,12 @@ type LocalOptions struct {
 
 	// Explain enables explain mode, populating ExplainResult on the returned Result.
 	Explain bool
+
+	// DisableWorktreeConfigRepair prevents Open from automatically removing
+	// extensions.worktreeConfig from .git/config when go-git rejects it.
+	// Set to true in contexts where mutating the repository config is not acceptable.
+	// Defaults to false (repair is enabled).
+	DisableWorktreeConfigRepair bool
 }
 
 // RemoteOptions configures version calculation via the GitHub API.
@@ -172,7 +178,9 @@ func Calculate(opts LocalOptions) (*Result, error) {
 	}
 
 	// 1. Open repository.
-	repo, err := git.Open(path)
+	repo, err := git.OpenWithOptions(path, git.OpenOptions{
+		RepairWorktreeConfig: !opts.DisableWorktreeConfigRepair,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("opening repository: %w", err)
 	}
