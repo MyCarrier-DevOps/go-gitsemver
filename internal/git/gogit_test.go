@@ -34,6 +34,12 @@ func TestOpen_WorktreeConfigExtensionEnabled(t *testing.T) {
 	require.Error(t, err, "expected open to fail when RepairWorktreeConfig is false")
 	require.Contains(t, err.Error(), "worktreeconfig", "expected the unsupported-extension error")
 
+	// After the failed open with repair disabled, confirm the config key is still present.
+	getBeforeRepairCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "--get-all", "extensions.worktreeConfig")
+	beforeOutput, beforeErr := getBeforeRepairCmd.CombinedOutput()
+	require.NoError(t, beforeErr, "expected extensions.worktreeConfig to still be present when repair is disabled")
+	require.Equal(t, "true", strings.TrimSpace(string(beforeOutput)), "expected extensions.worktreeConfig to remain unchanged before repair")
+
 	// Now open with repair enabled (the default) and assert it succeeds.
 	opened, err := Open(repo.Path())
 	require.NoError(t, err)

@@ -9,16 +9,16 @@ import (
 
 // Global flags shared across commands.
 var (
-	flagPath         string
-	flagBranch       string
-	flagCommit       string
-	flagConfig       string
-	flagOutput       string
-	flagShowVariable string
-	flagShowConfig   bool
-	flagExplain      bool
-	flagVerbosity                string
-	flagNoRepairWorktreeConfig   bool
+	flagPath                   string
+	flagBranch                 string
+	flagCommit                 string
+	flagConfig                 string
+	flagOutput                 string
+	flagShowVariable           string
+	flagShowConfig             bool
+	flagExplain                bool
+	flagVerbosity              string
+	flagNoRepairWorktreeConfig bool
 )
 
 // rootCmd is the top-level command for go-gitsemver.
