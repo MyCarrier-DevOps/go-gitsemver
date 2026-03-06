@@ -142,7 +142,7 @@ jobs:
           OUTFILE="go-gitsemver-${GOOS}-${GOARCH}${EXT}"
           CGO_ENABLED=0 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o "dist/${OUTFILE}" .
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: go-gitsemver-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/go-gitsemver-*
