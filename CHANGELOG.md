@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0]
+
+### Fixed
+
+- **Local repository open failure with `extensions.worktreeConfig=true`** — `go-gitsemver` now detects the `core.repositoryformatversion does not support extension: worktreeconfig` error, unsets local `extensions.worktreeConfig`, and retries opening the repository once
+
+### Added
+
+- **Regression test for worktree config compatibility** — added coverage to ensure `internal/git.Open` succeeds for repositories that have local `extensions.worktreeConfig` enabled
+- **`DisableWorktreeConfigRepair` option on `sdk.LocalOptions`** — allows SDK consumers to suppress the on-disk `.git/config` mutation; note that adding this field is a minor API addition that may break consumers using unkeyed struct literals (not expected in practice)
+
 ## [1.9.0] - GitHub Action: Setup + Run
 
 ### Changed

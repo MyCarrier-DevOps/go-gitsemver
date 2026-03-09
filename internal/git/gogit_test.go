@@ -2,9 +2,12 @@ package git
 
 import (
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,6 +15,48 @@ func TestOpen_InvalidPath(t *testing.T) {
 	_, err := Open("/nonexistent/path")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "opening git repository")
+}
+
+func TestOpen_WorktreeConfigExtensionEnabled(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable not found")
+	}
+
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial commit")
+
+	setCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "extensions.worktreeConfig", "true")
+	require.NoError(t, setCmd.Run())
+
+	// First, confirm that go-git itself rejects the repo when repair is disabled.
+	// This ensures the recovery path is actually needed and exercised below.
+	_, err := OpenWithOptions(repo.Path(), OpenOptions{RepairWorktreeConfig: false})
+	require.Error(t, err, "expected open to fail when RepairWorktreeConfig is false")
+	require.Contains(t, err.Error(), "worktreeconfig", "expected the unsupported-extension error")
+
+	// After the failed open with repair disabled, confirm the config key is still present.
+	getBeforeRepairCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "--get-all", "extensions.worktreeConfig")
+	beforeOutput, beforeErr := getBeforeRepairCmd.CombinedOutput()
+	require.NoError(t, beforeErr, "expected extensions.worktreeConfig to still be present when repair is disabled")
+	require.Equal(t, "true", strings.TrimSpace(string(beforeOutput)), "expected extensions.worktreeConfig to remain unchanged before repair")
+
+	// Now open with repair enabled (the default) and assert it succeeds.
+	opened, err := Open(repo.Path())
+	require.NoError(t, err)
+	require.NotNil(t, opened)
+
+	// Assert the config key was actually removed from disk.
+	getCmd := exec.Command("git", "-C", repo.Path(), "config", "--local", "--get-all", "extensions.worktreeConfig")
+	output, getErr := getCmd.CombinedOutput()
+	if getErr != nil {
+		// Exit code 1 means the key does not exist — expected after recovery.
+		var exitErr *exec.ExitError
+		require.ErrorAs(t, getErr, &exitErr, "expected an exit error from git config --get-all")
+		require.Equal(t, 1, exitErr.ExitCode(), "expected exit code 1 (key not found) from git config --get-all")
+		return
+	}
+
+	require.Empty(t, strings.TrimSpace(string(output)))
 }
 
 func TestOpen_ValidRepository(t *testing.T) {

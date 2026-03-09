@@ -27,7 +27,9 @@ var configFileNames = []string{
 
 func calculateRunE(_ *cobra.Command, _ []string) error {
 	// 1. Open repository.
-	repo, err := git.Open(flagPath)
+	repo, err := git.OpenWithOptions(flagPath, git.OpenOptions{
+		RepairWorktreeConfig: !flagNoRepairWorktreeConfig,
+	})
 	if err != nil {
 		return fmt.Errorf("opening repository: %w", err)
 	}

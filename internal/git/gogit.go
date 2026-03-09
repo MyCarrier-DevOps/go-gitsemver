@@ -1,8 +1,11 @@
 package git
 
 import (
+	"errors"
 	"fmt"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
@@ -21,13 +24,47 @@ type GoGitRepository struct {
 	workDir string
 }
 
+const unsupportedWorktreeConfigMessage = "core.repositoryformatversion does not support extension: worktreeconfig"
+
+// OpenOptions controls the behavior of Open and OpenWithOptions.
+type OpenOptions struct {
+	// RepairWorktreeConfig controls whether Open automatically removes
+	// extensions.worktreeConfig from the repository's local config when
+	// go-git rejects it. This modifies .git/config on disk via the system
+	// git binary; set to false in contexts where mutating the repository
+	// config is not acceptable.
+	RepairWorktreeConfig bool
+}
+
 // Open opens a git repository at the given path.
+//
+// If the repository has extensions.worktreeConfig set (which go-git does not
+// support on format-v0 repos), Open automatically removes it from the local
+// config by running "git config --local --unset-all extensions.worktreeConfig".
+// This is a side-effecting operation that modifies .git/config on disk and
+// requires the system git binary to be available in PATH.
+// Use OpenWithOptions with RepairWorktreeConfig: false to suppress this behavior.
 func Open(path string) (*GoGitRepository, error) {
-	r, err := gogit.PlainOpenWithOptions(path, &gogit.PlainOpenOptions{
-		DetectDotGit: true,
-	})
+	return OpenWithOptions(path, OpenOptions{RepairWorktreeConfig: true})
+}
+
+// OpenWithOptions opens a git repository at the given path with the provided options.
+func OpenWithOptions(path string, opts OpenOptions) (*GoGitRepository, error) {
+	r, err := plainOpen(path)
 	if err != nil {
-		return nil, fmt.Errorf("opening git repository at %s: %w", path, err)
+		if !isUnsupportedWorktreeConfigError(err) || !opts.RepairWorktreeConfig {
+			return nil, fmt.Errorf("opening git repository at %s: %w", path, err)
+		}
+
+		// Work around go-git rejecting extensions.worktreeConfig on format v0 repos.
+		if unsetErr := unsetLocalWorktreeConfig(path); unsetErr != nil {
+			return nil, fmt.Errorf("opening git repository at %s: %w", path, errors.Join(err, unsetErr))
+		}
+
+		r, err = plainOpen(path)
+		if err != nil {
+			return nil, fmt.Errorf("opening git repository at %s: %w", path, err)
+		}
 	}
 
 	wt, err := r.Worktree()
@@ -42,6 +79,33 @@ func Open(path string) (*GoGitRepository, error) {
 		path:    filepath.Join(root, ".git"),
 		workDir: root,
 	}, nil
+}
+
+func plainOpen(path string) (*gogit.Repository, error) {
+	return gogit.PlainOpenWithOptions(path, &gogit.PlainOpenOptions{
+		DetectDotGit: true,
+	})
+}
+
+func isUnsupportedWorktreeConfigError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), unsupportedWorktreeConfigMessage)
+}
+
+func unsetLocalWorktreeConfig(path string) error {
+	cmd := exec.Command("git", "-C", path, "config", "--local", "--unset-all", "extensions.worktreeConfig")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 5 {
+		// Exit code 5 means the key was not found; treat as success.
+		return nil
+	}
+	if msg := strings.TrimSpace(string(out)); msg != "" {
+		return fmt.Errorf("unsetting local extensions.worktreeConfig: %s: %w", msg, err)
+	}
+	return fmt.Errorf("unsetting local extensions.worktreeConfig: %w", err)
 }
 
 func (r *GoGitRepository) Path() string {
