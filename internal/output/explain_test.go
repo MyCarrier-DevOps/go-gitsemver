@@ -181,3 +181,113 @@ func TestFormatExplanation_ReturnsString(t *testing.T) {
 	out := FormatExplanation(result)
 	require.Contains(t, out, "Result: 1.0.0")
 }
+
+func TestWriteExplanation_MultipleCandidatesPerStrategy(t *testing.T) {
+	source1 := makeCommit("aaa1234567890abcdef1234567890abcdef123456", "v1.0.0")
+	source2 := makeCommit("bbb1234567890abcdef1234567890abcdef123456", "v0.9.0")
+	result := calculator.VersionResult{
+		Version: semver.SemanticVersion{Major: 1, Minor: 1, Patch: 0},
+		BaseVersion: strategy.BaseVersion{
+			Source:            "TaggedCommit",
+			SemanticVersion:   semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+			BaseVersionSource: source1,
+			ShouldIncrement:   true,
+			Explanation: &strategy.Explanation{
+				Strategy: "TaggedCommit",
+				Steps:    []string{"winner"},
+			},
+		},
+		AllCandidates: []strategy.BaseVersion{
+			{
+				SemanticVersion:   semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+				BaseVersionSource: source1,
+				ShouldIncrement:   true,
+				Explanation: &strategy.Explanation{
+					Strategy: "TaggedCommit",
+					Steps:    []string{"first tag"},
+				},
+			},
+			{
+				SemanticVersion:   semver.SemanticVersion{Major: 0, Minor: 9, Patch: 0},
+				BaseVersionSource: source2,
+				ShouldIncrement:   true,
+				Explanation: &strategy.Explanation{
+					Strategy: "TaggedCommit",
+					Steps:    []string{"second tag"},
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	err := WriteExplanation(&buf, result)
+	require.NoError(t, err)
+
+	out := buf.String()
+	require.Contains(t, out, "1.0.0")
+	require.Contains(t, out, "0.9.0")
+	require.Contains(t, out, "first tag")
+	require.Contains(t, out, "second tag")
+}
+
+func TestWriteExplanation_NilExplanation(t *testing.T) {
+	result := calculator.VersionResult{
+		Version: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+		BaseVersion: strategy.BaseVersion{
+			Source:          "Fallback",
+			SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+		},
+		AllCandidates: []strategy.BaseVersion{
+			{
+				SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+				// Explanation is nil.
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	err := WriteExplanation(&buf, result)
+	require.NoError(t, err)
+	require.Contains(t, buf.String(), "Result: 1.0.0")
+}
+
+func TestWriteExplanation_ExternalBaseVersionSource(t *testing.T) {
+	result := calculator.VersionResult{
+		Version: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+		BaseVersion: strategy.BaseVersion{
+			Source:          "ConfigNextVersion",
+			SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+			// BaseVersionSource is nil → shows "external".
+		},
+		AllCandidates: []strategy.BaseVersion{
+			{
+				SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+				Explanation: &strategy.Explanation{
+					Strategy: "ConfigNextVersion",
+					Steps:    []string{"from config"},
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	err := WriteExplanation(&buf, result)
+	require.NoError(t, err)
+
+	out := buf.String()
+	require.Contains(t, out, "external")
+	require.Contains(t, out, "Selected: ConfigNextVersion")
+}
+
+func TestWriteExplanation_ErrorWriter(t *testing.T) {
+	result := calculator.VersionResult{
+		Version: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+		BaseVersion: strategy.BaseVersion{
+			Source:          "Fallback",
+			SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 0, Patch: 0},
+		},
+	}
+
+	err := WriteExplanation(&errWriter{n: 0}, result)
+	require.Error(t, err)
+}

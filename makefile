@@ -13,7 +13,7 @@ COVER_PKGS := $(shell go list ./... | grep -v -E '/(e2e|testutil)')
 
 .PHONY: test
 test:
-	go test -race -cover -coverprofile=coverage.out -covermode=atomic $(COVER_PKGS)
+	go test -race -count=1 -cover -coverprofile=coverage.out -covermode=atomic $(COVER_PKGS)
 	go tool cover -func coverage.out
 
 .PHONY: e2e

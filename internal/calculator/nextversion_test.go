@@ -327,3 +327,139 @@ func TestNextVersion_ReleaseBranchNoPreRelease(t *testing.T) {
 	// Release branches don't get pre-release tags.
 	require.False(t, result.Version.PreReleaseTag.HasTag())
 }
+
+func TestNextVersion_MainlinePreReleaseTag(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: add feature")
+	source := newCommit("bbb0000000000000000000000000000000000000", "initial")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
+	mock := &git.MockRepository{
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
+		TagsFunc:              func(filters ...git.PathFilter) ([]git.Tag, error) { return nil, nil },
+	}
+	store := git.NewRepositoryStore(mock)
+
+	vs := &stubStrategy{
+		name: "test",
+		versions: []strategy.BaseVersion{
+			{
+				Source:            "tag",
+				SemanticVersion:   semver.SemanticVersion{Major: 1},
+				ShouldIncrement:   true,
+				BaseVersionSource: &source,
+			},
+		},
+	}
+
+	calc := NewNextVersionCalculator(store, []strategy.VersionStrategy{vs})
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch: git.Branch{
+			Name: git.NewReferenceName("refs/heads/feature/login"),
+			Tip:  &tip,
+		},
+		CurrentCommit: tip,
+	}
+	ec := defaultEC()
+	ec.BranchMode = semver.VersioningModeMainline
+	ec.Tag = "{BranchName}"
+	ec.CommitMessageConvention = semver.CommitMessageConventionConventionalCommits
+
+	result, err := calc.Calculate(ctx, ec, false)
+	require.NoError(t, err)
+	// Mainline mode with tag: pre-release number = commits since.
+	require.Equal(t, "login", result.Version.PreReleaseTag.Name)
+	require.NotNil(t, result.Version.PreReleaseTag.Number)
+	require.True(t, *result.Version.PreReleaseTag.Number >= 1)
+}
+
+func TestNextVersion_ExplainMode(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: add login")
+	source := newCommit("bbb0000000000000000000000000000000000000", "initial")
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{tip, source}, nil
+		},
+		TagsFunc: func(filters ...git.PathFilter) ([]git.Tag, error) { return nil, nil },
+	}
+	store := git.NewRepositoryStore(mock)
+
+	vs := &stubStrategy{
+		name: "test",
+		versions: []strategy.BaseVersion{
+			{
+				Source:            "tag",
+				SemanticVersion:   semver.SemanticVersion{Major: 1},
+				ShouldIncrement:   true,
+				BaseVersionSource: &source,
+			},
+		},
+	}
+
+	calc := NewNextVersionCalculator(store, []strategy.VersionStrategy{vs})
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch: git.Branch{
+			Name: git.NewReferenceName("refs/heads/feature/auth"),
+			Tip:  &tip,
+		},
+		CurrentCommit: tip,
+	}
+	ec := defaultEC()
+	ec.Tag = "{BranchName}"
+	ec.CommitMessageConvention = semver.CommitMessageConventionConventionalCommits
+
+	result, err := calc.Calculate(ctx, ec, true)
+	require.NoError(t, err)
+	// Explain mode should populate IncrementExplanation and PreReleaseSteps.
+	require.NotNil(t, result.IncrementExplanation)
+	require.NotEmpty(t, result.IncrementExplanation.Steps)
+	require.NotEmpty(t, result.PreReleaseSteps)
+}
+
+func TestNextVersion_BranchNameOverride(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "fix: patch")
+	source := newCommit("bbb0000000000000000000000000000000000000", "initial")
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{tip, source}, nil
+		},
+		TagsFunc: func(filters ...git.PathFilter) ([]git.Tag, error) { return nil, nil },
+	}
+	store := git.NewRepositoryStore(mock)
+
+	vs := &stubStrategy{
+		name: "test",
+		versions: []strategy.BaseVersion{
+			{
+				Source:             "tag",
+				SemanticVersion:    semver.SemanticVersion{Major: 1},
+				ShouldIncrement:    true,
+				BaseVersionSource:  &source,
+				BranchNameOverride: "custom-name",
+			},
+		},
+	}
+
+	calc := NewNextVersionCalculator(store, []strategy.VersionStrategy{vs})
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch: git.Branch{
+			Name: git.NewReferenceName("refs/heads/main"),
+			Tip:  &tip,
+		},
+		CurrentCommit: tip,
+	}
+	ec := defaultEC()
+	ec.IsMainline = true
+	ec.Tag = ""
+
+	result, err := calc.Calculate(ctx, ec, false)
+	require.NoError(t, err)
+	require.Equal(t, "custom-name", result.BranchName)
+}

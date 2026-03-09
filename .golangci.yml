@@ -1,4 +1,10 @@
 version: "2"
+
+run:
+  timeout: 5m
+  go: "1.26"
+  tests: false
+  
 issues:
   max-same-issues: 0
 linters:

@@ -220,3 +220,141 @@ func TestBuilder_InheritCommitMessageIncrementing(t *testing.T) {
 			"branch %s should have CommitMessageIncrementing set", name)
 	}
 }
+
+func TestBuilder_MergeAllGlobalFields(t *testing.T) {
+	mainlineIncr := semver.MainlineIncrementEachCommit
+	commitConv := semver.CommitMessageConventionConventionalCommits
+	commitIncr := semver.CommitMessageIncrementDisabled
+	override := &Config{
+		NextVersion:                      stringPtr("2.0.0"),
+		Increment:                        incrementPtr(semver.IncrementStrategyMajor),
+		ContinuousDeploymentFallbackTag:  stringPtr("beta"),
+		CommitMessageIncrementing:        &commitIncr,
+		CommitMessageConvention:          &commitConv,
+		MajorVersionBumpMessage:          stringPtr("BREAKING:"),
+		MinorVersionBumpMessage:          stringPtr("FEATURE:"),
+		PatchVersionBumpMessage:          stringPtr("FIX:"),
+		NoBumpMessage:                    stringPtr("SKIP:"),
+		CommitDateFormat:                 stringPtr("20060102"),
+		UpdateBuildNumber:                boolPtr(false),
+		TagPreReleaseWeight:              int64Ptr(50000),
+		LegacySemVerPadding:              intPtr(5),
+		BuildMetaDataPadding:             intPtr(6),
+		CommitsSinceVersionSourcePadding: intPtr(7),
+		MainlineIncrement:                &mainlineIncr,
+	}
+
+	cfg, err := NewBuilder().Add(override).Build()
+	require.NoError(t, err)
+
+	require.Equal(t, "2.0.0", *cfg.NextVersion)
+	require.Equal(t, semver.IncrementStrategyMajor, *cfg.Increment)
+	require.Equal(t, "beta", *cfg.ContinuousDeploymentFallbackTag)
+	require.Equal(t, semver.CommitMessageIncrementDisabled, *cfg.CommitMessageIncrementing)
+	require.Equal(t, semver.CommitMessageConventionConventionalCommits, *cfg.CommitMessageConvention)
+	require.Equal(t, "BREAKING:", *cfg.MajorVersionBumpMessage)
+	require.Equal(t, "FEATURE:", *cfg.MinorVersionBumpMessage)
+	require.Equal(t, "FIX:", *cfg.PatchVersionBumpMessage)
+	require.Equal(t, "SKIP:", *cfg.NoBumpMessage)
+	require.Equal(t, "20060102", *cfg.CommitDateFormat)
+	require.Equal(t, false, *cfg.UpdateBuildNumber)
+	require.Equal(t, int64(50000), *cfg.TagPreReleaseWeight)
+	require.Equal(t, 5, *cfg.LegacySemVerPadding)
+	require.Equal(t, 6, *cfg.BuildMetaDataPadding)
+	require.Equal(t, 7, *cfg.CommitsSinceVersionSourcePadding)
+	require.Equal(t, semver.MainlineIncrementEachCommit, *cfg.MainlineIncrement)
+}
+
+func TestBuilder_Validate_MissingBranchRegex(t *testing.T) {
+	override := &Config{
+		Branches: map[string]*BranchConfig{
+			"bad": {
+				Priority: intPtr(50),
+			},
+		},
+	}
+
+	_, err := NewBuilder().Add(override).Build()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing regex")
+}
+
+func TestBuilder_IsSourceBranchFor_DuplicateIgnored(t *testing.T) {
+	override := &Config{
+		Branches: map[string]*BranchConfig{
+			"develop": {
+				IsSourceBranchFor: strSlicePtr([]string{"feature"}),
+			},
+		},
+	}
+
+	cfg, err := NewBuilder().Add(override).Build()
+	require.NoError(t, err)
+
+	featureSources := *cfg.Branches["feature"].SourceBranches
+	count := 0
+	for _, s := range featureSources {
+		if s == "develop" {
+			count++
+		}
+	}
+	require.Equal(t, 1, count)
+}
+
+func TestNewEffectiveConfiguration_MainlineIncrement(t *testing.T) {
+	mainlineIncr := semver.MainlineIncrementEachCommit
+	cfg := &Config{
+		MainlineIncrement: &mainlineIncr,
+	}
+
+	ec := NewEffectiveConfiguration(cfg, nil)
+	require.Equal(t, semver.MainlineIncrementEachCommit, ec.MainlineIncrement)
+}
+
+func TestBranchConfig_MergeTo_AllFields(t *testing.T) {
+	src := &BranchConfig{
+		Regex:                                 stringPtr("^test$"),
+		Increment:                             incrementPtr(semver.IncrementStrategyMajor),
+		Mode:                                  versioningModePtr(semver.VersioningModeMainline),
+		Tag:                                   stringPtr("rc"),
+		SourceBranches:                        strSlicePtr([]string{"main"}),
+		IsSourceBranchFor:                     strSlicePtr([]string{"feature"}),
+		IsMainline:                            boolPtr(true),
+		IsReleaseBranch:                       boolPtr(true),
+		TracksReleaseBranches:                 boolPtr(true),
+		PreventIncrementOfMergedBranchVersion: boolPtr(true),
+		TrackMergeTarget:                      boolPtr(true),
+		TagNumberPattern:                      stringPtr(`\d+`),
+		CommitMessageIncrementing:             commitMsgIncrPtr(semver.CommitMessageIncrementDisabled),
+		PreReleaseWeight:                      intPtr(100),
+		Priority:                              intPtr(200),
+	}
+	target := &BranchConfig{}
+	src.MergeTo(target)
+
+	require.Equal(t, "^test$", *target.Regex)
+	require.Equal(t, semver.IncrementStrategyMajor, *target.Increment)
+	require.Equal(t, semver.VersioningModeMainline, *target.Mode)
+	require.Equal(t, "rc", *target.Tag)
+	require.Equal(t, []string{"main"}, *target.SourceBranches)
+	require.Equal(t, []string{"feature"}, *target.IsSourceBranchFor)
+	require.True(t, *target.IsMainline)
+	require.True(t, *target.IsReleaseBranch)
+	require.True(t, *target.TracksReleaseBranches)
+	require.True(t, *target.PreventIncrementOfMergedBranchVersion)
+	require.True(t, *target.TrackMergeTarget)
+	require.Equal(t, `\d+`, *target.TagNumberPattern)
+	require.Equal(t, semver.CommitMessageIncrementDisabled, *target.CommitMessageIncrementing)
+	require.Equal(t, 100, *target.PreReleaseWeight)
+	require.Equal(t, 200, *target.Priority)
+}
+
+func TestBranchConfig_MergeTo_NilSafe(t *testing.T) {
+	var src *BranchConfig
+	target := &BranchConfig{Regex: stringPtr("^main$")}
+	src.MergeTo(target)
+	require.Equal(t, "^main$", *target.Regex)
+
+	src = &BranchConfig{Regex: stringPtr("^new$")}
+	src.MergeTo(nil)
+}
