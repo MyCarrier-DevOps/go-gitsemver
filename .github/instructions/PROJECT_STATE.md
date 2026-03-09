@@ -98,9 +98,12 @@ Tracks completed features, current work, and planned changes for go-gitsemver.
 
 ### Repository Extension Compatibility Fix (Phase 9)
 - Added local-repo open recovery for `extensions.worktreeConfig=true` repositories that fail in `go-git` with `core.repositoryformatversion does not support extension: worktreeconfig`
-- `git.Open` now retries repository open once after unsetting local `extensions.worktreeConfig` when this specific error is detected
+- `git.OpenWithOptions` retries repository open once after running `git config --local --unset-all extensions.worktreeConfig` when this specific error is detected
+- `git.Open` delegates to `OpenWithOptions` with repair enabled by default
+- CLI: `--no-repair-worktree-config` flag to suppress on-disk mutation
+- SDK: `DisableWorktreeConfigRepair` option on `sdk.LocalOptions`
 - Added regression test coverage for this scenario with a temporary repository configured with `extensions.worktreeConfig`
-- Files: `internal/git/gogit.go`, `internal/git/gogit_test.go`
+- Files: `internal/git/gogit.go`, `internal/git/gogit_test.go`, `cmd/root.go`, `cmd/calculate.go`, `pkg/sdk/sdk.go`
 
 ## Test Coverage
 - 589 tests across unit, integration, and end-to-end suites

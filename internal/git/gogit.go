@@ -50,13 +50,9 @@ func Open(path string) (*GoGitRepository, error) {
 
 // OpenWithOptions opens a git repository at the given path with the provided options.
 func OpenWithOptions(path string, opts OpenOptions) (*GoGitRepository, error) {
-	r, err := openRepository(path)
+	r, err := plainOpen(path)
 	if err != nil {
-		if !isUnsupportedWorktreeConfigError(err) {
-			return nil, fmt.Errorf("opening git repository at %s: %w", path, err)
-		}
-
-		if !opts.RepairWorktreeConfig {
+		if !isUnsupportedWorktreeConfigError(err) || !opts.RepairWorktreeConfig {
 			return nil, fmt.Errorf("opening git repository at %s: %w", path, err)
 		}
 
@@ -65,7 +61,7 @@ func OpenWithOptions(path string, opts OpenOptions) (*GoGitRepository, error) {
 			return nil, fmt.Errorf("opening git repository at %s: %w", path, errors.Join(err, unsetErr))
 		}
 
-		r, err = openRepository(path)
+		r, err = plainOpen(path)
 		if err != nil {
 			return nil, fmt.Errorf("opening git repository at %s: %w", path, err)
 		}
@@ -85,25 +81,17 @@ func OpenWithOptions(path string, opts OpenOptions) (*GoGitRepository, error) {
 	}, nil
 }
 
-func openRepository(path string) (*gogit.Repository, error) {
-	r, err := gogit.PlainOpenWithOptions(path, &gogit.PlainOpenOptions{
+func plainOpen(path string) (*gogit.Repository, error) {
+	return gogit.PlainOpenWithOptions(path, &gogit.PlainOpenOptions{
 		DetectDotGit: true,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return r, nil
 }
 
 func isUnsupportedWorktreeConfigError(err error) bool {
-	return err != nil && strings.Contains(strings.ToLower(err.Error()), unsupportedWorktreeConfigMessage)
+	return err != nil && strings.Contains(err.Error(), unsupportedWorktreeConfigMessage)
 }
 
 func unsetLocalWorktreeConfig(path string) error {
-	if _, lookErr := exec.LookPath("git"); lookErr != nil {
-		return fmt.Errorf("unsetting local extensions.worktreeConfig: git executable not found in PATH (required to repair repository config): %w", lookErr)
-	}
 	cmd := exec.Command("git", "-C", path, "config", "--local", "--unset-all", "extensions.worktreeConfig")
 	out, err := cmd.CombinedOutput()
 	if err == nil {
