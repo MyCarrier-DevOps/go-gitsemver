@@ -18,33 +18,49 @@ import (
 	"github.com/MyCarrier-DevOps/go-gitsemver/pkg/sdk"
 )
 
+// main keeps the process-exiting behaviour a demo wants; run holds the logic so
+// it stays callable - and testable - without terminating the caller.
 func main() {
-	localVersion()
-	localVersionExplain()
-
-	if os.Getenv("GITHUB_TOKEN") != "" {
-		remoteVersion()
+	if err := run(os.Getenv("GITHUB_TOKEN")); err != nil {
+		log.Fatal(err)
 	}
 }
 
-func localVersion() {
+// run takes the token rather than reading the environment itself, so the
+// remote-example guard can be exercised without a live GitHub call.
+func run(githubToken string) error {
+	if err := localVersion(); err != nil {
+		return err
+	}
+	if err := localVersionExplain(); err != nil {
+		return err
+	}
+
+	if githubToken != "" {
+		return remoteVersion(githubToken)
+	}
+	return nil
+}
+
+func localVersion() error {
 	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path: ".",
 	})
 	if err != nil {
-		log.Fatalf("local calculation failed: %v", err)
+		return fmt.Errorf("local calculation failed: %w", err)
 	}
 
 	printVersion("Local", result)
+	return nil
 }
 
-func localVersionExplain() {
+func localVersionExplain() error {
 	result, err := sdk.Calculate(sdk.LocalOptions{
 		Path:    ".",
 		Explain: true,
 	})
 	if err != nil {
-		log.Fatalf("local explain calculation failed: %v", err)
+		return fmt.Errorf("local explain calculation failed: %w", err)
 	}
 
 	fmt.Println("=== Explain Output ===")
@@ -55,20 +71,22 @@ func localVersionExplain() {
 		fmt.Printf("Candidates: %d\n", len(result.ExplainResult.Candidates))
 	}
 	fmt.Println()
+	return nil
 }
 
-func remoteVersion() {
+func remoteVersion(githubToken string) error {
 	result, err := sdk.CalculateRemote(sdk.RemoteOptions{
 		Owner: "MyCarrier-DevOps",
 		Repo:  "go-gitsemver",
-		Token: os.Getenv("GITHUB_TOKEN"),
+		Token: githubToken,
 		Ref:   "main",
 	})
 	if err != nil {
-		log.Fatalf("remote calculation failed: %v", err)
+		return fmt.Errorf("remote calculation failed: %w", err)
 	}
 
 	printVersion("Remote", result)
+	return nil
 }
 
 func printVersion(label string, result *sdk.Result) {

@@ -182,7 +182,7 @@ Which commit message conventions to recognize.
 
 - **ConventionalCommits** — `feat:`, `fix:`, `perf:`, `chore:`, `feat!:`, `BREAKING CHANGE:` footers
 - **BumpDirective** — `bump major:`, `bump minor:`, `bump patch:`, or `+semver: major`, `+semver: minor`, `+semver: fix`, `+semver: skip`
-- **Both** — Recognizes both conventions, highest bump wins
+- **Both** — Recognizes both conventions, highest bump wins. Exception: an explicit no-bump directive (`+semver: none` / `skip`) overrides the conventional-commit type, though it never overrides a Major — see [Using Both](STRATEGIES_AND_MODES.md#using-both-default)
 
 ### Bump message patterns
 

@@ -14,6 +14,11 @@ COVER_PKGS := $(shell go list ./... | grep -v -E '/(e2e|testutil)')
 .PHONY: test
 test:
 	go test -race -count=1 -cover -coverprofile=coverage.out -covermode=atomic $(COVER_PKGS)
+	# testutil is test scaffolding, so it stays out of the coverage denominator -
+	# but its tests still have to run here. A regression in the shared repo builder
+	# would otherwise surface only in the weekly mutation sweep, after silently
+	# weakening every test that depends on it.
+	go test -race -count=1 ./internal/testutil/...
 	go tool cover -func coverage.out
 
 .PHONY: e2e

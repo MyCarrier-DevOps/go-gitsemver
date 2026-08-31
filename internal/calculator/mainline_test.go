@@ -602,7 +602,7 @@ func TestMainline_EachCommit_NoBumpDeclinesBranchDefault(t *testing.T) {
 	require.Equal(t, int64(0), ver.Patch)
 }
 
-func TestMainline_EachCommit_InheritFallsToPatch(t *testing.T) {
+func TestMainline_EachCommit_NoneIncrementFallsToPatch(t *testing.T) {
 	tip := newCommit("aaa0000000000000000000000000000000000000", "docs: update")
 	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
 
@@ -633,7 +633,13 @@ func TestMainline_EachCommit_InheritFallsToPatch(t *testing.T) {
 
 	ver, _, err := calc.FindMainlineModeVersion(ctx, bv, ec, false)
 	require.NoError(t, err)
-	// docs → None, ShouldIncrement=true, BranchIncrement=None → Patch fallback
+	// docs → None, ShouldIncrement=true → Patch.
+	//
+	// Note this pins a known conflation rather than an intended design:
+	// IncrementStrategy.ToVersionField maps both Inherit and an explicit None to
+	// VersionFieldNone, so a branch configured `increment: None` - which is the
+	// shipped release-branch default - silently receives Patch instead of nothing.
+	// Pre-existing behaviour; kept covered so a future fix has to change it here.
 	require.Equal(t, int64(1), ver.Major)
 	require.Equal(t, int64(0), ver.Minor)
 	require.Equal(t, int64(1), ver.Patch)

@@ -103,7 +103,7 @@ func (m *MainlineVersionCalculator) eachCommitVersion(
 			continue
 		}
 
-		bump := m.increment.AnalyzeCommitBump(c, ec)
+		bump := analyzeCommitBump(c, ec)
 		field := bump.Field
 
 		// Cap Major to Minor for pre-1.0 versions.

@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -24,7 +25,7 @@ func runInRepo(t *testing.T) {
 }
 
 // captureStdout collects everything the example prints while fn runs.
-func captureStdout(t *testing.T, fn func()) string {
+func captureStdout(t *testing.T, fn func() error) string {
 	t.Helper()
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
@@ -35,10 +36,24 @@ func captureStdout(t *testing.T, fn func()) string {
 	done := make(chan string, 1)
 	go func() { b, _ := io.ReadAll(r); done <- string(b) }()
 
-	fn()
+	// Deferred: a require failure inside fn calls t.FailNow, which unwinds with
+	// runtime.Goexit and runs only deferred calls. Restoring inline would leave
+	// os.Stdout pointing at this pipe for every later test in the package, so
+	// their output - including failure diagnostics - would be swallowed.
+	restored := false
+	restore := func() {
+		if restored {
+			return
+		}
+		restored = true
+		os.Stdout = old
+		w.Close()
+	}
+	defer restore()
 
-	w.Close()
-	os.Stdout = old
+	require.NoError(t, fn())
+
+	restore()
 	return <-done
 }
 
@@ -67,10 +82,13 @@ func TestLocalVersionExplain_PrintsExplanation(t *testing.T) {
 func TestPrintVersion_SortsVariablesAndLabels(t *testing.T) {
 	runInRepo(t)
 
-	out := captureStdout(t, func() {
+	out := captureStdout(t, func() error {
 		result, err := sdkCalculateForTest()
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		printVersion("Custom", result)
+		return nil
 	})
 
 	require.Contains(t, out, "=== Custom Version ===")
@@ -93,17 +111,41 @@ func sdkCalculateForTest() (*sdk.Result, error) {
 	return sdk.Calculate(sdk.LocalOptions{Path: "."})
 }
 
-// TestMain_SkipsRemoteWithoutToken pins the token guard in main(). With no
-// GITHUB_TOKEN the remote example must be skipped entirely; running it would
-// fail authentication and abort the process.
-func TestMain_SkipsRemoteWithoutToken(t *testing.T) {
+// TestRun_SkipsRemoteWithoutToken pins the token guard in run(). With no token
+// the remote example must be skipped entirely - attempting it would fail
+// authentication, so an empty token reaching remoteVersion surfaces as an error.
+func TestRun_SkipsRemoteWithoutToken(t *testing.T) {
 	runInRepo(t)
-	t.Setenv("GITHUB_TOKEN", "")
 
-	out := captureStdout(t, main)
+	out := captureStdout(t, func() error { return run("") })
 
 	require.Contains(t, out, "=== Local Version ===")
 	require.Contains(t, out, "=== Explain Output ===")
 	require.NotContains(t, out, "=== Remote Version ===",
 		"the remote example must be skipped when no token is set")
+}
+
+// TestMain_SucceedsInARepository runs main() in a subprocess, which is the only
+// way to exercise a function that calls log.Fatal. It pins that a successful run
+// exits zero: were the error check inverted, main would call log.Fatal on a nil
+// error and exit non-zero instead.
+func TestMain_SucceedsInARepository(t *testing.T) {
+	if os.Getenv("GO_GITSEMVER_EXAMPLE_SUBPROCESS") == "1" {
+		main()
+		return
+	}
+
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial")
+	repo.CreateTag("v1.4.0", sha)
+	repo.AddCommit("feat: add search")
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestMain_SucceedsInARepository") //nolint:gosec // re-executes this test binary
+	cmd.Dir = repo.Path()
+	cmd.Env = append(os.Environ(), "GO_GITSEMVER_EXAMPLE_SUBPROCESS=1", "GITHUB_TOKEN=")
+
+	out, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "main() should exit zero on success; output:\n%s", out)
+	require.Contains(t, string(out), "=== Local Version ===")
+	require.NotContains(t, string(out), "=== Remote Version ===")
 }

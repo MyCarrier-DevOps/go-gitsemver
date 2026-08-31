@@ -110,19 +110,21 @@ func (f *IncrementStrategyFinder) DetermineIncrementedFieldExplained(
 
 	exp.Addf("scanned %d commits", len(commits))
 
-	// Scan commits for highest bump.
+	// Scan commits for highest bump. analyzed and suppressed are counted so the
+	// range is only suppressed when every commit in it declined - see below.
 	highest := semver.VersionFieldNone
-	suppressed := false
+	analyzed, suppressed := 0, 0
 	for _, c := range commits {
 		// Skip the base version source commit itself.
 		if bv.BaseVersionSource != nil && c.Sha == bv.BaseVersionSource.Sha {
 			continue
 		}
 
-		bump := f.AnalyzeCommitBump(c, ec)
+		analyzed++
+		bump := analyzeCommitBump(c, ec)
 		switch {
 		case bump.Suppressed:
-			suppressed = true
+			suppressed++
 			exp.Addf("commit %s %q -> no-bump directive", c.ShortSha(), firstLine(c.Message))
 		case bump.Field != semver.VersionFieldNone:
 			convention := conventionName(c.Message, ec)
@@ -141,11 +143,14 @@ func (f *IncrementStrategyFinder) DetermineIncrementedFieldExplained(
 		}
 	}
 
-	// An explicit no-bump directive suppresses the branch default increment.
-	// It never overrides a real increment requested elsewhere in the range, so a
-	// "+semver: none" chore cannot veto a feat: in the same set of commits.
-	if suppressed && highest == semver.VersionFieldNone {
-		exp.Add("no-bump directive present and no commit requested an increment: suppressing branch default")
+	// An explicit no-bump directive declines the branch default increment for the
+	// commit that carries it. Aggregating a range folds many commits into one
+	// increment, so the range is only suppressed when *every* commit declined -
+	// otherwise one stray directive would cancel the branch default earned by
+	// commits around it, and the reach of a directive would differ between this
+	// path and the per-commit mainline walk.
+	if analyzed > 0 && suppressed == analyzed && highest == semver.VersionFieldNone {
+		exp.Add("every commit carried a no-bump directive: suppressing branch default")
 		return IncrementResult{Field: semver.VersionFieldNone, Explanation: exp}, nil
 	}
 
@@ -177,12 +182,10 @@ func (f *IncrementStrategyFinder) branchDefault(
 	return field
 }
 
-// AnalyzeCommitBump returns the increment signal carried by a single commit
-// message. Exported for use by MainlineVersionCalculator in per-commit mode.
-func (f *IncrementStrategyFinder) AnalyzeCommitBump(
-	c git.Commit,
-	ec config.EffectiveConfiguration,
-) CommitBump {
+// analyzeCommitBump returns the increment signal carried by a single commit
+// message. It is a pure function of the commit and the effective configuration:
+// commit-message analysis never consults the repository.
+func analyzeCommitBump(c git.Commit, ec config.EffectiveConfiguration) CommitBump {
 	// MergeMessageOnly: only analyze merge commits.
 	if ec.CommitMessageIncrementing == semver.CommitMessageIncrementMergeMessageOnly && !c.IsMerge() {
 		return CommitBump{}
@@ -194,21 +197,30 @@ func (f *IncrementStrategyFinder) AnalyzeCommitBump(
 		return CommitBump{Field: analyzeConventionalCommit(c.Message)}
 
 	case semver.CommitMessageConventionBumpDirective:
-		if isNoBump(c.Message, ec) {
-			return CommitBump{Suppressed: true}
-		}
-		return CommitBump{Field: analyzeBumpDirective(c.Message, ec)}
+		return withNoBump(analyzeBumpDirective(c.Message, ec), c.Message, ec)
 
 	case semver.CommitMessageConventionBoth:
-		// An explicit no-bump directive is a manual override, so it wins over
-		// whatever the conventional-commit type would otherwise ask for.
-		if isNoBump(c.Message, ec) {
-			return CommitBump{Suppressed: true}
-		}
-		return CommitBump{Field: max(analyzeConventionalCommit(c.Message), analyzeBumpDirective(c.Message, ec))}
+		field := max(analyzeConventionalCommit(c.Message), analyzeBumpDirective(c.Message, ec))
+		return withNoBump(field, c.Message, ec)
 	}
 
 	return CommitBump{}
+}
+
+// withNoBump applies an explicit no-bump directive to the increment the rest of
+// the message asked for. The directive is a manual override, so it beats the
+// conventional-commit type and any lower explicit directive - but it never
+// swallows a Major. Losing a Major is asymmetric: the breaking change would ship
+// under a non-breaking version and every caller pinned to the current major
+// would upgrade straight into the break.
+func withNoBump(field semver.VersionField, msg string, ec config.EffectiveConfiguration) CommitBump {
+	if !isNoBump(msg, ec) {
+		return CommitBump{Field: field}
+	}
+	if field == semver.VersionFieldMajor {
+		return CommitBump{Field: semver.VersionFieldMajor}
+	}
+	return CommitBump{Suppressed: true}
 }
 
 // analyzeConventionalCommit parses a Conventional Commits message.
@@ -293,7 +305,13 @@ func conventionName(msg string, ec config.EffectiveConfiguration) string {
 	}
 }
 
-// tryMatch returns true if the message matches the regex pattern.
+// tryMatch reports whether the message carries the directive described by
+// pattern. The subject line matches anywhere along its length, so the documented
+// inline form ("update docs +semver: skip") keeps working. In the body only a
+// line consisting of nothing but the directive counts, which keeps the documented
+// footer form working while ignoring a directive quoted in prose and the
+// "* <subject>" bullets a squash merge builds from its sub-commits. Without that
+// scoping, any text anywhere in a commit body silently changes the version.
 func tryMatch(msg, pattern string) bool {
 	if pattern == "" {
 		return false
@@ -302,5 +320,23 @@ func tryMatch(msg, pattern string) bool {
 	if err != nil {
 		return false
 	}
-	return re.MatchString(msg)
+
+	subject, body, hasBody := strings.Cut(msg, "\n")
+	if re.MatchString(subject) {
+		return true
+	}
+	if !hasBody {
+		return false
+	}
+
+	trailerRe, err := regexp.Compile(`^\s*(?:` + pattern + `)\s*$`)
+	if err != nil {
+		return false
+	}
+	for line := range strings.SplitSeq(body, "\n") {
+		if trailerRe.MatchString(line) {
+			return true
+		}
+	}
+	return false
 }

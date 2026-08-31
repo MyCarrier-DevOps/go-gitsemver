@@ -28,8 +28,24 @@
   },
   "permissions": {
     "allow": [
-      "Bash(go:*)",
-      "Bash(make:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go list:*)",
+      "Bash(go doc:*)",
+      "Bash(go env:*)",
+      "Bash(go mod tidy)",
+      "Bash(go mod download)",
+      "Bash(go tool cover:*)",
+      "Bash(make build)",
+      "Bash(make test)",
+      "Bash(make test-all)",
+      "Bash(make e2e)",
+      "Bash(make lint)",
+      "Bash(make fmt)",
+      "Bash(make tidy)",
+      "Bash(make coverage-check)",
+      "Bash(make mutation)",
       "Bash(gofmt:*)",
       "Bash(goimports:*)",
       "Bash(golines:*)",
@@ -62,7 +78,13 @@
       "Bash(grep * *.env*)",
       "Bash(sed * *.env*)",
       "Bash(awk * *.env*)",
-      "Bash(find *secrets*)"
+      "Bash(find *secrets*)",
+      "Bash(go install:*)",
+      "Bash(go get:*)",
+      "Bash(make run:*)",
+      "Bash(make bump)",
+      "Bash(make install-tools)",
+      "Bash(make check-sec)"
     ]
   }
 }
