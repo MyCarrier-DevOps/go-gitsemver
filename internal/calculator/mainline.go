@@ -2,7 +2,6 @@ package calculator
 
 import (
 	"slices"
-	"strings"
 
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
@@ -105,25 +104,25 @@ func (m *MainlineVersionCalculator) eachCommitVersion(
 			continue
 		}
 
-		field := m.increment.AnalyzeCommitIncrement(c, ec)
+		bump := m.increment.AnalyzeCommitBump(c, ec)
+		field := bump.Field
 
 		// Cap Major to Minor for pre-1.0 versions.
 		if ver.Major == 0 && field == semver.VersionFieldMajor {
 			field = semver.VersionFieldMinor
 		}
 
-		if field != semver.VersionFieldNone {
+		switch {
+		case field != semver.VersionFieldNone:
 			ver = ver.IncrementField(field)
-		} else if bv.ShouldIncrement {
+		case bump.Suppressed:
+			// An explicit no-bump directive declines the branch default too.
+		case bv.ShouldIncrement:
 			ver = ver.IncrementField(defaultField)
 		}
 
 		if explain {
-			firstLine := c.Message
-			if idx := strings.IndexByte(firstLine, '\n'); idx >= 0 {
-				firstLine = firstLine[:idx]
-			}
-			exp.Addf("commit %s %q -> %s -> %s", c.ShortSha(), firstLine, field, ver.SemVer())
+			exp.Addf("commit %s %q -> %s -> %s", c.ShortSha(), firstLine(c.Message), field, ver.SemVer())
 		}
 	}
 

@@ -1,6 +1,7 @@
 package calculator
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -56,8 +57,37 @@ func TestConventionalCommit_BreakingChangeHyphen(t *testing.T) {
 	require.Equal(t, semver.VersionFieldMajor, analyzeConventionalCommit(msg))
 }
 
-func TestConventionalCommit_Chore(t *testing.T) {
-	require.Equal(t, semver.VersionFieldNone, analyzeConventionalCommit("chore: update deps"))
+func TestConventionalCommit_Types(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  string
+		want semver.VersionField
+	}{
+		{"feat", "feat: add login", semver.VersionFieldMinor},
+		{"fix", "fix: null pointer", semver.VersionFieldPatch},
+		{"perf", "perf: cache tag lookups", semver.VersionFieldPatch},
+		{"chore", "chore: update deps", semver.VersionFieldPatch},
+		{"perf with scope", "perf(git): reuse the commit iterator", semver.VersionFieldPatch},
+		{"chore with scope", "chore(deps): bump go-git", semver.VersionFieldPatch},
+		{"build", "build: switch to CGO_ENABLED=0", semver.VersionFieldNone},
+		{"ci", "ci: pin the runner image", semver.VersionFieldNone},
+		{"docs", "docs: update readme", semver.VersionFieldNone},
+		{"refactor", "refactor: extract the finder", semver.VersionFieldNone},
+		{"revert", "revert: undo the auth change", semver.VersionFieldNone},
+		{"style", "style: gofmt", semver.VersionFieldNone},
+		{"test", "test: cover the parser", semver.VersionFieldNone},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, analyzeConventionalCommit(tt.msg))
+		})
+	}
+}
+
+func TestConventionalCommit_BreakingOnPatchTypes(t *testing.T) {
+	require.Equal(t, semver.VersionFieldMajor, analyzeConventionalCommit("chore!: drop go 1.21"))
+	require.Equal(t, semver.VersionFieldMajor, analyzeConventionalCommit("perf!: change cache key format"))
 }
 
 func TestConventionalCommit_NotConventional(t *testing.T) {
@@ -451,10 +481,10 @@ func TestBranchDefault_ReturnsConfigured(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// AnalyzeCommitIncrement tests
+// AnalyzeCommitBump tests
 // ---------------------------------------------------------------------------
 
-func TestAnalyzeCommitIncrement_ConventionalCommit(t *testing.T) {
+func TestAnalyzeCommitBump_ConventionalCommit(t *testing.T) {
 	store := git.NewRepositoryStore(&git.MockRepository{})
 	finder := NewIncrementStrategyFinder(store)
 
@@ -462,11 +492,11 @@ func TestAnalyzeCommitIncrement_ConventionalCommit(t *testing.T) {
 	ec := defaultEC()
 	ec.CommitMessageConvention = semver.CommitMessageConventionConventionalCommits
 
-	field := finder.AnalyzeCommitIncrement(c, ec)
+	field := finder.AnalyzeCommitBump(c, ec).Field
 	require.Equal(t, semver.VersionFieldMinor, field)
 }
 
-func TestAnalyzeCommitIncrement_BumpDirective(t *testing.T) {
+func TestAnalyzeCommitBump_BumpDirective(t *testing.T) {
 	store := git.NewRepositoryStore(&git.MockRepository{})
 	finder := NewIncrementStrategyFinder(store)
 
@@ -474,11 +504,11 @@ func TestAnalyzeCommitIncrement_BumpDirective(t *testing.T) {
 	ec := defaultEC()
 	ec.CommitMessageConvention = semver.CommitMessageConventionBumpDirective
 
-	field := finder.AnalyzeCommitIncrement(c, ec)
+	field := finder.AnalyzeCommitBump(c, ec).Field
 	require.Equal(t, semver.VersionFieldMajor, field)
 }
 
-func TestAnalyzeCommitIncrement_MergeMessageOnly_NonMerge(t *testing.T) {
+func TestAnalyzeCommitBump_MergeMessageOnly_NonMerge(t *testing.T) {
 	store := git.NewRepositoryStore(&git.MockRepository{})
 	finder := NewIncrementStrategyFinder(store)
 
@@ -490,11 +520,11 @@ func TestAnalyzeCommitIncrement_MergeMessageOnly_NonMerge(t *testing.T) {
 	ec.CommitMessageIncrementing = semver.CommitMessageIncrementMergeMessageOnly
 	ec.CommitMessageConvention = semver.CommitMessageConventionConventionalCommits
 
-	field := finder.AnalyzeCommitIncrement(c, ec)
+	field := finder.AnalyzeCommitBump(c, ec).Field
 	require.Equal(t, semver.VersionFieldNone, field, "non-merge should return None in MergeMessageOnly mode")
 }
 
-func TestAnalyzeCommitIncrement_Both_HighestWins(t *testing.T) {
+func TestAnalyzeCommitBump_Both_HighestWins(t *testing.T) {
 	store := git.NewRepositoryStore(&git.MockRepository{})
 	finder := NewIncrementStrategyFinder(store)
 
@@ -502,7 +532,7 @@ func TestAnalyzeCommitIncrement_Both_HighestWins(t *testing.T) {
 	ec := defaultEC()
 	ec.CommitMessageConvention = semver.CommitMessageConventionBoth
 
-	field := finder.AnalyzeCommitIncrement(c, ec)
+	field := finder.AnalyzeCommitBump(c, ec).Field
 	// fix: → Patch, +semver: minor → Minor. Both mode takes highest = Minor.
 	require.Equal(t, semver.VersionFieldMinor, field)
 }
@@ -589,4 +619,154 @@ func TestBumpDirective_BumpMinorColon(t *testing.T) {
 func TestBumpDirective_BumpPatchColon(t *testing.T) {
 	ec := defaultEC()
 	require.Equal(t, semver.VersionFieldPatch, analyzeBumpDirective("bump patch: fix typo in output", ec))
+}
+
+func TestIsNoBump_Patterns(t *testing.T) {
+	ec := defaultEC()
+	tests := []struct {
+		name string
+		msg  string
+		want bool
+	}{
+		{"+semver none", "update deps +semver: none", true},
+		{"+semver skip", "update deps +semver: skip", true},
+		{"+semver no space", "update deps +semver:none", true},
+		{"bump none prefix", "bump none: update deps", true},
+		{"bump skip prefix", "bump skip: update deps", true},
+		{"in footer", "chore: update deps\n\n+semver: none", true},
+		{"plain message", "chore: update deps", false},
+		{"patch directive", "fix it +semver: patch", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isNoBump(tt.msg, ec))
+		})
+	}
+}
+
+func TestAnalyzeCommitBump_NoBumpOverridesConventionalCommit(t *testing.T) {
+	finder := NewIncrementStrategyFinder(nil)
+	ec := defaultEC()
+
+	got := finder.AnalyzeCommitBump(newCommit("aaa", "feat: add login\n\n+semver: none"), ec)
+	require.Equal(t, semver.VersionFieldNone, got.Field)
+	require.True(t, got.Suppressed, "explicit no-bump directive must beat the conventional-commit type")
+}
+
+func TestAnalyzeCommitBump_NoBumpIgnoredInConventionalCommitsMode(t *testing.T) {
+	finder := NewIncrementStrategyFinder(nil)
+	ec := defaultEC()
+	ec.CommitMessageConvention = semver.CommitMessageConventionConventionalCommits
+
+	got := finder.AnalyzeCommitBump(newCommit("aaa", "feat: add login\n\n+semver: none"), ec)
+	require.Equal(t, semver.VersionFieldMinor, got.Field)
+	require.False(t, got.Suppressed, "bump directives are not honoured in ConventionalCommits-only mode")
+}
+
+func TestAnalyzeCommitBump_ChoreIsPatch(t *testing.T) {
+	finder := NewIncrementStrategyFinder(nil)
+	got := finder.AnalyzeCommitBump(newCommit("aaa", "chore: update deps"), defaultEC())
+	require.Equal(t, semver.VersionFieldPatch, got.Field)
+	require.False(t, got.Suppressed)
+}
+
+func TestDetermineIncrement_NoBumpSuppressesBranchDefault(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "chore: update deps +semver: none")
+	source := newCommit("bbb0000000000000000000000000000000000000", "initial")
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{tip, source}, nil
+		},
+	}
+	store := git.NewRepositoryStore(mock)
+
+	ctx := &context.GitVersionContext{CurrentCommit: tip}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   true,
+		BaseVersionSource: &source,
+	}
+	ec := defaultEC()
+	ec.BranchIncrement = semver.IncrementStrategyPatch
+
+	finder := NewIncrementStrategyFinder(store)
+	field, err := finder.DetermineIncrementedField(ctx, bv, ec)
+	require.NoError(t, err)
+	require.Equal(t, semver.VersionFieldNone, field, "no-bump must suppress the branch default increment")
+}
+
+func TestDetermineIncrement_NoBumpDoesNotSuppressRealBump(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: add login")
+	mid := newCommit("ccc0000000000000000000000000000000000000", "chore: deps +semver: none")
+	source := newCommit("bbb0000000000000000000000000000000000000", "initial")
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{tip, mid, source}, nil
+		},
+	}
+	store := git.NewRepositoryStore(mock)
+
+	ctx := &context.GitVersionContext{CurrentCommit: tip}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   true,
+		BaseVersionSource: &source,
+	}
+
+	finder := NewIncrementStrategyFinder(store)
+	field, err := finder.DetermineIncrementedField(ctx, bv, defaultEC())
+	require.NoError(t, err)
+	require.Equal(t, semver.VersionFieldMinor, field, "a suppressed commit must not veto a real feat: bump")
+}
+
+func TestFirstLine(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  string
+		want string
+	}{
+		{"single line", "feat: add login", "feat: add login"},
+		{"multi line", "feat: add login\n\nbody text", "feat: add login"},
+		{"leading newline", "\nfeat: add login", ""},
+		{"empty", "", ""},
+		{"only newline", "\n", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, firstLine(tt.msg))
+		})
+	}
+}
+
+func TestDetermineIncrementExplained_ReportsOnlyBumpingCommits(t *testing.T) {
+	bumping := newCommit("aaa0000000000000000000000000000000000000", "feat: add login")
+	quiet := newCommit("ccc0000000000000000000000000000000000000", "docs: update readme")
+	source := newCommit("bbb0000000000000000000000000000000000000", "initial")
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return []git.Commit{bumping, quiet, source}, nil
+		},
+	}
+	store := git.NewRepositoryStore(mock)
+
+	ctx := &context.GitVersionContext{CurrentCommit: bumping}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   true,
+		BaseVersionSource: &source,
+	}
+
+	finder := NewIncrementStrategyFinder(store)
+	result, err := finder.DetermineIncrementedFieldExplained(ctx, bv, defaultEC(), true)
+	require.NoError(t, err)
+	require.NotNil(t, result.Explanation)
+
+	steps := strings.Join(result.Explanation.Steps, "\n")
+	require.Contains(t, steps, "feat: add login", "a commit that bumps must be reported")
+	require.NotContains(t, steps, "docs: update readme", "a commit that does not bump must not be reported")
 }

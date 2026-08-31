@@ -498,7 +498,7 @@ func TestMainline_Aggregate_NotShouldIncrement(t *testing.T) {
 }
 
 func TestMainline_EachCommit_NotShouldIncrement(t *testing.T) {
-	tip := newCommit("aaa0000000000000000000000000000000000000", "chore: cleanup")
+	tip := newCommit("aaa0000000000000000000000000000000000000", "style: cleanup")
 	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
 
 	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
@@ -527,7 +527,76 @@ func TestMainline_EachCommit_NotShouldIncrement(t *testing.T) {
 
 	ver, _, err := calc.FindMainlineModeVersion(ctx, bv, ec, false)
 	require.NoError(t, err)
-	// chore → None, ShouldIncrement=false → no increment
+	// style → None, ShouldIncrement=false → no increment
+	require.Equal(t, int64(1), ver.Major)
+	require.Equal(t, int64(0), ver.Minor)
+	require.Equal(t, int64(0), ver.Patch)
+}
+
+func TestMainline_EachCommit_ChoreIncrementsPatch(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "chore: cleanup")
+	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
+	mock := &git.MockRepository{
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
+	}
+	store := git.NewRepositoryStore(mock)
+	calc := NewMainlineVersionCalculator(store, NewIncrementStrategyFinder(store))
+
+	ctx := &context.GitVersionContext{
+		CurrentCommit: tip,
+		CurrentBranch: git.Branch{Name: git.NewReferenceName("refs/heads/main")},
+	}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   false,
+		BaseVersionSource: &source,
+	}
+	ec := defaultEC()
+	ec.CommitMessageConvention = semver.CommitMessageConventionConventionalCommits
+	ec.MainlineIncrement = semver.MainlineIncrementEachCommit
+
+	ver, _, err := calc.FindMainlineModeVersion(ctx, bv, ec, false)
+	require.NoError(t, err)
+	// chore → Patch on its own, independent of ShouldIncrement.
+	require.Equal(t, int64(1), ver.Major)
+	require.Equal(t, int64(0), ver.Minor)
+	require.Equal(t, int64(1), ver.Patch)
+}
+
+func TestMainline_EachCommit_NoBumpDeclinesBranchDefault(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "chore: deps +semver: none")
+	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
+	mock := &git.MockRepository{
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
+	}
+	store := git.NewRepositoryStore(mock)
+	calc := NewMainlineVersionCalculator(store, NewIncrementStrategyFinder(store))
+
+	ctx := &context.GitVersionContext{
+		CurrentCommit: tip,
+		CurrentBranch: git.Branch{Name: git.NewReferenceName("refs/heads/main")},
+	}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   true,
+		BaseVersionSource: &source,
+	}
+	ec := defaultEC()
+	ec.MainlineIncrement = semver.MainlineIncrementEachCommit
+
+	ver, _, err := calc.FindMainlineModeVersion(ctx, bv, ec, false)
+	require.NoError(t, err)
+	// The no-bump directive suppresses both the chore: patch and the branch default.
 	require.Equal(t, int64(1), ver.Major)
 	require.Equal(t, int64(0), ver.Minor)
 	require.Equal(t, int64(0), ver.Patch)

@@ -534,6 +534,8 @@ First-class support for the [Conventional Commits](https://www.conventionalcommi
 |----------------|-----------|
 | `feat:` or `feat(scope):` | Minor |
 | `fix:` or `fix(scope):` | Patch |
+| `perf:` or `perf(scope):` | Patch |
+| `chore:` or `chore(scope):` | Patch |
 | `feat!:` or `fix!:` (any type with `!`) | Major |
 | `BREAKING CHANGE:` in commit footer | Major |
 
@@ -558,7 +560,9 @@ git commit -m "refactor: change auth token format
 BREAKING CHANGE: JWT tokens now use RS256 instead of HS256"
 ```
 
-**Other conventional commit types** (`docs:`, `chore:`, `test:`, `refactor:`, `ci:`, `style:`, `perf:`, `build:`) do not trigger any increment by themselves. The branch default increment applies.
+**Other conventional commit types** (`build:`, `ci:`, `docs:`, `refactor:`, `revert:`, `style:`, `test:`) do not trigger any increment by themselves. The branch default increment applies.
+
+The `fix:`/`perf:`/`chore:` mapping matches the default release rules used by [semantic-release](https://semantic-release.gitbook.io/), so repositories migrating from that tooling get the same versions.
 
 **Config:** [examples/conventional-commits.yml](examples/conventional-commits.yml)
 
@@ -606,6 +610,22 @@ By default, go-gitsemver recognizes **both** Conventional Commits and bump direc
 git commit -m "bump major: add new endpoint"
 # "bump major:" overrides conventional commit analysis → Major
 ```
+
+**The no-bump directive is the exception.** It is an explicit manual override, so it
+wins over the conventional-commit type in the same commit rather than losing to it:
+
+```bash
+git commit -m "chore: bump deps
+
++semver: none"
+# chore: would be Patch, but the directive suppresses it → None
+```
+
+A suppressed commit also declines the branch default increment, which is what makes
+`+semver: none` able to produce no version change at all. It cannot veto an increment
+requested by a *different* commit in the same range — if any other commit asks for a
+bump, that bump still applies. Bump directives, including no-bump, are ignored entirely
+when `commit-message-convention: conventional-commits`.
 
 Configure which conventions are active:
 

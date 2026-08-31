@@ -291,3 +291,57 @@ func TestWriteExplanation_ErrorWriter(t *testing.T) {
 	err := WriteExplanation(&errWriter{n: 0}, result)
 	require.Error(t, err)
 }
+
+// TestWriteExplanation_ErrorAtEveryWrite drives a failure at each successive
+// write in a fully-populated explanation, covering every error-return branch in
+// WriteExplanation rather than only the first one.
+func TestWriteExplanation_ErrorAtEveryWrite(t *testing.T) {
+	src := makeCommit("abc1234567890000000000000000000000000000", "feat: thing")
+	result := calculator.VersionResult{
+		Version: semver.SemanticVersion{Major: 1, Minor: 3, Patch: 0},
+		BaseVersion: strategy.BaseVersion{
+			Source:            "TaggedCommit",
+			SemanticVersion:   semver.SemanticVersion{Major: 1, Minor: 2, Patch: 0},
+			BaseVersionSource: src,
+			ShouldIncrement:   true,
+		},
+		AllCandidates: []strategy.BaseVersion{
+			{
+				Source:            "TaggedCommit",
+				SemanticVersion:   semver.SemanticVersion{Major: 1, Minor: 2, Patch: 0},
+				BaseVersionSource: src,
+				Explanation:       &strategy.Explanation{Strategy: "TaggedCommit", Steps: []string{"found tag v1.2.0"}},
+			},
+			{
+				Source:          "TaggedCommit",
+				SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 1, Patch: 0},
+				Explanation:     &strategy.Explanation{Strategy: "TaggedCommit", Steps: []string{"older tag"}},
+			},
+			{
+				Source:          "Fallback",
+				SemanticVersion: semver.SemanticVersion{Major: 1},
+				Explanation:     &strategy.Explanation{Strategy: "Fallback", Steps: []string{"default base"}},
+			},
+		},
+		IncrementExplanation: &calculator.IncrementExplanation{Steps: []string{"scanned 2 commits", "highest increment: Minor"}},
+		PreReleaseSteps:      []string{"branch tag: alpha", "weight applied"},
+	}
+
+	// Establish how many writes a full run performs.
+	var counter countingWriter
+	require.NoError(t, WriteExplanation(&counter, result))
+	require.Positive(t, counter.writes)
+
+	for n := range counter.writes {
+		err := WriteExplanation(&errWriter{n: n}, result)
+		require.Errorf(t, err, "expected failure when the writer fails after %d writes", n)
+	}
+}
+
+// countingWriter records how many Write calls it received.
+type countingWriter struct{ writes int }
+
+func (c *countingWriter) Write(p []byte) (int, error) {
+	c.writes++
+	return len(p), nil
+}

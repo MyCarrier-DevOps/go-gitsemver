@@ -382,11 +382,13 @@ All subsequent versions will be calculated relative to this tag.
 | `bump patch:` | `bump patch: fix typo` | Patch |
 | `feat:` commit | `feat: add search` | Minor |
 | `fix:` commit | `fix: handle edge case` | Patch |
+| `perf:` commit | `perf: cache lookups` | Patch |
+| `chore:` commit | `chore: bump deps` | Patch |
 | `feat!:` or `BREAKING CHANGE:` | `feat!: new API` | Major |
 | `+semver: major` | `refactor +semver: major` | Major |
 | `+semver: minor` / `feature` | `add report +semver: minor` | Minor |
 | `+semver: patch` / `fix` | `typo +semver: fix` | Patch |
-| `+semver: skip` / `none` | `docs +semver: skip` | None |
+| `+semver: skip` / `none` | `docs +semver: skip` | None (suppresses the branch default) |
 | `next-version` config | `next-version: 2.0.0` | Exact version |
 | Git tag | `git tag v3.0.0` | Sets base version |
 

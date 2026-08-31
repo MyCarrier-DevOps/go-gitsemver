@@ -180,7 +180,7 @@ Controls whether commit messages are scanned for version bump information.
 
 Which commit message conventions to recognize.
 
-- **ConventionalCommits** — `feat:`, `fix:`, `feat!:`, `BREAKING CHANGE:` footers
+- **ConventionalCommits** — `feat:`, `fix:`, `perf:`, `chore:`, `feat!:`, `BREAKING CHANGE:` footers
 - **BumpDirective** — `bump major:`, `bump minor:`, `bump patch:`, or `+semver: major`, `+semver: minor`, `+semver: fix`, `+semver: skip`
 - **Both** — Recognizes both conventions, highest bump wins
 

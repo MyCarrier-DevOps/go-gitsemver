@@ -29,7 +29,7 @@ The highest-priority strategy with a valid result wins.
 
 Version bumps are determined automatically from commit messages using pluggable conventions:
 
-- **Conventional Commits** — `feat:` → Minor, `fix:` → Patch, `feat!:` or `BREAKING CHANGE` → Major
+- **Conventional Commits** — `feat:` → Minor, `fix:`/`perf:`/`chore:` → Patch, `feat!:` or `BREAKING CHANGE` → Major
 - **Bump directives** — `bump major:`, `bump minor:`, `bump patch:` or `+semver: major`, `+semver: minor`, `+semver: patch` (with aliases like `breaking`, `feature`, `fix`)
 
 The highest increment across all commits since the last version tag is applied.

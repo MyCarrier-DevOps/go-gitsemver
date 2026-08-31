@@ -310,7 +310,48 @@ func TestE2E_BumpDirective_Skip(t *testing.T) {
 
 	vars := runPipeline(t, repo.Path())
 
-	// Skip still applies branch default increment (Patch for main).
+	// The no-bump directive suppresses the branch default increment.
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "0", vars["Minor"])
+	require.Equal(t, "0", vars["Patch"])
+}
+
+func TestE2E_BumpDirective_SkipDoesNotVetoFeature(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("docs: update readme +semver: skip")
+	repo.AddCommit("feat: add search")
+
+	vars := runPipeline(t, repo.Path())
+
+	// A skipped commit must not suppress a real increment in the same range.
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "1", vars["Minor"])
+	require.Equal(t, "0", vars["Patch"])
+}
+
+func TestE2E_ConventionalCommit_Chore(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("chore: bump dependencies")
+
+	vars := runPipelineWithConfig(t, repo.Path(), "commit-message-convention: ConventionalCommits\n")
+
+	require.Equal(t, "1", vars["Major"])
+	require.Equal(t, "0", vars["Minor"])
+	require.Equal(t, "1", vars["Patch"])
+}
+
+func TestE2E_ConventionalCommit_Perf(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	sha := repo.AddCommit("initial")
+	repo.CreateTag("v1.0.0", sha)
+	repo.AddCommit("perf: cache tag lookups")
+
+	vars := runPipelineWithConfig(t, repo.Path(), "commit-message-convention: ConventionalCommits\n")
+
 	require.Equal(t, "1", vars["Major"])
 	require.Equal(t, "0", vars["Minor"])
 	require.Equal(t, "1", vars["Patch"])

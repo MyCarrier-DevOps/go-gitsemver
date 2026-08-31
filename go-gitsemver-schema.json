@@ -48,22 +48,22 @@
     "major-version-bump-message": {
       "type": "string",
       "description": "Regex pattern that triggers a major version bump when matched in a commit message.",
-      "default": "\\+semver:\\s?(breaking|major)"
+      "default": "(\\+semver:\\s?(breaking|major)|bump major:)"
     },
     "minor-version-bump-message": {
       "type": "string",
       "description": "Regex pattern that triggers a minor version bump when matched in a commit message.",
-      "default": "\\+semver:\\s?(feature|minor)"
+      "default": "(\\+semver:\\s?(feature|minor)|bump minor:)"
     },
     "patch-version-bump-message": {
       "type": "string",
       "description": "Regex pattern that triggers a patch version bump when matched in a commit message.",
-      "default": "\\+semver:\\s?(fix|patch)"
+      "default": "(\\+semver:\\s?(fix|patch)|bump patch:)"
     },
     "no-bump-message": {
       "type": "string",
       "description": "Regex pattern that prevents any version bump when matched in a commit message.",
-      "default": "\\+semver:\\s?(none|skip)"
+      "default": "(\\+semver:\\s?(none|skip)|bump (none|skip):)"
     },
     "commit-date-format": {
       "type": "string",

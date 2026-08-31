@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **`chore:` and `perf:` now increment the Patch version** — previously only `feat:` (Minor) and `fix:` (Patch) mapped to an increment, and every other Conventional Commits type fell through to the branch default. The `feat`/`fix`/`perf` mapping now matches the default release rules used by semantic-release. Remaining types (`build:`, `ci:`, `docs:`, `refactor:`, `revert:`, `style:`, `test:`) are unchanged and still do not bump on their own.
+
+  This changes calculated versions only where the branch default was not already Patch or higher — most visibly on `release` branches (`increment: None`) and wherever `ShouldIncrement` is false. On `main` (Patch) and `develop` (Minor) the result is unchanged.
+
+### Fixed
+
+- **`no-bump-message` is now honoured** — the option was read from configuration and threaded through to the effective config, but never consulted during increment analysis, so `+semver: none`, `+semver: skip`, `bump none:` and `bump skip:` had no effect despite being documented as "suppress increment". A commit carrying the directive now contributes no increment *and* declines the branch default, so it can produce no version change at all.
+
+  Precedence: the directive overrides the conventional-commit type within the same commit, but never vetoes an increment requested by another commit in the same range. It is ignored under `commit-message-convention: conventional-commits`, consistent with the other bump directives.
+
 ## [1.11.0]
 
 ### Fixed
