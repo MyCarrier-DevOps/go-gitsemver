@@ -1472,3 +1472,142 @@ func TestSemverTagPattern(t *testing.T) {
 		})
 	}
 }
+
+// TestHead_AnnotatedTagRef pins the tag-peeling path: an annotated tag ref
+// points at a tag object, which must be peeled to reach the commit. Skipping
+// the peel would leave the tag object's own SHA as the tip.
+func TestHead_AnnotatedTagRef(t *testing.T) {
+	tagSha := "1111111111111111111111111111111111111111"
+	commitSha := "2222222222222222222222222222222222222222"
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/branches/v9.0.0", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+	})
+
+	// The ref points at a tag object, not directly at a commit.
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/git/ref/tags/v9.0.0", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]interface{}{
+			"ref":    "refs/tags/v9.0.0",
+			"object": map[string]interface{}{"sha": tagSha, "type": "tag"},
+		})
+	})
+
+	// Peeling the tag object yields the commit.
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/git/tags/"+tagSha, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]interface{}{
+			"sha":    tagSha,
+			"object": map[string]interface{}{"sha": commitSha, "type": "commit"},
+		})
+	})
+
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/commits/"+commitSha, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]interface{}{
+			"sha":     commitSha,
+			"commit":  map[string]interface{}{"message": "release v9", "committer": map[string]interface{}{"date": "2025-06-01T00:00:00Z"}},
+			"parents": []map[string]interface{}{},
+		})
+	})
+
+	// The tag object's own SHA must never be used as the commit.
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/commits/"+tagSha, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+	})
+
+	repo, cleanup := newTestRepo(t, mux, WithRef("v9.0.0"))
+	defer cleanup()
+
+	head, err := repo.Head()
+	require.NoError(t, err)
+	require.True(t, head.IsDetachedHead)
+	require.Equal(t, commitSha, head.Tip.Sha, "an annotated tag must be peeled to its commit")
+	require.Equal(t, "v9.0.0", head.Name.Friendly)
+}
+
+// TestMainlineCommitLog_StopsAtFromCommit pins that the walk stops when the
+// first parent is the from-commit, rather than running on to the root.
+func TestMainlineCommitLog_StopsAtFromCommit(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/compare/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]interface{}{
+			"total_commits": 3,
+			"commits": []map[string]interface{}{
+				{"sha": "aaa", "commit": map[string]interface{}{"message": "A", "committer": map[string]interface{}{"date": "2025-01-01T00:00:00Z"}}, "parents": []map[string]interface{}{}},
+				{"sha": "bbb", "commit": map[string]interface{}{"message": "B", "committer": map[string]interface{}{"date": "2025-01-02T00:00:00Z"}}, "parents": []map[string]interface{}{{"sha": "aaa"}}},
+				{"sha": "ccc", "commit": map[string]interface{}{"message": "C", "committer": map[string]interface{}{"date": "2025-01-03T00:00:00Z"}}, "parents": []map[string]interface{}{{"sha": "bbb"}}},
+			},
+		})
+	})
+
+	repo, cleanup := newTestRepo(t, mux)
+	defer cleanup()
+
+	mainline, err := repo.MainlineCommitLog("aaa", "tip")
+	require.NoError(t, err)
+	require.Len(t, mainline, 2, "the walk must stop once the first parent is the from-commit")
+	require.Equal(t, "ccc", mainline[0].Sha)
+	require.Equal(t, "bbb", mainline[1].Sha)
+}
+
+// commitPage renders one page of the commits listing.
+func commitPage(shas ...string) []map[string]interface{} {
+	page := make([]map[string]interface{}, 0, len(shas))
+	for _, sha := range shas {
+		page = append(page, map[string]interface{}{
+			"sha":     sha,
+			"commit":  map[string]interface{}{"message": "c " + sha, "committer": map[string]interface{}{"date": "2025-01-01T00:00:00Z"}},
+			"parents": []map[string]interface{}{},
+		})
+	}
+	return page
+}
+
+// TestCommitLog_StopsExactlyAtMaxCommits pins the len(commits) >= maxCommits
+// boundary: a first page that fills the cap exactly must end the walk, even
+// though another page is advertised.
+func TestCommitLog_StopsExactlyAtMaxCommits(t *testing.T) {
+	pagesServed := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/commits", func(w http.ResponseWriter, r *http.Request) {
+		pagesServed++
+		if r.URL.Query().Get("page") == "2" {
+			writeJSON(w, commitPage("ccc", "ddd"))
+			return
+		}
+		w.Header().Set("Link", `<https://example.com/commits?page=2>; rel="next"`)
+		writeJSON(w, commitPage("aaa", "bbb"))
+	})
+
+	repo, cleanup := newTestRepo(t, mux, WithMaxCommits(2))
+	defer cleanup()
+
+	commits, err := repo.CommitLog("", "tip")
+	require.NoError(t, err)
+	require.Len(t, commits, 2, "the walk must stop once the cap is reached exactly")
+	require.Equal(t, 1, pagesServed, "no further page should be requested once the cap is hit")
+}
+
+// TestCommitsPriorTo_StopsExactlyAtMaxCommits pins the same boundary for the
+// commits-prior-to walk.
+func TestCommitsPriorTo_StopsExactlyAtMaxCommits(t *testing.T) {
+	pagesServed := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v3/repos/testowner/testrepo/commits", func(w http.ResponseWriter, r *http.Request) {
+		pagesServed++
+		if r.URL.Query().Get("page") == "2" {
+			writeJSON(w, commitPage("ccc", "ddd"))
+			return
+		}
+		w.Header().Set("Link", `<https://example.com/commits?page=2>; rel="next"`)
+		writeJSON(w, commitPage("aaa", "bbb"))
+	})
+
+	repo, cleanup := newTestRepo(t, mux, WithMaxCommits(2))
+	defer cleanup()
+
+	tip := git.Commit{Sha: "tip"}
+	commits, err := repo.CommitsPriorTo(time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), git.Branch{Tip: &tip})
+	require.NoError(t, err)
+	require.Len(t, commits, 2, "the walk must stop once the cap is reached exactly")
+	require.Equal(t, 1, pagesServed, "no further page should be requested once the cap is hit")
+}

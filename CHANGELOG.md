@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - Commit-message handling
+
+Major release. The Go API is unchanged, but the versions this tool computes for
+an unchanged repository can differ - see the warning below and the BREAKING
+entries under Changed.
+
+> [!WARNING]
+> **This release changes computed versions for unchanged input.** The Go API of
+> `pkg/sdk` is unchanged, so nothing fails to compile — but the version this tool
+> emits for the same repository can differ, and in some cases can be *lower* than
+> before. A pipeline that tags or publishes from this output should be re-checked
+> before upgrading. Details under each entry below.
+
+### Changed
+
+- **BREAKING: `no-bump-message` is now honoured** — the option was read from configuration and threaded through to the effective config, but never consulted during increment analysis, so `+semver: none`, `+semver: skip`, `bump none:` and `bump skip:` had no effect despite being documented as "suppress increment". A commit carrying the directive now contributes no increment *and* declines the branch default, so it can produce no version change at all.
+
+  **Why this is breaking.** Because the directive was previously inert, users had no reason to avoid it. Any repository with such a commit since its last version tag now computes a *lower* version — for example `1.0.1` → `1.0.0` on `main`, or `1.1.0-alpha.1` → `1.0.0-alpha.1` on `develop` in ContinuousDeployment. On mainline branches, which carry no pre-release label, the emitted version can therefore be **identical to a tag you have already published**, and a pipeline that tags from it will try to re-create an existing tag. Audit for stray directives before upgrading.
+
+  Precedence rules, in order:
+  - A no-bump directive overrides the conventional-commit type in the same commit, so `chore: bump deps` + `+semver: none` produces no increment.
+  - It never swallows a **Major**. A `!` suffix, a `BREAKING CHANGE:` footer, or an explicit `+semver: major` in the same commit still wins, because shipping a breaking change under a non-breaking version would let every consumer pinned to the current major upgrade straight into the break.
+  - It never vetoes an increment requested by a *different* commit in the range.
+  - When a range is aggregated into a single increment, the branch default is declined only if **every** commit in the range carried the directive.
+  - It is ignored under `commit-message-convention: conventional-commits`, consistent with the other bump directives.
+
+- **BREAKING: bump directives are now matched per line, not across the whole message** — previously `major-version-bump-message`, `minor-version-bump-message`, `patch-version-bump-message` and `no-bump-message` were matched against the entire commit message. A directive is now recognised anywhere on the **subject line**, or on a **body line that contains nothing but the directive**. Both documented forms are unaffected: `git commit -m "update docs +semver: skip"` and a `+semver: none` trailer under a subject both still work.
+
+  **Why this is breaking.** Whole-message matching meant a directive quoted in prose changed the version — `feat: add search` with a body reading *"do not use +semver: skip in future commits"* silently produced no release. It also broke squash merges, whose bodies are the concatenation of every sub-commit message: one sub-commit's `+semver: skip` cancelled the whole pull request's bump, and one sub-commit's `+semver: major` forced a major. If you relied on a directive placed mid-sentence in a commit body, move it to the subject line or onto its own line.
+
+- **`chore:` and `perf:` now increment the Patch version** — previously only `feat:` (Minor) and `fix:` (Patch) mapped to an increment, and every other Conventional Commits type fell through to the branch default. The `feat`/`fix`/`perf` mapping now matches the default release rules used by semantic-release. Remaining types (`build:`, `ci:`, `docs:`, `refactor:`, `revert:`, `style:`, `test:`) are unchanged and still do not bump on their own.
+
+  This changes calculated versions only where the branch default was not already Patch or higher — most visibly wherever `ShouldIncrement` is false, such as a release branch whose base version comes from the branch name. On `main` (Patch) and `develop` (Minor) the result is unchanged.
+
+- **Minimum Go version is now 1.27** (set in `92840cb`). `pkg/sdk` consumers on Go 1.26 with the default `GOTOOLCHAIN=auto` transparently download 1.27; builds pinned with `GOTOOLCHAIN=local`, air-gapped builders, and distro-pinned toolchains need to upgrade.
+
 ## [1.11.0]
 
 ### Fixed

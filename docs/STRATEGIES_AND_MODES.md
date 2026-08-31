@@ -534,6 +534,8 @@ First-class support for the [Conventional Commits](https://www.conventionalcommi
 |----------------|-----------|
 | `feat:` or `feat(scope):` | Minor |
 | `fix:` or `fix(scope):` | Patch |
+| `perf:` or `perf(scope):` | Patch |
+| `chore:` or `chore(scope):` | Patch |
 | `feat!:` or `fix!:` (any type with `!`) | Major |
 | `BREAKING CHANGE:` in commit footer | Major |
 
@@ -558,7 +560,9 @@ git commit -m "refactor: change auth token format
 BREAKING CHANGE: JWT tokens now use RS256 instead of HS256"
 ```
 
-**Other conventional commit types** (`docs:`, `chore:`, `test:`, `refactor:`, `ci:`, `style:`, `perf:`, `build:`) do not trigger any increment by themselves. The branch default increment applies.
+**Other conventional commit types** (`build:`, `ci:`, `docs:`, `refactor:`, `revert:`, `style:`, `test:`) do not trigger any increment by themselves. The branch default increment applies.
+
+The `fix:`/`perf:`/`chore:` mapping matches the default release rules used by [semantic-release](https://semantic-release.gitbook.io/), so repositories migrating from that tooling get the same versions.
 
 **Config:** [examples/conventional-commits.yml](examples/conventional-commits.yml)
 
@@ -605,6 +609,68 @@ By default, go-gitsemver recognizes **both** Conventional Commits and bump direc
 ```bash
 git commit -m "bump major: add new endpoint"
 # "bump major:" overrides conventional commit analysis → Major
+```
+
+**The no-bump directive is the exception.** It is an explicit manual override, so it
+wins over the conventional-commit type in the same commit rather than losing to it:
+
+```bash
+git commit -m "chore: bump deps
+
++semver: none"
+# chore: would be Patch, but the directive suppresses it → None
+```
+
+A suppressed commit also declines the branch default increment, which is what makes
+`+semver: none` able to produce no version change at all.
+
+**It never swallows a Major.** A `!` suffix, a `BREAKING CHANGE:` footer, or an explicit
+`+semver: major` in the same commit outranks the directive:
+
+```bash
+git commit -m "feat!: rewrite the API
+
++semver: none"
+# breaking marker wins → Major
+```
+
+Shipping a breaking change under a non-breaking version would let every consumer pinned
+to the current major upgrade straight into the break, so the directive can decline a
+Minor or a Patch but not a Major.
+
+It also cannot veto an increment requested by a *different* commit in the same range — if
+any other commit asks for a bump, that bump still applies. When a range is aggregated into
+a single increment, the branch default is declined only if **every** commit in the range
+carried the directive; one directive does not cancel the default earned by the commits
+around it. Bump directives, including no-bump, are ignored entirely when
+`commit-message-convention: conventional-commits`.
+
+### Where a directive is recognised
+
+Directives are matched **per line**, not across the whole message. A directive counts when
+it appears:
+
+- anywhere on the **subject line** — `git commit -m "update docs +semver: skip"`
+- on a **body line containing nothing but the directive** — a `+semver: none` trailer
+
+It does **not** count when quoted mid-sentence in the body. This matters most for squash
+merges, whose body is the concatenation of every sub-commit message: without per-line
+scoping, one sub-commit's `+semver: skip` would cancel the entire pull request's bump, and
+a commit body merely describing a directive would silently change the version.
+
+```bash
+# Recognised — subject line
+git commit -m "update docs +semver: skip"
+
+# Recognised — trailer on its own line
+git commit -m "chore: bump deps
+
++semver: none"
+
+# NOT recognised — quoted in prose
+git commit -m "feat: add search
+
+Note: do not use +semver: skip in future commits."
 ```
 
 Configure which conventions are active:

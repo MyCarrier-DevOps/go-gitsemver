@@ -1,8 +1,12 @@
 package calculator
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
 
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/git"
@@ -462,4 +466,173 @@ func TestNextVersion_BranchNameOverride(t *testing.T) {
 	result, err := calc.Calculate(ctx, ec, false)
 	require.NoError(t, err)
 	require.Equal(t, "custom-name", result.BranchName)
+}
+
+// newCountCalc builds a calculator whose commit log varies with the "from"
+// argument, so tests can tell apart a scan anchored at the base version source
+// from one anchored at the zero commit.
+func newCountCalc(t *testing.T, fromSource, fromZero []git.Commit) *NextVersionCalculator {
+	t.Helper()
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		if from == "" {
+			return fromZero, nil
+		}
+		return fromSource, nil
+	}
+	mock := &git.MockRepository{CommitLogFunc: logFunc, MainlineCommitLogFunc: logFunc}
+	store := git.NewRepositoryStore(mock)
+	return NewNextVersionCalculator(store, nil)
+}
+
+// TestCountCommitsSince_AnchorsAtBaseVersionSource pins that the scan starts at
+// the base version source, not at the zero commit.
+func TestCountCommitsSince_AnchorsAtBaseVersionSource(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: two")
+	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
+	extra := newCommit("ddd0000000000000000000000000000000000000", "ancient")
+
+	calc := newCountCalc(t,
+		[]git.Commit{tip, source},
+		[]git.Commit{tip, source, extra, extra, extra},
+	)
+
+	ctx := &context.GitVersionContext{CurrentCommit: tip}
+	bv := strategy.BaseVersion{BaseVersionSource: &source}
+
+	require.Equal(t, int64(1), calc.countCommitsSince(ctx, bv, defaultEC()))
+}
+
+// TestCountCommitsSince_SourceNotInLog pins that the count is only reduced when
+// the base version source actually appears in the log.
+func TestCountCommitsSince_SourceNotInLog(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: two")
+	mid := newCommit("ccc0000000000000000000000000000000000000", "feat: one")
+	absent := newCommit("9990000000000000000000000000000000000000", "v1.0.0")
+
+	calc := newCountCalc(t, []git.Commit{tip, mid}, nil)
+
+	ctx := &context.GitVersionContext{CurrentCommit: tip}
+	bv := strategy.BaseVersion{BaseVersionSource: &absent}
+
+	require.Equal(t, int64(2), calc.countCommitsSince(ctx, bv, defaultEC()))
+}
+
+// TestCountCommitsSince_NoBaseVersionSource pins the nil-source path.
+func TestCountCommitsSince_NoBaseVersionSource(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: one")
+
+	calc := newCountCalc(t, nil, []git.Commit{tip, tip, tip})
+
+	ctx := &context.GitVersionContext{CurrentCommit: tip}
+	require.Equal(t, int64(3), calc.countCommitsSince(ctx, strategy.BaseVersion{}, defaultEC()))
+}
+
+// preReleaseCalc builds a calculator whose tag list contains the given tag
+// names, so pre-release numbering can be exercised.
+func preReleaseCalc(t *testing.T, tagNames ...string) *NextVersionCalculator {
+	t.Helper()
+	tags := make([]git.Tag, 0, len(tagNames))
+	for i, name := range tagNames {
+		sha := fmt.Sprintf("%040d", i+1)
+		tags = append(tags, git.Tag{Name: git.NewReferenceName("refs/tags/" + name), TargetSha: sha})
+	}
+	mock := &git.MockRepository{
+		TagsFunc:            func(...git.PathFilter) ([]git.Tag, error) { return tags, nil },
+		PeelTagToCommitFunc: func(tag git.Tag) (string, error) { return tag.TargetSha, nil },
+		CommitFromShaFunc:   func(sha string) (git.Commit, error) { return git.Commit{Sha: sha}, nil },
+	}
+	return NewNextVersionCalculator(git.NewRepositoryStore(mock), nil)
+}
+
+func preReleaseEC() config.EffectiveConfiguration {
+	ec := defaultEC()
+	ec.Tag = "alpha"
+	ec.IsMainline = false
+	ec.IsReleaseBranch = false
+	return ec
+}
+
+// TestUpdatePreReleaseTag_FirstTagStartsAtOne pins the no-existing-tag path,
+// including the explain wording that distinguishes it.
+func TestUpdatePreReleaseTag_FirstTagStartsAtOne(t *testing.T) {
+	calc := preReleaseCalc(t)
+	ctx := &context.GitVersionContext{}
+	ver := semver.SemanticVersion{Major: 1, Minor: 3, Patch: 0}
+
+	got, steps := calc.updatePreReleaseTag(ver, ctx, preReleaseEC(), "feature/x", 0, true)
+
+	require.NotNil(t, got.PreReleaseTag.Number)
+	require.Equal(t, int64(1), *got.PreReleaseTag.Number)
+	require.Contains(t, strings.Join(steps, "\n"), "no existing tag")
+}
+
+// TestUpdatePreReleaseTag_ExistingTagIncrements pins the >= boundary: an
+// existing tag numbered exactly 1 must push the next number to 2.
+func TestUpdatePreReleaseTag_ExistingTagIncrements(t *testing.T) {
+	calc := preReleaseCalc(t, "v1.3.0-alpha.1")
+	ctx := &context.GitVersionContext{}
+	ver := semver.SemanticVersion{Major: 1, Minor: 3, Patch: 0}
+
+	got, steps := calc.updatePreReleaseTag(ver, ctx, preReleaseEC(), "feature/x", 0, true)
+
+	require.NotNil(t, got.PreReleaseTag.Number)
+	require.Equal(t, int64(2), *got.PreReleaseTag.Number)
+	require.Contains(t, strings.Join(steps, "\n"), "existing tag")
+	require.NotContains(t, strings.Join(steps, "\n"), "no existing tag")
+}
+
+// TestCalculate_RoutesOnBranchMode pins the mainline/standard routing: with
+// per-commit mainline increments the same history yields a different version
+// than standard mode, so swapping the branch is observable.
+func TestCalculate_RoutesOnBranchMode(t *testing.T) {
+	third := newCommit("aaa0000000000000000000000000000000000000", "feat: three")
+	second := newCommit("ccc0000000000000000000000000000000000000", "feat: two")
+	first := newCommit("ddd0000000000000000000000000000000000000", "feat: one")
+	source := newCommit("bbb0000000000000000000000000000000000000", "initial")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{third, second, first, source}, nil
+	}
+	mock := &git.MockRepository{
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
+		TagsFunc:              func(filters ...git.PathFilter) ([]git.Tag, error) { return nil, nil },
+	}
+	store := git.NewRepositoryStore(mock)
+
+	vs := &stubStrategy{
+		name: "test",
+		versions: []strategy.BaseVersion{{
+			Source:            "tag",
+			SemanticVersion:   semver.SemanticVersion{Major: 1},
+			ShouldIncrement:   true,
+			BaseVersionSource: &source,
+		}},
+	}
+	calc := NewNextVersionCalculator(store, []strategy.VersionStrategy{vs})
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch: git.Branch{Name: git.NewReferenceName("refs/heads/main"), Tip: &third},
+		CurrentCommit: third,
+	}
+
+	base := defaultEC()
+	base.IsMainline = true
+	base.Tag = ""
+	base.CommitMessageConvention = semver.CommitMessageConventionConventionalCommits
+
+	mainlineEC := base
+	mainlineEC.BranchMode = semver.VersioningModeMainline
+	mainlineEC.MainlineIncrement = semver.MainlineIncrementEachCommit
+	mainlineResult, err := calc.Calculate(ctx, mainlineEC, false)
+	require.NoError(t, err)
+	require.Equal(t, "1.3.0", mainlineResult.Version.SemVer(),
+		"mainline per-commit mode bumps once per commit")
+
+	standardEC := base
+	standardEC.BranchMode = semver.VersioningModeContinuousDelivery
+	standardResult, err := calc.Calculate(ctx, standardEC, false)
+	require.NoError(t, err)
+	require.Equal(t, "1.1.0", standardResult.Version.SemVer(),
+		"standard mode applies the highest increment once")
 }

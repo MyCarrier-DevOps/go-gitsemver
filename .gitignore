@@ -31,3 +31,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+
+# APM dependencies
+apm_modules/
+.claude/settings.local.json

@@ -145,3 +145,14 @@ func TestBranch_FriendlyName(t *testing.T) {
 	b := Branch{Name: NewBranchReferenceName("feature/login")}
 	require.Equal(t, "feature/login", b.FriendlyName())
 }
+
+// TestNewReferenceName_RemoteWithEmptyRemoteName pins the idx == 0 boundary:
+// a remote ref whose remote-name segment is empty leaves friendly starting
+// with "/", and the separator must still be stripped.
+func TestNewReferenceName_RemoteWithEmptyRemoteName(t *testing.T) {
+	ref := NewReferenceName("refs/remotes//feature")
+
+	require.Equal(t, "refs/remotes//feature", ref.Canonical)
+	require.Equal(t, "/feature", ref.Friendly)
+	require.Equal(t, "feature", ref.WithoutRemote)
+}

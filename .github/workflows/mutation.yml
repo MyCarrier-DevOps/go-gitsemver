@@ -1,0 +1,71 @@
+name: Mutation Tests
+# Weekly full-codebase mutation audit on main. Branch-scoped mutation testing
+# (mutest -diff origin/main) already runs locally via /go-verify and the
+# go-devkit pre-commit gate; this sweep catches gaps that predate those, and
+# regressions that merged anyway. No -diff here: schedule runs have no base
+# ref (github.base_ref is empty outside pull_request events) and the point is
+# to audit everything — which also means mutest runs no git commands, so a
+# shallow clone is all it needs.
+#
+# The sweep step runs with continue-on-error, keeping this an audit: the run
+# concludes green and blocks nothing — the blocking gates are the branch-scoped
+# ones. But an audit must report to someone, so a failing sweep files (or
+# refreshes) a "Weekly mutation audit failing" issue and writes the output
+# tail to the step summary. `make mutation-all` iterates every module in
+# APPLICATION and installs the pinned mutest on demand, so the version is
+# controlled in exactly one place (the Makefile).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  mutation:
+    name: mutation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Nothing in this job runs git, so the token must not be left in
+          # .git/config where mutest and the test suite could read it.
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - name: Mutation tests (full sweep across all modules)
+        id: sweep
+        continue-on-error: true
+        run: |
+          make mutation-all 2>&1 | tee sweep.log
+          exit "${PIPESTATUS[0]}"
+      - name: Report the failure (step summary + tracking issue)
+        if: steps.sweep.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo '## Weekly mutation audit failed'
+            echo
+            echo '```'
+            tail -n 50 sweep.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          title="Weekly mutation audit failing"
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          body="The weekly full-codebase mutation sweep fell below threshold (or errored). Latest failing run: $run_url"
+          # Match on a label this workflow owns and on the bot author, not on the
+          # title: anyone can open an issue titled "$title" on a public repo and
+          # silently absorb these notices.
+          label="mutation-audit"
+          gh label create "$label" --description "Weekly mutation sweep tracking" --color ededed 2>/dev/null || true
+          num="$(gh issue list --state open --label "$label" --author app/github-actions \
+                   --json number --jq '.[0].number' 2>/dev/null || true)"
+          if [ -n "$num" ] && [ "$num" != "null" ]; then
+            gh issue comment "$num" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body" --label "$label"
+          fi

@@ -293,3 +293,58 @@ func TestPickBestBranch_AllRemote(t *testing.T) {
 	require.True(t, ok)
 	require.True(t, result.IsRemote) // fallback to first remote
 }
+
+// TestNewContext_UsesConfiguredTagPrefix pins that a configured tag-prefix is
+// applied when looking for a version tag on the current commit. The default
+// "[vV]" prefix would not match a "rel-" tag.
+func TestNewContext_UsesConfiguredTagPrefix(t *testing.T) {
+	tip := newCommit("abc123def456789012345678901234567890abcd", "tagged commit")
+	branch := newBranch("main", &tip)
+
+	mock := &git.MockRepository{
+		HeadFunc:                       func() (git.Branch, error) { return branch, nil },
+		NumberOfUncommittedChangesFunc: func() (int, error) { return 0, nil },
+		TagsFunc: func(...git.PathFilter) ([]git.Tag, error) {
+			return []git.Tag{{Name: git.NewReferenceName("refs/tags/rel-3.4.5"), TargetSha: tip.Sha}}, nil
+		},
+		PeelTagToCommitFunc: func(tag git.Tag) (string, error) { return tag.TargetSha, nil },
+		CommitFromShaFunc:   func(sha string) (git.Commit, error) { return git.Commit{Sha: sha}, nil },
+	}
+	store := git.NewRepositoryStore(mock)
+
+	cfg := defaultConfig(t)
+	prefix := "rel-"
+	cfg.TagPrefix = &prefix
+
+	ctx, err := NewContext(store, mock, cfg, Options{})
+	require.NoError(t, err)
+	require.True(t, ctx.IsCurrentCommitTagged, "the configured tag prefix should match the tag on HEAD")
+	require.Equal(t, "3.4.5", ctx.CurrentCommitTaggedVersion.SemVer())
+}
+
+// TestPickBestBranch_KeepsFirstOnEqualPriority pins that a strictly-higher
+// priority is required to displace the incumbent, so an exact tie keeps the
+// earlier branch rather than drifting to the last one scanned.
+func TestPickBestBranch_KeepsFirstOnEqualPriority(t *testing.T) {
+	cfg := defaultConfig(t)
+	alphaTip := newCommit("aaa0000000000000000000000000000000000000", "a")
+	betaTip := newCommit("bbb0000000000000000000000000000000000000", "b")
+
+	// Neither name matches a specific branch config, so both score the
+	// "unknown" catch-all priority.
+	best, ok := pickBestBranch([]git.Branch{
+		newBranch("alpha", &alphaTip),
+		newBranch("beta", &betaTip),
+	}, cfg)
+	require.True(t, ok)
+	require.Equal(t, "alpha", best.FriendlyName(), "an equal-priority tie must keep the first branch")
+
+	// A genuinely higher priority must still win regardless of position.
+	mainTip := newCommit("ccc0000000000000000000000000000000000000", "m")
+	best, ok = pickBestBranch([]git.Branch{
+		newBranch("alpha", &alphaTip),
+		newBranch("main", &mainTip),
+	}, cfg)
+	require.True(t, ok)
+	require.Equal(t, "main", best.FriendlyName(), "a higher-priority branch must win")
+}

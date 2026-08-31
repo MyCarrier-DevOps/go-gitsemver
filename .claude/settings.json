@@ -1,0 +1,90 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-start.sh"
+          }
+        ],
+        "_apm_source": "go-devkit"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pre-commit-gate.sh",
+            "timeout": 1200
+          }
+        ],
+        "_apm_source": "go-devkit"
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go list:*)",
+      "Bash(go doc:*)",
+      "Bash(go env:*)",
+      "Bash(go mod tidy)",
+      "Bash(go mod download)",
+      "Bash(go tool cover:*)",
+      "Bash(make build)",
+      "Bash(make test)",
+      "Bash(make test-all)",
+      "Bash(make e2e)",
+      "Bash(make lint)",
+      "Bash(make fmt)",
+      "Bash(make tidy)",
+      "Bash(make coverage-check)",
+      "Bash(make mutation)",
+      "Bash(gofmt:*)",
+      "Bash(goimports:*)",
+      "Bash(golines:*)",
+      "Bash(golangci-lint:*)",
+      "Bash(govulncheck:*)",
+      "Bash(mutest -diff:*)",
+      "Bash(pre-commit run:*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/secrets/**)",
+      "Bash(go run:*)",
+      "Bash(go generate:*)",
+      "Bash(cd /*)",
+      "Bash(cd ~*)",
+      "Bash(cd ..)",
+      "Bash(cd ../*)",
+      "Bash(cd -*)",
+      "Bash(cat *.env*)",
+      "Bash(cat *.pem)",
+      "Bash(cat *.key)",
+      "Bash(cat *secrets*)",
+      "Bash(head *.env*)",
+      "Bash(tail *.env*)",
+      "Bash(grep * *.env*)",
+      "Bash(sed * *.env*)",
+      "Bash(awk * *.env*)",
+      "Bash(find *secrets*)",
+      "Bash(go install:*)",
+      "Bash(go get:*)",
+      "Bash(make run:*)",
+      "Bash(make bump)",
+      "Bash(make install-tools)",
+      "Bash(make check-sec)"
+    ]
+  }
+}

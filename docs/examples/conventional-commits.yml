@@ -9,19 +9,22 @@
 #   feat(scope):       → Minor
 #   fix:               → Patch
 #   fix(scope):        → Patch
+#   perf:              → Patch
+#   chore:             → Patch
 #   feat!:             → Major (breaking change via !)
 #   fix!:              → Major
 #   BREAKING CHANGE:   → Major (in commit footer)
 #
 # Non-incrementing types (use branch default):
-#   docs:, chore:, test:, refactor:, ci:, style:, perf:, build:
+#   build:, ci:, docs:, refactor:, revert:, style:, test:
 #
 # Version examples (on main, Patch default, after v1.0.0):
 #   "fix: handle null input"                    → 1.0.1
 #   "feat: add user profiles"                   → 1.1.0
 #   "feat!: redesign API"                       → 2.0.0
 #   "refactor: clean up auth\n\nBREAKING CHANGE: token format changed" → 2.0.0
-#   "chore: update deps"                        → 1.0.1 (falls back to branch Patch)
+#   "chore: update deps"                        → 1.0.1
+#   "docs: fix typo"                            → 1.0.1 (falls back to branch Patch)
 
 mode: ContinuousDelivery
 tag-prefix: '[vV]'

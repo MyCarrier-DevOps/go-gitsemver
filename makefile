@@ -14,6 +14,11 @@ COVER_PKGS := $(shell go list ./... | grep -v -E '/(e2e|testutil)')
 .PHONY: test
 test:
 	go test -race -count=1 -cover -coverprofile=coverage.out -covermode=atomic $(COVER_PKGS)
+	# testutil is test scaffolding, so it stays out of the coverage denominator -
+	# but its tests still have to run here. A regression in the shared repo builder
+	# would otherwise surface only in the weekly mutation sweep, after silently
+	# weakening every test that depends on it.
+	go test -race -count=1 ./internal/testutil/...
 	go tool cover -func coverage.out
 
 .PHONY: e2e
@@ -25,11 +30,11 @@ test-all: test e2e
 
 .PHONY: lint
 lint: install-tools
-	golangci-lint run --timeout 5m --config ./.golangci.yml ./...
+	golangci-lint run --timeout 5m --config ./.github/.golangci.yml ./...
 
 .PHONY: fmt
 fmt: install-tools
-	golangci-lint fmt --config ./.golangci.yml ./...
+	golangci-lint fmt --config ./.github/.golangci.yml ./...
 
 .PHONY: tidy
 tidy:
@@ -42,7 +47,7 @@ bump:
 
 .PHONY: check-sec
 check-sec:
-	go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 	govulncheck -show verbose -test=false ./...
 
 .PHONY: clean
@@ -53,7 +58,7 @@ clean:
 
 .PHONY: install-tools
 install-tools:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $$(go env GOPATH)/bin v2.9.0
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: coverage-check
 coverage-check: test
@@ -82,3 +87,65 @@ release-build:
 
 .PHONY: ci
 ci: fmt lint test-all coverage-check build
+
+GOOS   ?= $(shell go env GOOS)
+
+GOARCH ?= $(shell go env GOARCH)
+
+# This module lives at the repository root (go.mod is at ./go.mod).
+APPLICATION := .
+
+GOLANGCI_LINT_VERSION := v2.13.2
+
+GOVULNCHECK_VERSION   := v1.7.0
+
+MUTEST_VERSION        := v0.6.0
+
+MUTATION_BASE      ?= origin/main
+
+MUTATION_THRESHOLD ?= 100
+
+.PHONY: mutation
+mutation:
+	@echo "Mutation testing code changed vs $(MUTATION_BASE)..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Mutation testing $$dir module..."; \
+			(cd $$dir && { command -v mutest >/dev/null 2>&1 || go install github.com/fchimpan/mutest@$(MUTEST_VERSION); } && mutest -diff $(MUTATION_BASE) -threshold $(MUTATION_THRESHOLD) ./...) || exit 1; \
+		fi; \
+	done
+
+.PHONY: mutation-all
+mutation-all:
+	@echo "Mutation testing all modules (threshold $(MUTATION_THRESHOLD)%)..."
+	@for dir in $(APPLICATION); do \
+		if [ -d "$$dir" ]; then \
+			echo "Mutation testing $$dir module..."; \
+			(cd $$dir && go mod download && { command -v mutest >/dev/null 2>&1 || go install github.com/fchimpan/mutest@$(MUTEST_VERSION); } && mutest -threshold $(MUTATION_THRESHOLD) ./...) || exit 1; \
+		fi; \
+	done
+
+.PHONY: run
+run:
+	go run . $(ARGS)
+
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "  make build          - build ./bin/$(BINARY)"
+	@echo "  make release-build  - cross-compile release binaries + checksums"
+	@echo "  make run ARGS=...   - run the CLI from source"
+	@echo "  make test           - unit tests with coverage (excludes e2e, testutil)"
+	@echo "  make e2e            - end-to-end tests"
+	@echo "  make test-all       - test + e2e"
+	@echo "  make coverage-check - fail if coverage is below 85%"
+	@echo "  make mutation       - mutation-test code changed vs $(MUTATION_BASE) (mutest, $(MUTATION_THRESHOLD)% kill)"
+	@echo "  make mutation-all   - mutation-test the whole module (weekly CI audit)"
+	@echo "  make lint           - run golangci-lint"
+	@echo "  make fmt            - format code via golangci-lint"
+	@echo "  make check-sec      - run govulncheck"
+	@echo "  make tidy           - go mod tidy"
+	@echo "  make bump           - upgrade dependencies"
+	@echo "  make clean          - clean build & test caches"
+	@echo "  make install-tools  - install golangci-lint $(GOLANGCI_LINT_VERSION) locally"
+	@echo "  make ci             - fmt + lint + test-all + coverage-check + build"

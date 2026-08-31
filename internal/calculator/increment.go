@@ -40,6 +40,16 @@ type IncrementResult struct {
 	Explanation *IncrementExplanation // nil when explain is false
 }
 
+// CommitBump is the increment signal carried by a single commit message.
+type CommitBump struct {
+	Field semver.VersionField
+	// Suppressed reports that the message carried an explicit no-bump
+	// directive. That is different from a Field of None, which only means the
+	// message asked for nothing: a suppressed commit also declines the branch
+	// default increment.
+	Suppressed bool
+}
+
 // Conventional Commits patterns.
 var (
 	ccTypeRe         = regexp.MustCompile(`^(\w+)(?:\(.+?\))?(!)?:\s`)
@@ -100,26 +110,27 @@ func (f *IncrementStrategyFinder) DetermineIncrementedFieldExplained(
 
 	exp.Addf("scanned %d commits", len(commits))
 
-	// Scan commits for highest bump.
+	// Scan commits for highest bump. analyzed and suppressed are counted so the
+	// range is only suppressed when every commit in it declined - see below.
 	highest := semver.VersionFieldNone
+	analyzed, suppressed := 0, 0
 	for _, c := range commits {
 		// Skip the base version source commit itself.
 		if bv.BaseVersionSource != nil && c.Sha == bv.BaseVersionSource.Sha {
 			continue
 		}
 
-		field := f.analyzeCommit(c, ec)
-		if field != semver.VersionFieldNone {
-			firstLine := c.Message
-			if idx := strings.IndexByte(firstLine, '\n'); idx >= 0 {
-				firstLine = firstLine[:idx]
-			}
+		analyzed++
+		bump := analyzeCommitBump(c, ec)
+		switch {
+		case bump.Suppressed:
+			suppressed++
+			exp.Addf("commit %s %q -> no-bump directive", c.ShortSha(), firstLine(c.Message))
+		case bump.Field != semver.VersionFieldNone:
 			convention := conventionName(c.Message, ec)
-			exp.Addf("commit %s %q -> %s (%s)", c.ShortSha(), firstLine, field, convention)
+			exp.Addf("commit %s %q -> %s (%s)", c.ShortSha(), firstLine(c.Message), bump.Field, convention)
 		}
-		if field > highest {
-			highest = field
-		}
+		highest = max(highest, bump.Field)
 	}
 
 	exp.Addf("highest increment from commits: %s", highest)
@@ -130,6 +141,17 @@ func (f *IncrementStrategyFinder) DetermineIncrementedFieldExplained(
 			highest = semver.VersionFieldMinor
 			exp.Add("pre-1.0: capping Major -> Minor")
 		}
+	}
+
+	// An explicit no-bump directive declines the branch default increment for the
+	// commit that carries it. Aggregating a range folds many commits into one
+	// increment, so the range is only suppressed when *every* commit declined -
+	// otherwise one stray directive would cancel the branch default earned by
+	// commits around it, and the reach of a directive would differ between this
+	// path and the per-commit mainline walk.
+	if analyzed > 0 && suppressed == analyzed && highest == semver.VersionFieldNone {
+		exp.Add("every commit carried a no-bump directive: suppressing branch default")
+		return IncrementResult{Field: semver.VersionFieldNone, Explanation: exp}, nil
 	}
 
 	// If ShouldIncrement and commit bump is less than branch default, use default.
@@ -160,54 +182,52 @@ func (f *IncrementStrategyFinder) branchDefault(
 	return field
 }
 
-// AnalyzeCommitIncrement returns the version bump for a single commit message.
-// Exported for use by MainlineVersionCalculator in per-commit mode.
-func (f *IncrementStrategyFinder) AnalyzeCommitIncrement(
-	c git.Commit,
-	ec config.EffectiveConfiguration,
-) semver.VersionField {
-	return f.analyzeCommit(c, ec)
-}
-
-// analyzeCommit extracts the version bump from a single commit message.
-func (f *IncrementStrategyFinder) analyzeCommit(
-	c git.Commit,
-	ec config.EffectiveConfiguration,
-) semver.VersionField {
+// analyzeCommitBump returns the increment signal carried by a single commit
+// message. It is a pure function of the commit and the effective configuration:
+// commit-message analysis never consults the repository.
+func analyzeCommitBump(c git.Commit, ec config.EffectiveConfiguration) CommitBump {
 	// MergeMessageOnly: only analyze merge commits.
 	if ec.CommitMessageIncrementing == semver.CommitMessageIncrementMergeMessageOnly && !c.IsMerge() {
-		return semver.VersionFieldNone
+		return CommitBump{}
 	}
-
-	highest := semver.VersionFieldNone
 
 	switch ec.CommitMessageConvention {
 	case semver.CommitMessageConventionConventionalCommits:
-		highest = analyzeConventionalCommit(c.Message)
+		// Bump directives, including no-bump, are not honoured in this mode.
+		return CommitBump{Field: analyzeConventionalCommit(c.Message)}
+
 	case semver.CommitMessageConventionBumpDirective:
-		highest = analyzeBumpDirective(c.Message, ec)
+		return withNoBump(analyzeBumpDirective(c.Message, ec), c.Message, ec)
+
 	case semver.CommitMessageConventionBoth:
-		cc := analyzeConventionalCommit(c.Message)
-		bd := analyzeBumpDirective(c.Message, ec)
-		if cc > bd {
-			highest = cc
-		} else {
-			highest = bd
-		}
+		field := max(analyzeConventionalCommit(c.Message), analyzeBumpDirective(c.Message, ec))
+		return withNoBump(field, c.Message, ec)
 	}
 
-	return highest
+	return CommitBump{}
+}
+
+// withNoBump applies an explicit no-bump directive to the increment the rest of
+// the message asked for. The directive is a manual override, so it beats the
+// conventional-commit type and any lower explicit directive - but it never
+// swallows a Major. Losing a Major is asymmetric: the breaking change would ship
+// under a non-breaking version and every caller pinned to the current major
+// would upgrade straight into the break.
+func withNoBump(field semver.VersionField, msg string, ec config.EffectiveConfiguration) CommitBump {
+	if !isNoBump(msg, ec) {
+		return CommitBump{Field: field}
+	}
+	if field == semver.VersionFieldMajor {
+		return CommitBump{Field: semver.VersionFieldMajor}
+	}
+	return CommitBump{Suppressed: true}
 }
 
 // analyzeConventionalCommit parses a Conventional Commits message.
-// feat: → Minor, fix: → Patch, feat!: or BREAKING CHANGE: footer → Major
+// feat: → Minor; fix:, perf: and chore: → Patch; any type with a ! suffix or a
+// BREAKING CHANGE: footer → Major.
 func analyzeConventionalCommit(msg string) semver.VersionField {
-	firstLine := msg
-	if idx := strings.IndexByte(msg, '\n'); idx >= 0 {
-		firstLine = msg[:idx]
-	}
-
-	matches := ccTypeRe.FindStringSubmatch(firstLine)
+	matches := ccTypeRe.FindStringSubmatch(firstLine(msg))
 	if matches == nil {
 		return semver.VersionFieldNone
 	}
@@ -226,10 +246,10 @@ func analyzeConventionalCommit(msg string) semver.VersionField {
 	switch ccType {
 	case "feat":
 		return semver.VersionFieldMinor
-	case "fix":
+	case "fix", "perf", "chore":
 		return semver.VersionFieldPatch
 	default:
-		// Other types (docs, chore, refactor, etc.) don't bump.
+		// Other types (build, ci, docs, refactor, revert, style, test) don't bump.
 		return semver.VersionFieldNone
 	}
 }
@@ -246,6 +266,20 @@ func analyzeBumpDirective(msg string, ec config.EffectiveConfiguration) semver.V
 		return semver.VersionFieldPatch
 	}
 	return semver.VersionFieldNone
+}
+
+// isNoBump reports whether the message carries the configured no-bump
+// directive, which asks for the increment to be suppressed entirely.
+func isNoBump(msg string, ec config.EffectiveConfiguration) bool {
+	return tryMatch(msg, ec.NoBumpMessage)
+}
+
+// firstLine returns the first line of a commit message.
+func firstLine(msg string) string {
+	if idx := strings.IndexByte(msg, '\n'); idx >= 0 {
+		return msg[:idx]
+	}
+	return msg
 }
 
 // conventionName returns a human-readable label for the convention that matched
@@ -271,7 +305,13 @@ func conventionName(msg string, ec config.EffectiveConfiguration) string {
 	}
 }
 
-// tryMatch returns true if the message matches the regex pattern.
+// tryMatch reports whether the message carries the directive described by
+// pattern. The subject line matches anywhere along its length, so the documented
+// inline form ("update docs +semver: skip") keeps working. In the body only a
+// line consisting of nothing but the directive counts, which keeps the documented
+// footer form working while ignoring a directive quoted in prose and the
+// "* <subject>" bullets a squash merge builds from its sub-commits. Without that
+// scoping, any text anywhere in a commit body silently changes the version.
 func tryMatch(msg, pattern string) bool {
 	if pattern == "" {
 		return false
@@ -280,5 +320,23 @@ func tryMatch(msg, pattern string) bool {
 	if err != nil {
 		return false
 	}
-	return re.MatchString(msg)
+
+	subject, body, hasBody := strings.Cut(msg, "\n")
+	if re.MatchString(subject) {
+		return true
+	}
+	if !hasBody {
+		return false
+	}
+
+	trailerRe, err := regexp.Compile(`^\s*(?:` + pattern + `)\s*$`)
+	if err != nil {
+		return false
+	}
+	for line := range strings.SplitSeq(body, "\n") {
+		if trailerRe.MatchString(line) {
+			return true
+		}
+	}
+	return false
 }

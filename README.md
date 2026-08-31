@@ -27,7 +27,7 @@ go-gitsemver remote owner/repo --github-app-id 12345 --github-app-key-path /path
 
 **What it gives you:** `SemVer`, `FullSemVer`, `Major`, `Minor`, `Patch`, `BranchName`, `Sha`, `CommitDate`, `NuGetVersionV2`, and 20+ more output variables.
 
-**What it understands:** Conventional Commits (`feat:`, `fix:`, `feat!:`), bump directives (`+semver: major`), 8 branch types (main, develop, release, feature, hotfix, pull-request, support, unknown), 3 versioning modes (ContinuousDelivery, ContinuousDeployment, Mainline), and squash merge formats from GitHub, GitLab, and Bitbucket.
+**What it understands:** Conventional Commits (`feat:`, `fix:`, `perf:`, `chore:`, `feat!:`), bump directives (`+semver: major`), 8 branch types (main, develop, release, feature, hotfix, pull-request, support, unknown), 3 versioning modes (ContinuousDelivery, ContinuousDeployment, Mainline), and squash merge formats from GitHub, GitLab, and Bitbucket.
 
 **Configuration:** Drop a `go-gitsemver.yml` or `GitVersion.yml` in `.github/` or repo root, or use `--config`. Works with zero config out of the box.
 
@@ -37,7 +37,7 @@ go-gitsemver remote owner/repo --github-app-id 12345 --github-app-key-path /path
 - **Single static binary** — no runtime dependencies, runs on Linux, macOS, and Windows
 - **Two modes: local and remote** — run against a local clone, or version a GitHub repo via API without cloning
 - **Go library** — embed version calculation in your own Go applications via `pkg/sdk`
-- **Conventional Commits** — first-class support for `feat:`, `fix:`, `feat!:`, and `BREAKING CHANGE:` footers
+- **Conventional Commits** — first-class support for `feat:`, `fix:`, `perf:`, `chore:`, `feat!:`, and `BREAKING CHANGE:` footers
 - **Branch-aware** — eight built-in branch types with configurable pre-release labels, increment strategies, and versioning modes
 - **30+ output variables** — `SemVer`, `FullSemVer`, `NuGetVersion`, `Sha`, `BranchName`, and more
 - **Squash merge aware** — correctly parses GitHub, GitLab, and Bitbucket squash merge formats
@@ -305,12 +305,17 @@ mainline-increment: EachCommit   # fix→1.0.1, fix→1.0.2, feat→1.1.0, fix�
 ```
 feat: add user authentication      → Minor
 fix: resolve null pointer           → Patch
+perf: cache tag lookups             → Patch
+chore: bump dependencies            → Patch
 feat!: redesign API                 → Major
 
 feat: change auth flow
 
 BREAKING CHANGE: token format changed  → Major
 ```
+
+`build:`, `ci:`, `docs:`, `refactor:`, `revert:`, `style:` and `test:` do not bump on
+their own; the branch default increment applies.
 
 #### Bump directives
 

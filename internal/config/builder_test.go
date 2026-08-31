@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/semver"
 
@@ -357,4 +358,74 @@ func TestBranchConfig_MergeTo_NilSafe(t *testing.T) {
 
 	src = &BranchConfig{Regex: stringPtr("^new$")}
 	src.MergeTo(nil)
+}
+
+// TestMergeConfig_BaseVersionOverride pins that a set base-version is copied
+// over an existing one, and that an unset one leaves the existing value alone.
+func TestMergeConfig_BaseVersionOverride(t *testing.T) {
+	base := CreateDefaultConfiguration()
+	base.BaseVersion = stringPtr("1.0.0")
+
+	overridden, err := NewBuilder().Add(base).Add(&Config{BaseVersion: stringPtr("2.5.0")}).Build()
+	require.NoError(t, err)
+	require.Equal(t, "2.5.0", *overridden.BaseVersion)
+
+	untouched, err := NewBuilder().Add(base).Add(&Config{}).Build()
+	require.NoError(t, err)
+	require.Equal(t, "1.0.0", *untouched.BaseVersion)
+}
+
+// TestMergeConfig_IgnoreCommitsBefore pins the same for ignore.commits-before.
+func TestMergeConfig_IgnoreCommitsBefore(t *testing.T) {
+	when := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	withIgnore, err := NewBuilder().
+		Add(CreateDefaultConfiguration()).
+		Add(&Config{Ignore: IgnoreConfig{CommitsBefore: &when}}).
+		Build()
+	require.NoError(t, err)
+	require.NotNil(t, withIgnore.Ignore.CommitsBefore)
+	require.Equal(t, when, *withIgnore.Ignore.CommitsBefore)
+
+	withoutIgnore, err := NewBuilder().Add(CreateDefaultConfiguration()).Add(&Config{}).Build()
+	require.NoError(t, err)
+	require.Nil(t, withoutIgnore.Ignore.CommitsBefore)
+}
+
+// TestFinalizeBranches_IncrementInheritance pins that a branch without an
+// increment inherits the global one, while a branch that sets its own keeps it.
+func TestFinalizeBranches_IncrementInheritance(t *testing.T) {
+	cfg := &Config{
+		Increment: incrementPtr(semver.IncrementStrategyMajor),
+		Branches: map[string]*BranchConfig{
+			"inherits": {Regex: stringPtr("^inherits$")},
+			"explicit": {Regex: stringPtr("^explicit$"), Increment: incrementPtr(semver.IncrementStrategyPatch)},
+		},
+	}
+
+	finalizeBranches(cfg)
+
+	require.NotNil(t, cfg.Branches["inherits"].Increment)
+	require.Equal(t, semver.IncrementStrategyMajor, *cfg.Branches["inherits"].Increment,
+		"a branch with no increment must inherit the global one")
+	require.Equal(t, semver.IncrementStrategyPatch, *cfg.Branches["explicit"].Increment,
+		"a branch with its own increment must keep it")
+}
+
+// TestFinalizeBranches_IsSourceBranchForInitialisesNilSlice pins that a target
+// whose source-branches is nil gets one created rather than being skipped.
+func TestFinalizeBranches_IsSourceBranchForInitialisesNilSlice(t *testing.T) {
+	cfg := &Config{
+		Branches: map[string]*BranchConfig{
+			"feature": {Regex: stringPtr("^feature$"), IsSourceBranchFor: strSlicePtr([]string{"target", "seeded"})},
+			"target":  {Regex: stringPtr("^target$")},
+			"seeded":  {Regex: stringPtr("^seeded$"), SourceBranches: strSlicePtr([]string{"main"})},
+		},
+	}
+
+	finalizeBranches(cfg)
+
+	require.NotNil(t, cfg.Branches["target"].SourceBranches)
+	require.Equal(t, []string{"feature"}, *cfg.Branches["target"].SourceBranches)
+	require.Equal(t, []string{"main", "feature"}, *cfg.Branches["seeded"].SourceBranches)
 }
