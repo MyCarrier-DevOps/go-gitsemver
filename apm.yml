@@ -1,0 +1,10 @@
+name: go-gitsemver
+version: 1.0.0
+description: APM project for go-gitsemver
+author: Siva Munukutla
+dependencies:
+  apm:
+  - MyCarrier-DevOps/apm_marketplace/packages/go-devkit
+  mcp: []
+includes: auto
+scripts: {}

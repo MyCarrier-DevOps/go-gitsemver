@@ -1,6 +1,6 @@
 module github.com/MyCarrier-DevOps/go-gitsemver
 
-go 1.26.1
+go 1.27.0
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0

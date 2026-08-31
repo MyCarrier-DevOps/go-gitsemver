@@ -1,0 +1,68 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-start.sh"
+          }
+        ],
+        "_apm_source": "go-devkit"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pre-commit-gate.sh",
+            "timeout": 1200
+          }
+        ],
+        "_apm_source": "go-devkit"
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(go:*)",
+      "Bash(make:*)",
+      "Bash(gofmt:*)",
+      "Bash(goimports:*)",
+      "Bash(golines:*)",
+      "Bash(golangci-lint:*)",
+      "Bash(govulncheck:*)",
+      "Bash(mutest -diff:*)",
+      "Bash(pre-commit run:*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/secrets/**)",
+      "Bash(go run:*)",
+      "Bash(go generate:*)",
+      "Bash(cd /*)",
+      "Bash(cd ~*)",
+      "Bash(cd ..)",
+      "Bash(cd ../*)",
+      "Bash(cd -*)",
+      "Bash(cat *.env*)",
+      "Bash(cat *.pem)",
+      "Bash(cat *.key)",
+      "Bash(cat *secrets*)",
+      "Bash(head *.env*)",
+      "Bash(tail *.env*)",
+      "Bash(grep * *.env*)",
+      "Bash(sed * *.env*)",
+      "Bash(awk * *.env*)",
+      "Bash(find *secrets*)"
+    ]
+  }
+}

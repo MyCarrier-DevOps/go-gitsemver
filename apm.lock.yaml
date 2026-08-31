@@ -1,0 +1,18 @@
+lockfile_version: '1'
+generated_at: '2026-08-31T19:32:23.580076+00:00'
+apm_version: 0.13.0
+dependencies:
+- repo_url: MyCarrier-DevOps/apm_marketplace
+  host: github.com
+  resolved_commit: 5c3c076314b5a47c22c39735c3b1f87848684710
+  virtual_path: packages/go-devkit
+  is_virtual: true
+  package_type: marketplace_plugin
+  deployed_files:
+  - .claude/skills/go-preflight
+  - .claude/skills/go-repo-init
+  - .claude/skills/go-tdd
+  - .claude/skills/go-verify
+  content_hash: sha256:8312d4534eb58d1c2eccbee3abc55216ab23ea8636dbf4bbf2aa4d20611776aa
+  discovered_via: apm_marketplace
+  marketplace_plugin_name: go-devkit
