@@ -42,7 +42,7 @@ bump:
 
 .PHONY: check-sec
 check-sec:
-	go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 	govulncheck -show verbose -test=false ./...
 
 .PHONY: clean
@@ -53,7 +53,7 @@ clean:
 
 .PHONY: install-tools
 install-tools:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $$(go env GOPATH)/bin $(GOLANGCI_LINT_VERSION)
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: coverage-check
 coverage-check: test
@@ -90,9 +90,9 @@ GOARCH ?= $(shell go env GOARCH)
 # This module lives at the repository root (go.mod is at ./go.mod).
 APPLICATION := .
 
-GOLANGCI_LINT_VERSION := v2.12.2
+GOLANGCI_LINT_VERSION := v2.13.2
 
-GOVULNCHECK_VERSION   := v1.1.4
+GOVULNCHECK_VERSION   := v1.7.0
 
 MUTEST_VERSION        := v0.6.0
 
