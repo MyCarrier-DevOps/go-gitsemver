@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - Commit-message handling
+
+Major release. The Go API is unchanged, but the versions this tool computes for
+an unchanged repository can differ - see the warning below and the BREAKING
+entries under Changed.
 
 > [!WARNING]
 > **This release changes computed versions for unchanged input.** The Go API of
