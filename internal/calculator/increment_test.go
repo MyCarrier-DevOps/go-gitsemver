@@ -770,3 +770,16 @@ func TestDetermineIncrementExplained_ReportsOnlyBumpingCommits(t *testing.T) {
 	require.Contains(t, steps, "feat: add login", "a commit that bumps must be reported")
 	require.NotContains(t, steps, "docs: update readme", "a commit that does not bump must not be reported")
 }
+
+// TestConventionName_BothConventionsAtSameLevel pins the cc >= bd boundary:
+// when a commit carries a conventional-commit type AND a bump directive that
+// request the same field, the conventional-commit label wins.
+func TestConventionName_BothConventionsAtSameLevel(t *testing.T) {
+	ec := defaultEC()
+	ec.CommitMessageConvention = semver.CommitMessageConventionBoth
+
+	require.Equal(t, "Conventional Commits", conventionName("fix: a bug +semver: patch", ec))
+	require.Equal(t, "Conventional Commits", conventionName("feat: a thing +semver: minor", ec))
+	require.Equal(t, "Bump Directive", conventionName("fix: a bug +semver: major", ec))
+	require.Equal(t, "Bump Directive", conventionName("docs: readme +semver: patch", ec))
+}

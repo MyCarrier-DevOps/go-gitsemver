@@ -638,3 +638,134 @@ func TestMainline_EachCommit_InheritFallsToPatch(t *testing.T) {
 	require.Equal(t, int64(0), ver.Minor)
 	require.Equal(t, int64(1), ver.Patch)
 }
+
+// TestMainline_Aggregate_UsesBranchIncrementDefault pins that the branch's own
+// increment drives the aggregate bump, and that only an unset (None) increment
+// falls back to Patch.
+func TestMainline_Aggregate_UsesBranchIncrementDefault(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "docs: no bump here")
+	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
+	mock := &git.MockRepository{CommitLogFunc: logFunc, MainlineCommitLogFunc: logFunc}
+	store := git.NewRepositoryStore(mock)
+	calc := NewMainlineVersionCalculator(store, NewIncrementStrategyFinder(store))
+
+	ctx := &context.GitVersionContext{
+		CurrentCommit: tip,
+		CurrentBranch: git.Branch{Name: git.NewReferenceName("refs/heads/main")},
+	}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   true,
+		BaseVersionSource: &source,
+	}
+
+	ec := defaultEC()
+	ec.BranchIncrement = semver.IncrementStrategyMinor
+	ver, _, err := calc.FindMainlineModeVersion(ctx, bv, ec, false)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), ver.Minor, "an explicit branch increment must be used as-is")
+	require.Equal(t, int64(0), ver.Patch)
+
+	// Inherit maps to None, which must fall back to Patch.
+	ec.BranchIncrement = semver.IncrementStrategyInherit
+	ver, _, err = calc.FindMainlineModeVersion(ctx, bv, ec, false)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), ver.Minor)
+	require.Equal(t, int64(1), ver.Patch)
+}
+
+// TestMainline_CommitsSince_ExcludesSourceCommit pins that exactly the base
+// version source commit is discounted from the commit count that lands in
+// build metadata.
+func TestMainline_CommitsSince_ExcludesSourceCommit(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: three")
+	mid := newCommit("ccc0000000000000000000000000000000000000", "feat: two")
+	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, mid, source}, nil
+	}
+	mock := &git.MockRepository{CommitLogFunc: logFunc, MainlineCommitLogFunc: logFunc}
+	store := git.NewRepositoryStore(mock)
+	calc := NewMainlineVersionCalculator(store, NewIncrementStrategyFinder(store))
+
+	ctx := &context.GitVersionContext{
+		CurrentCommit: tip,
+		CurrentBranch: git.Branch{Name: git.NewReferenceName("refs/heads/main")},
+	}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   true,
+		BaseVersionSource: &source,
+	}
+
+	ver, _, err := calc.FindMainlineModeVersion(ctx, bv, defaultEC(), false)
+	require.NoError(t, err)
+	// Three commits returned, one of them the source: two count.
+	require.Equal(t, int64(2), ver.BuildMetaData.CommitsSinceVersionSource)
+	require.NotNil(t, ver.BuildMetaData.CommitsSinceTag)
+	require.Equal(t, int64(2), *ver.BuildMetaData.CommitsSinceTag)
+}
+
+// TestMainline_CommitsSince_SourceNotInLog pins that the count is only reduced
+// when the base version source actually appears in the log.
+func TestMainline_CommitsSince_SourceNotInLog(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "feat: two")
+	mid := newCommit("ccc0000000000000000000000000000000000000", "feat: one")
+	absent := newCommit("9990000000000000000000000000000000000000", "v1.0.0")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, mid}, nil
+	}
+	mock := &git.MockRepository{CommitLogFunc: logFunc, MainlineCommitLogFunc: logFunc}
+	store := git.NewRepositoryStore(mock)
+	calc := NewMainlineVersionCalculator(store, NewIncrementStrategyFinder(store))
+
+	ctx := &context.GitVersionContext{
+		CurrentCommit: tip,
+		CurrentBranch: git.Branch{Name: git.NewReferenceName("refs/heads/main")},
+	}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   true,
+		BaseVersionSource: &absent,
+	}
+
+	ver, _, err := calc.FindMainlineModeVersion(ctx, bv, defaultEC(), false)
+	require.NoError(t, err)
+	// Neither commit is the source, so nothing is discounted.
+	require.Equal(t, int64(2), ver.BuildMetaData.CommitsSinceVersionSource)
+}
+
+// TestMainline_Aggregate_NoBumpSuppressesBranchDefault is a regression test:
+// aggregate mode used to re-apply the branch default after the increment
+// finder had already suppressed it, so +semver: none had no effect here.
+func TestMainline_Aggregate_NoBumpSuppressesBranchDefault(t *testing.T) {
+	tip := newCommit("aaa0000000000000000000000000000000000000", "chore: deps +semver: none")
+	source := newCommit("bbb0000000000000000000000000000000000000", "v1.0.0")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{tip, source}, nil
+	}
+	mock := &git.MockRepository{CommitLogFunc: logFunc, MainlineCommitLogFunc: logFunc}
+	store := git.NewRepositoryStore(mock)
+	calc := NewMainlineVersionCalculator(store, NewIncrementStrategyFinder(store))
+
+	ctx := &context.GitVersionContext{
+		CurrentCommit: tip,
+		CurrentBranch: git.Branch{Name: git.NewReferenceName("refs/heads/main")},
+	}
+	bv := strategy.BaseVersion{
+		SemanticVersion:   semver.SemanticVersion{Major: 1},
+		ShouldIncrement:   true,
+		BaseVersionSource: &source,
+	}
+
+	ver, _, err := calc.FindMainlineModeVersion(ctx, bv, defaultEC(), false)
+	require.NoError(t, err)
+	require.Equal(t, "1.0.0", ver.SemVer(), "a no-bump directive must suppress the branch default in aggregate mode too")
+}

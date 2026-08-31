@@ -62,6 +62,8 @@ func TestNewClient_TokenWithBaseURL(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, client)
+	require.Equal(t, "https://ghe.example.com/api/v3/", client.BaseURL.String(),
+		"an explicit base URL must be applied to the client")
 }
 
 func TestNewClient_AppAuthMissingKey(t *testing.T) {

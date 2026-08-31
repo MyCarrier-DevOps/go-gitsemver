@@ -56,14 +56,13 @@ func (m *MainlineVersionCalculator) aggregateVersion(
 
 	ver := bv.SemanticVersion
 
+	// DetermineIncrementedFieldExplained has already folded in the branch
+	// default for an incrementing branch, so a None here means no increment was
+	// asked for at all - either the branch does not increment, or a commit
+	// carried an explicit no-bump directive. Re-applying the branch default
+	// here would defeat that directive.
 	if result.Field != semver.VersionFieldNone {
 		ver = ver.IncrementField(result.Field)
-	} else if bv.ShouldIncrement {
-		defaultField := ec.BranchIncrement.ToVersionField()
-		if defaultField == semver.VersionFieldNone {
-			defaultField = semver.VersionFieldPatch
-		}
-		ver = ver.IncrementField(defaultField)
 	}
 
 	commits, count := m.commitsSince(bv, ctx)

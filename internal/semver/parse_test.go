@@ -215,3 +215,13 @@ func TestMainlineIncrementMode_UnmarshalYAML_Invalid(t *testing.T) {
 	var m MainlineIncrementMode
 	require.Error(t, yaml.Unmarshal([]byte(`bad`), &m))
 }
+
+// TestParsePreReleaseTag_LeadingDot pins the lastDot == 0 boundary: the dot is
+// at index 0, so the name is empty and the remainder is still a number.
+func TestParsePreReleaseTag_LeadingDot(t *testing.T) {
+	tag := parsePreReleaseTag(".4")
+
+	require.Empty(t, tag.Name)
+	require.NotNil(t, tag.Number)
+	require.Equal(t, int64(4), *tag.Number)
+}

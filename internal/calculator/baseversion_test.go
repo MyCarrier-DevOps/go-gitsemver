@@ -193,3 +193,57 @@ func TestBaseVersionCalculator_AllFiltered(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "filtered out")
 }
+
+// TestSelectWinner_TieBreaksOnOldestSource pins the cmp > 0 boundary: when two
+// candidates have the same effective version, the one with the older source
+// commit must win, because more history means a more accurate commit count.
+func TestSelectWinner_TieBreaksOnOldestSource(t *testing.T) {
+	older := newCommit("aaa0000000000000000000000000000000000000", "older")
+	older.When = time.Now().Add(-2 * time.Hour)
+	newer := newCommit("bbb0000000000000000000000000000000000000", "newer")
+	newer.When = time.Now()
+
+	calc := NewBaseVersionCalculator(git.NewRepositoryStore(&git.MockRepository{}), nil, nil)
+	ctx := &context.GitVersionContext{}
+	ec := defaultEC()
+
+	// Both orderings must select the older source. The second ordering is the
+	// one that fails if the strictly-greater comparison is relaxed to >=,
+	// because that would replace the incumbent on an exact tie.
+	newerFirst := calc.selectWinner(ctx, []strategy.BaseVersion{
+		{Source: "newer", SemanticVersion: semver.SemanticVersion{Major: 1}, BaseVersionSource: &newer},
+		{Source: "older", SemanticVersion: semver.SemanticVersion{Major: 1}, BaseVersionSource: &older},
+	}, ec)
+	require.Equal(t, "older", newerFirst.Source, "an equal-version tie must go to the older source commit")
+
+	olderFirst := calc.selectWinner(ctx, []strategy.BaseVersion{
+		{Source: "older", SemanticVersion: semver.SemanticVersion{Major: 1}, BaseVersionSource: &older},
+		{Source: "newer", SemanticVersion: semver.SemanticVersion{Major: 1}, BaseVersionSource: &newer},
+	}, ec)
+	require.Equal(t, "older", olderFirst.Source, "an equal-version tie must not hand the win to a later candidate")
+}
+
+// TestEffectiveVersion_UsesBranchIncrement pins that the branch increment drives
+// ranking, and that only an unset (None) increment falls back to Patch.
+func TestEffectiveVersion_UsesBranchIncrement(t *testing.T) {
+	calc := NewBaseVersionCalculator(git.NewRepositoryStore(&git.MockRepository{}), nil, nil)
+	ctx := &context.GitVersionContext{}
+	bv := strategy.BaseVersion{
+		SemanticVersion: semver.SemanticVersion{Major: 1, Minor: 2, Patch: 3},
+		ShouldIncrement: true,
+	}
+
+	ec := defaultEC()
+	ec.BranchIncrement = semver.IncrementStrategyMinor
+	require.Equal(t, "1.3.0", calc.effectiveVersion(ctx, bv, ec).SemVer())
+
+	ec.BranchIncrement = semver.IncrementStrategyMajor
+	require.Equal(t, "2.0.0", calc.effectiveVersion(ctx, bv, ec).SemVer())
+
+	// Inherit maps to None, which must fall back to Patch.
+	ec.BranchIncrement = semver.IncrementStrategyInherit
+	require.Equal(t, "1.2.4", calc.effectiveVersion(ctx, bv, ec).SemVer())
+
+	bv.ShouldIncrement = false
+	require.Equal(t, "1.2.3", calc.effectiveVersion(ctx, bv, ec).SemVer())
+}

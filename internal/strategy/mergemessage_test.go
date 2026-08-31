@@ -351,3 +351,8 @@ func TestMergeMessage_NoVersionInBranch(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, versions, "branch without version should produce no results")
 }
+
+// TestFirstLine_LeadingNewline pins the idx == 0 boundary.
+func TestFirstLine_LeadingNewline(t *testing.T) {
+	require.Equal(t, "", firstLine("\nsecond"))
+}
