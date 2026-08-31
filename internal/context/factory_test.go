@@ -321,3 +321,30 @@ func TestNewContext_UsesConfiguredTagPrefix(t *testing.T) {
 	require.True(t, ctx.IsCurrentCommitTagged, "the configured tag prefix should match the tag on HEAD")
 	require.Equal(t, "3.4.5", ctx.CurrentCommitTaggedVersion.SemVer())
 }
+
+// TestPickBestBranch_KeepsFirstOnEqualPriority pins that a strictly-higher
+// priority is required to displace the incumbent, so an exact tie keeps the
+// earlier branch rather than drifting to the last one scanned.
+func TestPickBestBranch_KeepsFirstOnEqualPriority(t *testing.T) {
+	cfg := defaultConfig(t)
+	alphaTip := newCommit("aaa0000000000000000000000000000000000000", "a")
+	betaTip := newCommit("bbb0000000000000000000000000000000000000", "b")
+
+	// Neither name matches a specific branch config, so both score the
+	// "unknown" catch-all priority.
+	best, ok := pickBestBranch([]git.Branch{
+		newBranch("alpha", &alphaTip),
+		newBranch("beta", &betaTip),
+	}, cfg)
+	require.True(t, ok)
+	require.Equal(t, "alpha", best.FriendlyName(), "an equal-priority tie must keep the first branch")
+
+	// A genuinely higher priority must still win regardless of position.
+	mainTip := newCommit("ccc0000000000000000000000000000000000000", "m")
+	best, ok = pickBestBranch([]git.Branch{
+		newBranch("alpha", &alphaTip),
+		newBranch("main", &mainTip),
+	}, cfg)
+	require.True(t, ok)
+	require.Equal(t, "main", best.FriendlyName(), "a higher-priority branch must win")
+}

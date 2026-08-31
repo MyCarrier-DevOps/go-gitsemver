@@ -303,3 +303,177 @@ func TestOpen_PeelTagToCommit(t *testing.T) {
 	require.NotEmpty(t, sha)
 	require.Len(t, sha, 40, "expected full SHA")
 }
+
+// gitRun runs a git command in the repo, failing the test on error.
+func gitRun(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	out, err := cmd.CombinedOutput()
+	require.NoErrorf(t, err, "git %s: %s", strings.Join(args, " "), out)
+}
+
+// TestCommitLog_StopsAtFromCommit pins that a non-empty "from" bounds the walk.
+// Treating it as the zero hash would return the whole history instead.
+func TestCommitLog_StopsAtFromCommit(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	first := repo.AddCommit("one")
+	second := repo.AddCommit("two")
+	third := repo.AddCommit("three")
+
+	r, err := Open(repo.Path())
+	require.NoError(t, err)
+
+	bounded, err := r.CommitLog(second, third)
+	require.NoError(t, err)
+	require.Len(t, bounded, 1, "only commits after the from-commit should be returned")
+	require.Equal(t, third, bounded[0].Sha)
+
+	unbounded, err := r.CommitLog("", third)
+	require.NoError(t, err)
+	require.Len(t, unbounded, 3)
+	require.Equal(t, first, unbounded[2].Sha)
+}
+
+// TestMainlineCommitLog_WalksAllParentsAndStopsAtFrom pins the first-parent walk:
+// it must visit every commit down to "from", not stop at the first one that has
+// a parent, and must not run past a non-empty "from".
+func TestMainlineCommitLog_WalksAllParentsAndStopsAtFrom(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	first := repo.AddCommit("one")
+	second := repo.AddCommit("two")
+	third := repo.AddCommit("three")
+
+	r, err := Open(repo.Path())
+	require.NoError(t, err)
+
+	all, err := r.MainlineCommitLog("", third)
+	require.NoError(t, err)
+	require.Len(t, all, 3, "the walk must follow first parents all the way to the root")
+	require.Equal(t, third, all[0].Sha)
+	require.Equal(t, first, all[2].Sha)
+
+	bounded, err := r.MainlineCommitLog(second, third)
+	require.NoError(t, err)
+	require.Len(t, bounded, 1, "a non-empty from must bound the walk")
+	require.Equal(t, third, bounded[0].Sha)
+}
+
+// TestBranchesContainingCommit_TipMatchAndAncestor pins both inclusion paths:
+// a branch whose tip is exactly the commit, and one whose tip descends from it.
+func TestBranchesContainingCommit_TipMatchAndAncestor(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	base := repo.AddCommit("base")
+
+	repo.CreateBranch("at-base", base)
+	repo.CreateBranch("ahead", base)
+	repo.Checkout("ahead")
+	aheadTip := repo.AddCommit("further work")
+
+	r, err := Open(repo.Path())
+	require.NoError(t, err)
+
+	namesFor := func(sha string) []string {
+		branches, err := r.BranchesContainingCommit(sha)
+		require.NoError(t, err)
+		names := make([]string, 0, len(branches))
+		for _, b := range branches {
+			names = append(names, b.Name.Friendly)
+		}
+		return names
+	}
+
+	atBase := namesFor(base)
+	require.Contains(t, atBase, "at-base", "a branch whose tip is the commit must be included")
+	require.Contains(t, atBase, "ahead", "a branch whose tip descends from the commit must be included")
+
+	// The commit on "ahead" is not reachable from the "at-base" tip, so that
+	// branch must be excluded. Treating a tip mismatch as a match would wrongly
+	// include every branch here.
+	atAheadTip := namesFor(aheadTip)
+	require.Contains(t, atAheadTip, "ahead")
+	require.NotContains(t, atAheadTip, "at-base",
+		"a branch that does not contain the commit must be excluded")
+}
+
+// TestNumberOfUncommittedChanges_StagedAndUnstaged pins both halves of the
+// dirty-file test: a staged change with a clean worktree, and a worktree change
+// with a clean index. Each half is missed if the other operand is inverted.
+func TestNumberOfUncommittedChanges_StagedAndUnstaged(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable not found")
+	}
+
+	t.Run("clean", func(t *testing.T) {
+		repo := testutil.NewTestRepo(t)
+		repo.AddCommit("initial")
+
+		r, err := Open(repo.Path())
+		require.NoError(t, err)
+
+		n, err := r.NumberOfUncommittedChanges()
+		require.NoError(t, err)
+		require.Equal(t, 0, n)
+	})
+
+	t.Run("staged only", func(t *testing.T) {
+		repo := testutil.NewTestRepo(t)
+		repo.AddCommit("initial")
+		require.NoError(t, os.WriteFile(repo.Path()+"/staged.txt", []byte("new"), 0o644))
+		gitRun(t, repo.Path(), "add", "staged.txt")
+
+		r, err := Open(repo.Path())
+		require.NoError(t, err)
+
+		n, err := r.NumberOfUncommittedChanges()
+		require.NoError(t, err)
+		require.Equal(t, 1, n, "a staged file with a clean worktree still counts as uncommitted")
+	})
+
+	t.Run("worktree only", func(t *testing.T) {
+		repo := testutil.NewTestRepo(t)
+		repo.AddCommit("initial")
+		gitRun(t, repo.Path(), "config", "user.email", "test@example.com")
+		gitRun(t, repo.Path(), "config", "user.name", "Test")
+		require.NoError(t, os.WriteFile(repo.Path()+"/tracked.txt", []byte("v1"), 0o644))
+		gitRun(t, repo.Path(), "add", "tracked.txt")
+		gitRun(t, repo.Path(), "commit", "-m", "add tracked")
+
+		// Modify without staging: index clean, worktree dirty.
+		require.NoError(t, os.WriteFile(repo.Path()+"/tracked.txt", []byte("v2"), 0o644))
+
+		r, err := Open(repo.Path())
+		require.NoError(t, err)
+
+		n, err := r.NumberOfUncommittedChanges()
+		require.NoError(t, err)
+		require.Equal(t, 1, n, "an unstaged worktree change still counts as uncommitted")
+	})
+}
+
+// TestUnsetLocalWorktreeConfig_MissingKeyIsSuccess pins that git's exit code 5
+// (key not found) is treated as success rather than as a failure.
+func TestUnsetLocalWorktreeConfig_MissingKeyIsSuccess(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable not found")
+	}
+
+	repo := testutil.NewTestRepo(t)
+	repo.AddCommit("initial")
+
+	require.NoError(t, unsetLocalWorktreeConfig(repo.Path()),
+		"unsetting a key that is not set must succeed")
+}
+
+// TestUnsetLocalWorktreeConfig_ReportsGitOutput pins that git's own message is
+// carried into the returned error when the command fails for another reason.
+func TestUnsetLocalWorktreeConfig_ReportsGitOutput(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git executable not found")
+	}
+
+	err := unsetLocalWorktreeConfig(t.TempDir())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsetting local extensions.worktreeConfig")
+	require.Contains(t, err.Error(), "fatal:",
+		"git's own output should be included in the error")
+}

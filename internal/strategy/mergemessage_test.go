@@ -1,7 +1,9 @@
 package strategy
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/config"
 	"github.com/MyCarrier-DevOps/go-gitsemver/internal/context"
@@ -355,4 +357,51 @@ func TestMergeMessage_NoVersionInBranch(t *testing.T) {
 // TestFirstLine_LeadingNewline pins the idx == 0 boundary.
 func TestFirstLine_LeadingNewline(t *testing.T) {
 	require.Equal(t, "", firstLine("\nsecond"))
+}
+
+// TestMergeMessage_CapAppliesAcrossBothPasses pins the results cap: once the
+// merge-commit pass has filled it exactly, the squash pass must not add more.
+func TestMergeMessage_CapAppliesAcrossBothPasses(t *testing.T) {
+	tip := newTestCommit("ffff000000000000000000000000000000000000", "head")
+
+	commits := []git.Commit{tip}
+	// Five real merge commits, enough to fill the cap in pass one.
+	for i := 1; i <= maxMergeMessageResults; i++ {
+		commits = append(commits, git.Commit{
+			Sha:     fmt.Sprintf("%040d", i),
+			When:    time.Now(),
+			Parents: []string{"p1", "p2"},
+			Message: fmt.Sprintf("Merge branch 'release/1.%d.0' into main", i),
+		})
+	}
+	// A squash merge that would yield a sixth result if the cap were not applied.
+	commits = append(commits, git.Commit{
+		Sha:     "eeee000000000000000000000000000000000000",
+		When:    time.Now(),
+		Parents: []string{"p1"},
+		Message: "Merge branch 'release/9.9.0' into main",
+	})
+
+	mock := &git.MockRepository{
+		CommitLogFunc: func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+			return commits, nil
+		},
+	}
+	store := git.NewRepositoryStore(mock)
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch:     git.Branch{Tip: &tip},
+		CurrentCommit:     tip,
+		FullConfiguration: releaseBranchConfig(t),
+	}
+	ec := config.EffectiveConfiguration{TagPrefix: "[vV]"}
+
+	versions, err := NewMergeMessageStrategy(store).GetBaseVersions(ctx, ec, false)
+	require.NoError(t, err)
+	require.Len(t, versions, maxMergeMessageResults,
+		"the squash pass must respect a cap already reached by the merge pass")
+	for _, v := range versions {
+		require.NotEqual(t, "9.9.0", v.SemanticVersion.SemVer(),
+			"the squash merge must not be processed once the cap is reached")
+	}
 }

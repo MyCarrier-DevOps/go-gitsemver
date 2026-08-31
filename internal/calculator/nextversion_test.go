@@ -580,3 +580,59 @@ func TestUpdatePreReleaseTag_ExistingTagIncrements(t *testing.T) {
 	require.Contains(t, strings.Join(steps, "\n"), "existing tag")
 	require.NotContains(t, strings.Join(steps, "\n"), "no existing tag")
 }
+
+// TestCalculate_RoutesOnBranchMode pins the mainline/standard routing: with
+// per-commit mainline increments the same history yields a different version
+// than standard mode, so swapping the branch is observable.
+func TestCalculate_RoutesOnBranchMode(t *testing.T) {
+	third := newCommit("aaa0000000000000000000000000000000000000", "feat: three")
+	second := newCommit("ccc0000000000000000000000000000000000000", "feat: two")
+	first := newCommit("ddd0000000000000000000000000000000000000", "feat: one")
+	source := newCommit("bbb0000000000000000000000000000000000000", "initial")
+
+	logFunc := func(from, to string, filters ...git.PathFilter) ([]git.Commit, error) {
+		return []git.Commit{third, second, first, source}, nil
+	}
+	mock := &git.MockRepository{
+		CommitLogFunc:         logFunc,
+		MainlineCommitLogFunc: logFunc,
+		TagsFunc:              func(filters ...git.PathFilter) ([]git.Tag, error) { return nil, nil },
+	}
+	store := git.NewRepositoryStore(mock)
+
+	vs := &stubStrategy{
+		name: "test",
+		versions: []strategy.BaseVersion{{
+			Source:            "tag",
+			SemanticVersion:   semver.SemanticVersion{Major: 1},
+			ShouldIncrement:   true,
+			BaseVersionSource: &source,
+		}},
+	}
+	calc := NewNextVersionCalculator(store, []strategy.VersionStrategy{vs})
+
+	ctx := &context.GitVersionContext{
+		CurrentBranch: git.Branch{Name: git.NewReferenceName("refs/heads/main"), Tip: &third},
+		CurrentCommit: third,
+	}
+
+	base := defaultEC()
+	base.IsMainline = true
+	base.Tag = ""
+	base.CommitMessageConvention = semver.CommitMessageConventionConventionalCommits
+
+	mainlineEC := base
+	mainlineEC.BranchMode = semver.VersioningModeMainline
+	mainlineEC.MainlineIncrement = semver.MainlineIncrementEachCommit
+	mainlineResult, err := calc.Calculate(ctx, mainlineEC, false)
+	require.NoError(t, err)
+	require.Equal(t, "1.3.0", mainlineResult.Version.SemVer(),
+		"mainline per-commit mode bumps once per commit")
+
+	standardEC := base
+	standardEC.BranchMode = semver.VersioningModeContinuousDelivery
+	standardResult, err := calc.Calculate(ctx, standardEC, false)
+	require.NoError(t, err)
+	require.Equal(t, "1.1.0", standardResult.Version.SemVer(),
+		"standard mode applies the highest increment once")
+}

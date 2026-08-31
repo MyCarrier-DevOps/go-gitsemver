@@ -92,3 +92,18 @@ func TestPrintVersion_SortsVariablesAndLabels(t *testing.T) {
 func sdkCalculateForTest() (*sdk.Result, error) {
 	return sdk.Calculate(sdk.LocalOptions{Path: "."})
 }
+
+// TestMain_SkipsRemoteWithoutToken pins the token guard in main(). With no
+// GITHUB_TOKEN the remote example must be skipped entirely; running it would
+// fail authentication and abort the process.
+func TestMain_SkipsRemoteWithoutToken(t *testing.T) {
+	runInRepo(t)
+	t.Setenv("GITHUB_TOKEN", "")
+
+	out := captureStdout(t, main)
+
+	require.Contains(t, out, "=== Local Version ===")
+	require.Contains(t, out, "=== Explain Output ===")
+	require.NotContains(t, out, "=== Remote Version ===",
+		"the remote example must be skipped when no token is set")
+}
